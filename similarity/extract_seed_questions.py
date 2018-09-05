@@ -13,8 +13,7 @@ rest_questions_out = sys.argv[5]
 rest_meta_out = sys.argv[6]
 rest_descriptions_out = sys.argv[7]
 categories_json = sys.argv[8]
-minimum_starcount = int(sys.argv[9])
-seed_size = int(sys.argv[10])
+seed_size = int(sys.argv[9])
 
 # open parsed questions
 with open(questions_in,'r',encoding='utf-8') as file_in:
@@ -30,13 +29,15 @@ for cat in categories:
     catdict[cat['id']] = cat['category']
     
 # draw sample
-pool = [[i,q] for i,q in enumerate(questions) if int(q['starcount']) > 5]
+big_pool = [[i,q] for i,q in enumerate(questions) if q['answercount'] != '0']
+pool = [x for x in big_pool if x[1]['bestanswer'] != '0']
+print('num questions',len(questions),'size big pool',len(big_pool),'size pool',len(pool))
 seed = random.sample(pool,seed_size)
 seed_indices = [x[0] for x in seed]
-not_seeded = [[i,q] for i,q in enumerate(questions) if i not in seed_indices]
+not_seeded = [x for x in big_pool if x[0] not in seed_indices]
 
 # prepare data to write
-seed_meta = [['id','index','uid','datetime','num answers','best answer','starcount','main category','subcategory']]
+seed_meta = [['id','index','uid','datetime','num answers','best answer','starcount','subcategory']]
 seed_instances = []
 seed_descriptions = []
 for q in seed:
