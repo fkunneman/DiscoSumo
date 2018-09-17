@@ -65,6 +65,12 @@ def run():
     trainset, devset = load(TRAIN_PATH), load(DEV_PATH)
     return trainset, devset
 
+def rank(ranking):
+    _ranking = []
+    for i, q in enumerate(sorted(ranking, key=lambda x: x[1], reverse=True)):
+        _ranking.append({'Answer_ID':q[2], 'SCORE':q[1], 'RANK':i+1, 'LABEL':q[0]})
+    return _ranking
+
 def save(ranking, fname):
     f = open(fname, 'w')
     query_ids = sorted(list(ranking.keys()))
@@ -72,5 +78,5 @@ def save(ranking, fname):
         rel_question_ids = sorted(map(lambda x: x['Answer_ID'], ranking[query_id]), key=lambda x: int(x.split('_R')[1]))
         for rel_question_id in rel_question_ids:
             rel_question = list(filter(lambda x: x['Answer_ID'] == rel_question_id, ranking[query_id]))[0]
-            f.write('\t'.join([query_id, rel_question['Answer_ID'], str(rel_question['RANK']), str(rel_question['SCORE']), 'true', '\n']))
+            f.write('\t'.join([query_id, rel_question['Answer_ID'], str(0), str(rel_question['SCORE']), rel_question['LABEL'], '\n']))
     f.close()

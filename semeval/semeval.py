@@ -1,5 +1,8 @@
 __author__='thiagocastroferreira'
 
+import sys
+sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
+import ev
 import load
 import nltk
 from nltk.corpus import stopwords
@@ -12,6 +15,7 @@ from multiprocessing import Pool
 
 TRANSLATION_PATH='translation/model/lex.f2e'
 EVALUATION_PATH='results'
+GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
 def prepare_questions(trainset):
     questions = {}
@@ -42,7 +46,7 @@ def run(thread_id, questions, w_C, t2w, voclen, alpha, sigma):
     def rank(ranking):
         _ranking = []
         for i, q in enumerate(sorted(ranking, key=lambda x: x[1], reverse=True)):
-            _ranking.append({'Answer_ID':q[0], 'SCORE':q[1], 'RANK':i+1})
+            _ranking.append({'Answer_ID':q[0], 'SCORE':q[1], 'RANK':i+1, 'LABEL':'true'})
         return _ranking
 
     print('Load language model')
@@ -83,7 +87,7 @@ def run(thread_id, questions, w_C, t2w, voclen, alpha, sigma):
         trmranking[query_id] = rank(trmranking[query_id])
         trlmranking[query_id] = rank(trlmranking[query_id])
 
-        print('Thread ID:', thread_id, 'Query Number: ', i, 'Query ID: ', query_id, 'Percentage:', percentage, sep='\t')
+        # print('Thread ID:', thread_id, 'Query Number: ', i, 'Query ID: ', query_id, 'Percentage:', percentage, sep='\t')
     return lmranking, trmranking, trlmranking
 
 if __name__ == '__main__':
@@ -116,11 +120,17 @@ if __name__ == '__main__':
         process, sigma, alpha = row
         lmranking, trmranking, trlmranking = process.get()
 
-        path = os.path.join(EVALUATION_PATH, 'lm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
-        load.save(lmranking, path)
+        PRED_PATH = os.path.join(EVALUATION_PATH, 'lm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
+        load.save(lmranking, PRED_PATH)
+        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
+        print('lm_alpha-' + str(alpha) + '_sigma-' + str(sigma), 'MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')
 
-        path = os.path.join(EVALUATION_PATH, 'trm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
-        load.save(trmranking, path)
+        PRED_PATH = os.path.join(EVALUATION_PATH, 'trm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
+        load.save(trmranking, PRED_PATH)
+        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
+        print('trm_alpha-' + str(alpha) + '_sigma-' + str(sigma), 'MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')
 
-        path = os.path.join(EVALUATION_PATH, 'trlm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
-        load.save(trlmranking, path)
+        PRED_PATH = os.path.join(EVALUATION_PATH, 'trlm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
+        load.save(trlmranking, PRED_PATH)
+        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
+        print('trlm_alpha-' + str(alpha) + '_sigma-' + str(sigma), 'MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')

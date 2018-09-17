@@ -2,19 +2,29 @@ __author__='thiagocastroferreira'
 
 import sys
 sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
-import ev
+import copy
 import dynet as dy
+import ev, metrics
+import json
 import load
 import nltk
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
+import numpy as np
 import os
 import re
 import time
+from operator import itemgetter
+from sklearn.metrics import f1_score
+# ELMo
+from allennlp.modules.elmo import Elmo, batch_to_ids
 
-MODEL_PATH='siamesemodels'
-EVALUATION_PATH='siameseresults'
+MODEL_PATH='models/models_elmo'
+EVALUATION_PATH='results/results_elmo'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+
+GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
+ELMO_PATH='elmo'
 
 def get_trigrams(snt):
     trigrams = []
@@ -30,6 +40,7 @@ def prepare_corpus(indexset):
         q1 = question['subject'] + ' ' + question['body']
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', q1).strip()
         q1 = [w for w in nltk.word_tokenize(q1.lower()) if w not in stop]
+        question['tokens'] = q1 + ['eos']
         question['trigrams'] = get_trigrams(' '.join(q1))
 
         duplicates = question['duplicates']
@@ -40,6 +51,7 @@ def prepare_corpus(indexset):
                 q2 += ' ' + rel_question['body']
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', q2).strip()
             q2 = [w for w in nltk.word_tokenize(q2.lower()) if w not in stop]
+            rel_question['tokens'] = q2 + ['eos']
             rel_question['trigrams'] = get_trigrams(' '.join(q2))
 
             rel_comments = duplicate['rel_comments']
@@ -47,52 +59,75 @@ def prepare_corpus(indexset):
                 q2 = rel_comment['text']
                 q2 = re.sub(r'[^A-Za-z0-9]+',' ', q2).strip()
                 q2 = [w for w in nltk.word_tokenize(q2.lower()) if w not in stop]
+                rel_comment['tokens'] = q2 + ['eos']
                 rel_comment['trigrams'] = get_trigrams(' '.join(q2))
 
     return indexset
 
-def prepare_traindata(indexset):
+def prepare_traindata(indexset, unittype='token'):
     trainset, vocabulary = [], []
+
+    rel_questions = []
     for i, qid in enumerate(indexset):
         percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
         print('Process: ', percentage, end='\r')
 
         question = indexset[qid]
-        q1_trigrams = question['trigrams']
-        vocabulary.extend(q1_trigrams)
+        if unittype == 'token':
+            q1 = question['tokens']
+        else:
+            q1 = question['trigrams']
+        vocabulary.extend(q1)
 
-        trainset.append({
-            'q1_trigrams': q1_trigrams,
-            'q2_trigrams': q1_trigrams,
-            'label':1
-        })
+        # trainset.append({
+        #     'q1_id': qid,
+        #     'q1': q1,
+        #     'q2_id': qid,
+        #     'q2': q1,
+        #     'label':1
+        # })
 
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
-            q2_trigrams = rel_question['trigrams']
-            vocabulary.extend(q2_trigrams)
+            if unittype == 'token':
+                q2 = rel_question['tokens']
+            else:
+                q2 = rel_question['trigrams']
+            vocabulary.extend(q2)
 
             if rel_question['relevance'] != 'Irrelevant':
                 trainset.append({
-                    'q1_trigrams': q1_trigrams,
-                    'q2_trigrams': q2_trigrams,
+                    'q1_id': qid,
+                    'q1': q1,
+                    'q2_id': rel_question['id'],
+                    'q2': q2,
                     'label':1
                 })
             else:
                 trainset.append({
-                    'q1_trigrams': q1_trigrams,
-                    'q2_trigrams': q2_trigrams,
+                    'q1_id': qid,
+                    'q1': q1,
+                    'q2_id': rel_question['id'],
+                    'q2': q2,
                     'label':0
                 })
+
+            # Related questions to augment the corpus
+            rel_questions.append((qid, q2))
 
             rel_comments = duplicate['rel_comments']
             for rel_comment in rel_comments:
                 if rel_comment['relevance2question'] == 'Bad' and rel_comment['relevance2relquestion'] == 'Bad':
-                    q2_trigrams = rel_comment['trigrams']
+                    if unittype == 'token':
+                        q2 = rel_comment['tokens']
+                    else:
+                        q2 = rel_comment['trigrams']
                     trainset.append({
-                        'q1_trigrams': q1_trigrams,
-                        'q2_trigrams': q2_trigrams,
+                        'q1_id': qid,
+                        'q1': q1,
+                        'q2_id': rel_comment['id'],
+                        'q2': q2,
                         'label':0
                     })
 
@@ -100,42 +135,180 @@ def prepare_traindata(indexset):
     vocabulary.append('eos')
     vocabulary = list(set(vocabulary))
 
-    id2trigram = {}
+    id2voc = {}
     for i, trigram in enumerate(vocabulary):
-        id2trigram[i] = trigram
+        id2voc[i] = trigram
 
-    trigram2id = dict(map(lambda x: (x[1], x[0]), id2trigram.items()))
-    return trainset, trigram2id, id2trigram
+    voc2id = dict(map(lambda x: (x[1], x[0]), id2voc.items()))
+    return trainset, voc2id, id2voc
+
+def load_glove():
+    tokens, embeddings = [], []
+    with open(GLOVE_PATH) as f:
+        for row in f.read().split('\n')[:-1]:
+            _row = row.split()
+            embeddings.append(np.array([float(x) for x in _row[1:]]))
+            tokens.append(_row[0])
+
+    # insert unk and eos token in the representations
+    tokens.append('UNK')
+    tokens.append('eos')
+    id2voc = {}
+    for i, token in enumerate(tokens):
+        id2voc[i] = token
+
+    voc2id = dict(map(lambda x: (x[1], x[0]), id2voc.items()))
+
+    UNK = np.random.uniform(-0.1, 0.1, (300,))
+    eos = np.random.uniform(-0.1, 0.1, (300,))
+    embeddings.append(UNK)
+    embeddings.append(eos)
+
+    return np.array(embeddings), voc2id, id2voc
+
+def prepare_gold(path):
+    ir = ev.read_res_file_aid(path, 'trec')
+    return ir
+
+def evaluate(gold, pred):
+    for qid in gold:
+        gold_sorted = sorted(gold[qid], key = itemgetter(2), reverse = True)
+        pred_sorted = pred[qid]
+        pred_sorted = sorted(pred_sorted, key = itemgetter(2), reverse = True)
+
+        gold[qid], pred[qid] = [], []
+        for i, row in enumerate(gold_sorted):
+            relevant, gold_score, aid = row
+            gold[qid].append((relevant, gold_score, aid))
+
+            pred_score = pred_sorted[i][1]
+            pred[qid].append((relevant, pred_score, aid))
+
+    for qid in gold:
+        # Sort by IR score.
+        gold_sorted = sorted(gold[qid], key = itemgetter(1), reverse = True)
+
+        # Sort by SVM prediction score.
+        pred_sorted = pred[qid]
+        pred_sorted = sorted(pred_sorted, key = itemgetter(1), reverse = True)
+
+        gold[qid] = [rel for rel, score, aid in gold_sorted]
+        pred[qid] = [rel for rel, score, aid in pred_sorted]
+
+    map_gold = metrics.map(gold, 10)
+    map_pred = metrics.map(pred, 10)
+    return map_gold, map_pred
+
+class _Elmo():
+    def __init__(self):
+        options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
+        weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
+
+        self.elmo = Elmo(options_file, weight_file, 2, dropout=0)
+
+    def contextualize(self, sentences):
+        token_ids = batch_to_ids(sentences)
+        context = self.elmo(token_ids)
+        embeddings = context['elmo_representations'][0].detach().tolist()
+
+        sentences = []
+        for snt_id, snt in enumerate(context['mask'].tolist()):
+            sntcontext = embeddings[snt_id]
+            sentence = []
+            for w_id, w in enumerate(snt):
+                if w_id == 1:
+                    sentence.append(sntcontext[w_id])
+            sentences.append(sentence)
+        return sentences
+
+def prepare_elmo(elmo, indexset, fname):
+    contexts = {}
+    for i, qid in enumerate(indexset):
+        percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
+        print('Process: ', percentage, end='\r')
+
+        question = indexset[qid]
+        if qid not in contexts:
+            contexts[qid] = { 'elmo': [], 'rel_questions': {}, 'rel_comments': {} }
+            contexts[qid]['elmo'] = elmo.contextualize(question['tokens'])[0]
+
+        duplicates = question['duplicates']
+        for duplicate in duplicates:
+            ids, texts = [], []
+            rel_question = duplicate['rel_question']
+            texts.append(rel_question['tokens'])
+            for rel_comment in duplicate['rel_comments']:
+                ids.append(rel_comment['id'])
+                texts.append(rel_comment['tokens'])
+
+            results = elmo.contextualize(texts)
+            contexts[qid]['rel_questions'][rel_question['id']] = results[0]
+            for j, result in enumerate(results[1:]):
+                contexts[qid]['rel_comments'][ids[j]] = result
+
+        if not os.path.exists(ELMO_PATH):
+            os.mkdir(ELMO_PATH)
+
+    json.dump(contexts, open(os.path.join(ELMO_PATH, fname), 'w'), separators=(':'), indent=4)
+    return contexts
 
 class SemevalSiamese():
     def __init__(self, properties, trainset, devset, testset):
-        print('Preparing trainset...')
-        self.trainset = prepare_corpus(trainset)
-        self.traindata, self.trigram2id, self.id2trigram = prepare_traindata(self.trainset)
-        print('TRAIN DATA SIZE: ', len(self.traindata))
-        print('\nPreparing development set...')
-        self.devset = prepare_corpus(devset)
-        print('\nPreparing test set...')
-        self.testset = prepare_corpus(testset)
-        print('\nInitializing model...')
-
+        self.INPUT = properties['INPUT']
         self.MODEL = properties['MODEL']
         self.EPOCH = properties['EPOCH']
         self.BATCH = properties['BATCH']
         self.EMB_DIM = properties['EMB_DIM']
         self.HIDDEN_DIM = properties['HIDDEN_DIM']
+        self.FEATURE_DIM = properties['FEATURE_DIM']
         self.ERROR = properties['ERROR']
         self.DROPOUT = properties['DROPOUT']
+        self.EARLY_STOP = properties['EARLY_STOP']
         self.m = properties['m']
+        self.use_elmo = properties['ELMo']
+        self.pretrained = properties['pretrained_input']
+
+        print('Preparing trainset...')
+        self.trainset = prepare_corpus(trainset)
+        self.traindata, self.voc2id, self.id2voc = prepare_traindata(self.trainset, self.INPUT)
+        print('TRAIN DATA SIZE: ', len(self.traindata))
+        print('\nPreparing development set...')
+        self.devset = prepare_corpus(devset)
+        self.devgold = prepare_gold(GOLD_PATH)
+        print('\nPreparing test set...')
+        self.testset = prepare_corpus(testset)
+
+        if self.use_elmo:
+            print('\nInitializing ELMo...')
+
+            if not os.path.exists(ELMO_PATH):
+                self.elmo = _Elmo()
+                self.trainelmo = prepare_elmo(self.elmo, self.trainset, 'trainvectors.json')
+                self.develmo = prepare_elmo(self.elmo, self.devset, 'devvectors.json')
+                self.testelmo = prepare_elmo(self.elmo, self.testset, 'testvectors.json')
+            else:
+                self.trainelmo = json.load(open(os.path.join(ELMO_PATH, 'trainvectors.json')))
+                self.develmo = json.load(open(os.path.join(ELMO_PATH, 'devvectors.json')))
+                self.testelmo = json.load(open(os.path.join(ELMO_PATH, 'testvectors.json')))
+
+        print('\nInitializing model...')
+        print(self.fname())
         self.init()
+
+        print('\nPreparing training data...')
+        self.traindata = self.extract_train_features()
 
 
     def init(self):
-        VOCAB_SIZE = len(self.trigram2id)
-
         dy.renew_cg()
         self.model = dy.Model()
-        self.lp = self.model.add_lookup_parameters((VOCAB_SIZE, self.EMB_DIM))
+
+        if self.pretrained:
+            embeddings, self.voc2id, self.id2voc = load_glove()
+            self.lp = self.model.lookup_parameters_from_numpy(embeddings)
+        else:
+            VOCAB_SIZE = len(self.voc2id)
+            self.lp = self.model.add_lookup_parameters((VOCAB_SIZE, self.EMB_DIM))
 
         if self.MODEL[:4] == 'conv':
             self.init_conv()
@@ -143,52 +316,52 @@ class SemevalSiamese():
             self.init_lstm()
 
         if self.ERROR == 'entropy':
-            self.W = self.model.add_parameters((2, self.HIDDEN_DIM*2))
+            self.W = self.model.add_parameters((2, (self.HIDDEN_DIM*2)+self.FEATURE_DIM))
             self.bW = self.model.add_parameters((2))
 
 
     def init_conv(self):
         # QUERY
         # 4 filters bi- tri- four- and five-grams with 2 feature maps
-        self.F1_query = self.model.add_parameters((2, self.EMB_DIM, 1, 2))
-        self.b1_query = self.model.add_parameters((2, ))
-        self.F2_query = self.model.add_parameters((3, self.EMB_DIM, 1, 2))
-        self.b2_query = self.model.add_parameters((2, ))
-        self.F3_query = self.model.add_parameters((4, self.EMB_DIM, 1, 2))
-        self.b3_query = self.model.add_parameters((2, ))
+        # self.F1_query = self.model.add_parameters((2, self.EMB_DIM, 1, 2))
+        # self.b1_query = self.model.add_parameters((2, ))
+        # self.F2_query = self.model.add_parameters((3, self.EMB_DIM, 1, 2))
+        # self.b2_query = self.model.add_parameters((2, ))
+        # self.F3_query = self.model.add_parameters((4, self.EMB_DIM, 1, 2))
+        # self.b3_query = self.model.add_parameters((2, ))
         self.F4_query = self.model.add_parameters((5, self.EMB_DIM, 1, 2))
         self.b4_query = self.model.add_parameters((2, ))
 
-        dy.dropout(self.F1_query, self.DROPOUT)
-        dy.dropout(self.b1_query, self.DROPOUT)
-        dy.dropout(self.F2_query, self.DROPOUT)
-        dy.dropout(self.b2_query, self.DROPOUT)
-        dy.dropout(self.F3_query, self.DROPOUT)
-        dy.dropout(self.b3_query, self.DROPOUT)
+        # dy.dropout(self.F1_query, self.DROPOUT)
+        # dy.dropout(self.b1_query, self.DROPOUT)
+        # dy.dropout(self.F2_query, self.DROPOUT)
+        # dy.dropout(self.b2_query, self.DROPOUT)
+        # dy.dropout(self.F3_query, self.DROPOUT)
+        # dy.dropout(self.b3_query, self.DROPOUT)
         dy.dropout(self.F4_query, self.DROPOUT)
         dy.dropout(self.b4_query, self.DROPOUT)
 
         # CANDIDATE QUESTION
         # 4 filters bi- tri- four- and five-grams with 2 feature maps
-        self.F1_question = self.model.add_parameters((2, self.EMB_DIM, 1, 2))
-        self.b1_question = self.model.add_parameters((2, ))
-        self.F2_question = self.model.add_parameters((3, self.EMB_DIM, 1, 2))
-        self.b2_question = self.model.add_parameters((2, ))
-        self.F3_question = self.model.add_parameters((4, self.EMB_DIM, 1, 2))
-        self.b3_question = self.model.add_parameters((2, ))
+        # self.F1_question = self.model.add_parameters((2, self.EMB_DIM, 1, 2))
+        # self.b1_question = self.model.add_parameters((2, ))
+        # self.F2_question = self.model.add_parameters((3, self.EMB_DIM, 1, 2))
+        # self.b2_question = self.model.add_parameters((2, ))
+        # self.F3_question = self.model.add_parameters((4, self.EMB_DIM, 1, 2))
+        # self.b3_question = self.model.add_parameters((2, ))
         self.F4_question = self.model.add_parameters((5, self.EMB_DIM, 1, 2))
         self.b4_question = self.model.add_parameters((2, ))
 
-        dy.dropout(self.F1_question, self.DROPOUT)
-        dy.dropout(self.b1_question, self.DROPOUT)
-        dy.dropout(self.F2_question, self.DROPOUT)
-        dy.dropout(self.b2_question, self.DROPOUT)
-        dy.dropout(self.F3_question, self.DROPOUT)
-        dy.dropout(self.b3_question, self.DROPOUT)
+        # dy.dropout(self.F1_question, self.DROPOUT)
+        # dy.dropout(self.b1_question, self.DROPOUT)
+        # dy.dropout(self.F2_question, self.DROPOUT)
+        # dy.dropout(self.b2_question, self.DROPOUT)
+        # dy.dropout(self.F3_question, self.DROPOUT)
+        # dy.dropout(self.b3_question, self.DROPOUT)
         dy.dropout(self.F4_question, self.DROPOUT)
         dy.dropout(self.b4_question, self.DROPOUT)
 
-        input_size = 4 * (self.EMB_DIM * 2)
+        input_size = 1 * (self.EMB_DIM * 2)
         self.W1_query = self.model.add_parameters((self.HIDDEN_DIM, input_size))
         self.bW1_query = self.model.add_parameters((self.HIDDEN_DIM))
         dy.dropout(self.W1_query, self.DROPOUT)
@@ -220,22 +393,23 @@ class SemevalSiamese():
         self.bW1_question = self.model.add_parameters((self.HIDDEN_DIM))
         dy.dropout(self.W1_question, self.DROPOUT)
 
+
     def __embed__(self, text):
-        trigram_question = []
-        trigram_index = []
-        for trigram in text:
-            if trigram not in trigram_question:
-                trigram_question.append(trigram)
-                try:
-                    _id = self.trigram2id[trigram]
-                except:
-                    _id = self.trigram2id['UNK']
-                trigram_index.append(_id)
+        question = []
+        index = []
+        for w in text:
+            question.append(w)
+            try:
+                _id = self.voc2id[w]
+            except:
+                _id = self.voc2id['UNK']
+            index.append(_id)
 
-        return list(map(lambda idx: self.lp[idx], trigram_index))
+        embeddings = list(map(lambda idx: self.lp[idx], index))
+        return embeddings
 
 
-    def __convolve__(self, embeddings, F1, b1, F2, b2, F3, b3, F4, b4, W1, bW1):
+    def __convolve2__(self, embeddings, F1, b1, F2, b2, F3, b3, F4, b4, W1, bW1):
         sntlen = len(embeddings)
         emb = dy.concatenate_cols(embeddings)
         x = dy.conv2d_bias(emb, F1, b1, [1, 1], is_valid=False)
@@ -262,6 +436,23 @@ class SemevalSiamese():
         return W1 * x + bW1
 
 
+    def __convolve__(self, embeddings, F4, b4, W1, bW1):
+        sntlen = len(embeddings)
+        emb = dy.concatenate_cols(embeddings)
+
+        # x = dy.conv2d_bias(emb, F3, b3, [1, 1], is_valid=False)
+        # x = dy.maxpooling2d(x, [1, sntlen], [1, 1], is_valid=True)
+        # x = dy.rectify(x)
+        # f3 = dy.reshape(x, (self.EMB_DIM * 1 * 2,))
+
+        x = dy.conv2d_bias(emb, F4, b4, [1, 1], is_valid=False)
+        x = dy.maxpooling2d(x, [1, sntlen], [1, 1], is_valid=True)
+        x = dy.rectify(x)
+        f4 = dy.reshape(x, (self.EMB_DIM * 1 * 2,))
+
+        return W1 * f4 + bW1
+
+
     def run_lstm(self, init_state, input_vecs):
         s = init_state
 
@@ -276,9 +467,9 @@ class SemevalSiamese():
     def __recur__(self, embeddings, fwd_lstm, bwd_lstm, W1, bW1):
         embeddings_rev = list(reversed(embeddings))
 
-        lpidx = self.lp[self.trigram2id['eos']]
-        fwd_vectors = self.run_lstm(fwd_lstm.initial_state().add_input(lpidx), embeddings)
-        bwd_vectors = self.run_lstm(bwd_lstm.initial_state().add_input(lpidx), embeddings_rev)
+        # lpidx = self.lp[self.voc2id['eos']]
+        fwd_vectors = self.run_lstm(fwd_lstm.initial_state(), embeddings)
+        bwd_vectors = self.run_lstm(bwd_lstm.initial_state(), embeddings_rev)
         bwd_vectors = list(reversed(bwd_vectors))
 
         vectors = [dy.concatenate(list(p)) for p in zip(fwd_vectors, bwd_vectors)]
@@ -288,15 +479,16 @@ class SemevalSiamese():
 
     def forward(self, query, question):
         query_embedding = self.__embed__(query)
+
         query_vec = None
         if self.MODEL[:4] == 'conv':
             query_vec = self.__convolve__(query_embedding,
-                                          self.F1_query,
-                                          self.b1_query,
-                                          self.F2_query,
-                                          self.b2_query,
-                                          self.F3_query,
-                                          self.b3_query,
+                                          # self.F1_query,
+                                          # self.b1_query,
+                                          # self.F2_query,
+                                          # self.b2_query,
+                                          # self.F3_query,
+                                          # self.b3_query,
                                           self.F4_query,
                                           self.b4_query,
                                           self.W1_query,
@@ -309,15 +501,16 @@ class SemevalSiamese():
                                        self.bW1_query)
 
         question_embedding = self.__embed__(question)
+
         question_vec = None
         if self.MODEL[:4] == 'conv':
             question_vec = self.__convolve__(question_embedding,
-                                             self.F1_question,
-                                             self.b1_question,
-                                             self.F2_question,
-                                             self.b2_question,
-                                             self.F3_question,
-                                             self.b3_question,
+                                             # self.F1_question,
+                                             # self.b1_question,
+                                             # self.F2_question,
+                                             # self.b2_question,
+                                             # self.F3_question,
+                                             # self.b3_question,
                                              self.F4_question,
                                              self.b4_question,
                                              self.W1_question,
@@ -332,13 +525,6 @@ class SemevalSiamese():
         return query_vec, question_vec
 
 
-    def get_classification_loss(self, query_vec, question_vec, label):
-        x = dy.concatenate([query_vec, question_vec])
-        probs = dy.softmax(self.W * x + self.bW)
-
-        return -dy.log(dy.pick(probs, label))
-
-
     def cosine(self, query_vec, question_vec):
         num = dy.transpose(query_vec) * question_vec
         dem1 = dy.sqrt(dy.transpose(query_vec) * query_vec)
@@ -348,14 +534,22 @@ class SemevalSiamese():
         return dy.cdiv(num, dem)
 
 
-    def get_loss(self, query, question, label):
-        query_vec, question_vec = self.forward(query, question)
+    def get_loss(self, query, question, label, features={}):
+        # forward
+        query_vec, question_vec = self.forward(query['tokens'], question['tokens'])
 
-        cosine = self.cosine(query_vec, question_vec)
-        if label == 1:
-            loss = dy.scalarInput(1) - cosine
+        if self.ERROR == 'cosine':
+            cosine = self.cosine(query_vec, question_vec)
+            if label == 1:
+                loss = dy.scalarInput(1) - cosine
+            else:
+                loss = dy.rectify(cosine-dy.scalarInput(self.m))
         else:
-            loss = dy.rectify(cosine-dy.scalarInput(self.m))
+            features = dy.concatenate(list(map(lambda feature: dy.inputTensor(feature), features.values())))
+            x = dy.concatenate([query_vec, question_vec, features])
+            probs = dy.softmax(self.W * x + self.bW)
+            loss = -dy.log(dy.pick(probs, label))
+
         return loss
 
 
@@ -363,98 +557,123 @@ class SemevalSiamese():
         self.model.populate(path)
 
 
-    def test(self, testset):
-        def rank(ranking):
-            _ranking = []
-            for i, q in enumerate(sorted(ranking, key=lambda x: x[1], reverse=True)):
-                _ranking.append({'Answer_ID':q[0], 'SCORE':q[1], 'RANK':i+1})
-            return _ranking
+    def fname(self):
+        return '_'.join([self.INPUT,
+                         str(self.EPOCH),
+                         str(self.EMB_DIM),
+                         str(self.HIDDEN_DIM),
+                         str(self.FEATURE_DIM),
+                         self.ERROR,
+                         str(self.EARLY_STOP),
+                         str(self.BATCH),
+                         str(self.DROPOUT),
+                         str(self.MODEL),
+                         str(self.pretrained),
+                         str(self.use_elmo)])
 
+
+    def test(self, testset):
         ranking = {}
+        y_real, y_pred = [], []
         for i, qid in enumerate(testset):
             ranking[qid] = []
             percentage = round(float(i+1) / len(testset), 2)
             print('Progress: ', percentage, sep='\t', end='\r')
-            question = testset[qid]
-            trigrams = question['trigrams']
 
-            embedding = self.__embed__(trigrams)
+            query = testset[qid]
+            if self.INPUT == 'token':
+                q1 = query['tokens']
+            else:
+                q1 = query['trigrams']
+            query_embedding = self.__embed__(q1)
+
             query_vec = None
             if self.MODEL[:4] == 'conv':
-                query_vec = self.__convolve__(embedding,
-                                              self.F1_question,
-                                              self.b1_question,
-                                              self.F2_question,
-                                              self.b2_question,
-                                              self.F3_question,
-                                              self.b3_question,
+                query_vec = self.__convolve__(query_embedding,
+                                              # self.F1_question,
+                                              # self.b1_question,
+                                              # self.F2_question,
+                                              # self.b2_question,
+                                              # self.F3_question,
+                                              # self.b3_question,
                                               self.F4_question,
                                               self.b4_question,
                                               self.W1_question,
                                               self.bW1_question)
             elif self.MODEL == 'lstm':
-                query_vec = self.__recur__(embedding,
+                query_vec = self.__recur__(query_embedding,
                                            self.fwd_lstm_query,
                                            self.bwd_lstm_query,
                                            self.W1_query,
                                            self.bW1_query)
 
 
-            duplicates = question['duplicates']
+            duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 rel_question_id = rel_question['id']
-                trigrams = rel_question['trigrams']
+                if self.INPUT == 'token':
+                    q2 = rel_question['tokens']
+                else:
+                    q2 = rel_question['trigrams']
+                question_embedding = self.__embed__(q2)
 
-                embedding = self.__embed__(trigrams)
                 question_vec = None
                 if self.MODEL[:4] == 'conv':
-                    question_vec = self.__convolve__(embedding,
-                                                     self.F1_query,
-                                                     self.b1_query,
-                                                     self.F2_query,
-                                                     self.b2_query,
-                                                     self.F3_query,
-                                                     self.b3_query,
+                    question_vec = self.__convolve__(question_embedding,
+                                                     # self.F1_query,
+                                                     # self.b1_query,
+                                                     # self.F2_query,
+                                                     # self.b2_query,
+                                                     # self.F3_query,
+                                                     # self.b3_query,
                                                      self.F4_query,
                                                      self.b4_query,
                                                      self.W1_query,
                                                      self.bW1_query)
                 elif self.MODEL == 'lstm':
-                    question_vec = self.__recur__(embedding,
+                    question_vec = self.__recur__(question_embedding,
                                                   self.fwd_lstm_question,
                                                   self.bwd_lstm_question,
                                                   self.W1_question,
                                                   self.bW1_question)
                 if self.ERROR == 'cosine':
                     score = self.cosine(query_vec, question_vec).value()
+                    pred_label = 'true'
                 else:
-                    x = dy.concatenate([query_vec, question_vec])
+                    # FEATURES
+                    query_input = { 'id': qid, 'tokens': q1, 'embedding': query_embedding }
+                    question_input = { 'id': rel_question_id, 'tokens': q2, 'embedding': question_embedding }
+                    frobenius = dy.inputTensor(self.frobenius_norm(query=query_input, question=question_input, typeset='dev'))
+
+                    x = dy.concatenate([query_vec, question_vec, frobenius])
                     probs = dy.softmax(self.W * x + self.bW)
                     score = dy.pick(probs, 1).value()
-                ranking[qid].append((rel_question_id, score))
-            ranking[qid] = rank(ranking[qid])
+                    if score > 0.5:
+                        pred_label = 1
+                    else:
+                        pred_label = 0
+                    y_pred.append(pred_label)
+
+                    if rel_question['relevance'] != 'Irrelevant':
+                        y_real.append(1)
+                    else:
+                        y_real.append(0)
+                ranking[qid].append((pred_label, score, rel_question_id))
             dy.renew_cg()
 
-        fname = '_'.join([str(self.EPOCH),str(self.EMB_DIM),str(self.HIDDEN_DIM),str(self.BATCH),str(self.DROPOUT), str(self.MODEL)]) + '.pred'
-        PRED_PATH = os.path.join(EVALUATION_PATH, fname)
-        load.save(ranking, PRED_PATH)
-
-        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
-        return map_model, map_baseline
+        gold = copy.copy(self.devgold)
+        map_baseline, map_model = evaluate(gold, ranking)
+        f1score = f1_score(y_real, y_pred)
+        return map_baseline, map_model, f1score
 
 
     def train(self):
+        dy.renew_cg()
         trainer = dy.AdadeltaTrainer(self.model)
 
         # Loggin
-        path = '_'.join([str(self.EPOCH),
-                         str(self.EMB_DIM),
-                         str(self.HIDDEN_DIM),
-                         self.ERROR,
-                         str(self.BATCH),
-                         str(self.DROPOUT),
-                         self.MODEL]) + '.log'
+        path = self.fname() + '.log'
         f = open(os.path.join(MODEL_PATH, path), 'w')
 
         epoch_timing = []
@@ -468,11 +687,15 @@ class SemevalSiamese():
             batch_timing = []
             for i, trainrow in enumerate(self.traindata):
                 start = time.time()
-                query = trainrow['q1_trigrams']
-                question = trainrow['q2_trigrams']
+                query = { 'id': trainrow['q1_id'], 'tokens': trainrow['q1'] }
+                question = { 'id': trainrow['q2_id'], 'tokens': trainrow['q2'] }
                 label = trainrow['label']
 
-                loss = self.get_loss(query, question, label)
+                features = {}
+                if 'features' in trainrow:
+                    features = trainrow['features']
+
+                loss = self.get_loss(query, question, label, features)
                 losses.append(loss)
 
                 if len(losses) == self.BATCH:
@@ -505,32 +728,76 @@ class SemevalSiamese():
             log = "Epoch: {0} \t\t Loss: {1} \t\t Best: {2}".format(epoch+1, round(closs/self.BATCH, 2), round(best, 2))
             print('\n' + log)
             f.write(' '.join([log, '\n']))
-            # print('Train evaluation...')
-            # self.test(list(self.trainset.keys())[:500])
-            print('Dev evaluation...')
-            f.write('Dev evaluation...\n')
-            map_model, map_baseline = self.test(self.devset)
-            print('MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')
-            f.write('\t'.join(['MAP Model: ', str(round(map_model, 2)), 'MAP baseline: ', str(round(map_baseline, 2)), '\n']))
+
+            log = 'Dev evaluation...'
+            print(log)
+            f.write(log + '\n')
+            map_baseline, map_model, f1score = self.test(self.devset)
+
+            print('MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), 'F1 score: ', str(round(f1score, 2)), sep='\t', end='\n')
+            f.write('\t'.join(['MAP Model: ', str(round(map_model, 2)), 'MAP baseline: ', str(round(map_baseline, 2)), 'F1 score: ', str(round(f1score, 2)), '\n']))
 
             epoch_timing = []
             if map_model > best:
-                best = map_model
+                best = copy.copy(map_model)
                 early = 0
-                path = '_'.join([str(self.EPOCH),
-                                 str(self.EMB_DIM),
-                                 str(self.HIDDEN_DIM),
-                                 self.ERROR,
-                                 str(self.BATCH),
-                                 str(self.DROPOUT),
-                                 self.MODEL]) + '.dy'
+                path = self.fname() + '.dy'
                 self.model.save(os.path.join(MODEL_PATH, path))
             else:
                 early += 1
 
-            if early == 5:
+            if early == self.EARLY_STOP:
                 break
         f.close()
+
+
+    # FEATURE EXTRACTION METHODS
+    def extract_train_features(self):
+        for i, trainrow in enumerate(self.traindata):
+            percentage = round(float(i+1) / len(self.traindata), 2)
+            print('Progress: ', percentage, sep='\t', end='\r')
+            query = { 'id': trainrow['q1_id'], 'tokens': trainrow['q1'] }
+            question = { 'id': trainrow['q2_id'], 'tokens': trainrow['q2'] }
+
+            query['embedding'] = self.__embed__(query['tokens'])
+            question['embedding'] = self.__embed__(question['tokens'])
+
+            if 'features' not in trainrow:
+                trainrow['features'] = {}
+            trainrow['features']['frobenius'] = self.frobenius_norm(query, question)
+        return self.traindata
+
+
+    def frobenius_norm(self, query, question, typeset='train'):
+        if self.use_elmo:
+            if typeset == 'train':
+                elmovectors = self.trainelmo
+            elif typeset == 'dev':
+                elmovectors = self.develmo
+            else:
+                elmovectors = self.testelmo
+
+            query_id = query['id']
+            query_context = list(map(lambda x: dy.inputTensor(np.array(x)), elmovectors[query_id]['elmo']))
+            query_emb = [dy.concatenate(list(p)) for p in zip(query['embedding'], query_context)]
+
+            question_id = question['id']
+            if question_id in elmovectors[query_id]['rel_questions']:
+                question_context = list(map(lambda x: dy.inputTensor(np.array(x)), elmovectors[query_id]['rel_questions'][question_id]))
+            else:
+                question_context = list(map(lambda x: dy.inputTensor(np.array(x)), elmovectors[query_id]['rel_comments'][question_id]))
+            question_emb = [dy.concatenate(list(p)) for p in zip(question['embedding'], question_context)]
+        else:
+            query_emb = query['embedding']
+            question_emb = question['embedding']
+
+        frobenius = 0.0
+        for i in range(len(query_emb)):
+            for j in range(len(question_emb)):
+                cos = dy.rectify(self.cosine(query_emb[i], question_emb[j])).value()
+                frobenius += (cos**2)
+
+        return [np.sqrt(frobenius)]
 
 if __name__ == '__main__':
     if not os.path.exists(EVALUATION_PATH):
@@ -541,44 +808,43 @@ if __name__ == '__main__':
     print('Load corpus')
     trainset, devset = load.run()
 
+    ## LSTMs
+
     properties = {
-        'EPOCH': 40,
+        'INPUT': 'token',
+        'EPOCH': 30,
         'BATCH': 64,
-        'EMB_DIM': 256,
+        'EMB_DIM': 300,
         'HIDDEN_DIM': 512,
-        'DROPOUT': 0.3,
+        'FEATURE_DIM':1,
         'ERROR':'cosine',
+        'DROPOUT': 0.2,
         'm': 0.1,
-        'MODEL': 'lstm'
+        'EARLY_STOP': 10,
+        'MODEL': 'lstm',
+        'ELMo': True,
+        'pretrained_input': True
     }
-    path = '_'.join([str(properties['EPOCH']),
-                     str(properties['EMB_DIM']),
-                     str(properties['HIDDEN_DIM']),
-                     properties['ERROR'],
-                     str(properties['BATCH']),
-                     str(properties['DROPOUT']),
-                     properties['MODEL']]) + '.dy'
 
     # siamese = SemevalSiamese(properties, trainset, devset, [])
     # siamese.train()
 
+    # CONV
     properties = {
-        'EPOCH': 40,
-        'BATCH': 128,
-        'EMB_DIM': 128,
+        'INPUT': 'token',
+        'EPOCH': 60,
+        'BATCH': 32,
+        'EMB_DIM': 300,
         'HIDDEN_DIM': 128,
-        'ERROR':'cosine',
-        'DROPOUT': 0.3,
+        'FEATURE_DIM':1,
+        'ERROR':'entropy',
+        'DROPOUT': 0.2,
         'm': 0.1,
-        'MODEL': 'conv'
+        'EARLY_STOP': 20,
+        'MODEL': 'conv',
+        'ELMo': True,
+        'pretrained_input': True
     }
-    path = '_'.join([str(properties['EPOCH']),
-                     str(properties['EMB_DIM']),
-                     str(properties['HIDDEN_DIM']),
-                     properties['ERROR'],
-                     str(properties['BATCH']),
-                     str(properties['DROPOUT']),
-                     properties['MODEL']]) + '.dy'
 
     siamese = SemevalSiamese(properties, trainset, devset, [])
     siamese.train()
