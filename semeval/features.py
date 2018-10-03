@@ -154,6 +154,8 @@ class TreeKernel():
             else:
                 result = 1
                 for i in range(len(tree1['edges'])):
+                    if result == 0:
+                        break
                     child1 = tree1['edges'][i]
                     child2 = tree2['edges'][i]
                     result *= self.__delta__(tree1, tree2, child1, child2)
@@ -168,15 +170,18 @@ class TreeKernel():
                 node1_type = tree1['nodes'][node1]['type']
                 node2_type = tree2['nodes'][node2]['type']
                 if 'terminal' not in [node1_type, node2_type]:
-                    result += self.__delta__(tree1, tree2, node1, node2)
+                    delta = self.__delta__(tree1, tree2, node1, node2)
+                    result += delta
+                    if delta == 1:
+                        break
 
         return result
 
 
 
 if __name__ == '__main__':
-    question = 'the best good bank in qatar for you would be the one that fits in your requirements.i suggest you visit the major banks here; and approach the customer relations person there to guide you with the facilities the bank offers. they include: -current accounts facilities -savings account facilities - money transfer (however; i highly recommend using the bank transfer only in emergency cases. there are money transfer agents which offer better exchange rates; and lower service fees) - tie-ups with any bank in your home country to ease transfers'
-    query = 'which is the best good bank as per your experience in doha'
+    question = 'a cat eats a mouse.'
+    query = 'a mouse eats a cat.'
 
     start = time.time()
     print(lcs(query, question))
@@ -192,4 +197,3 @@ if __name__ == '__main__':
     print(dice(query, question, True))
     end = time.time()
     print(end-start)
-
