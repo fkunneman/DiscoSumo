@@ -47,7 +47,7 @@ def prepare_questions(indexset):
             q = re.sub(r'[^\w\s][ ]*','', q).strip()
             # removing tokens greater than 20
             q = remove_long_tokens(q)
-
+            
             q = q.split()
             if len(q) > 0:
                 questions[idx] = q

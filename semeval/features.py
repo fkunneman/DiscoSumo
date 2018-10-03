@@ -52,6 +52,15 @@ def jaccard(query, question, tokenize=False):
 
     return float(len(query & question)) / len(query | question)
 
+def containment_similarities(query, question, tokenize=False):
+    if tokenize:
+        query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
+        question = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', question)
+    query = set(query.split())
+    question = set(question.split())
+
+    return (float(len(query & question)) / len(query)
+ 
 def dice(query, question, tokenize=False):
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
