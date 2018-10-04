@@ -2,17 +2,13 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="adb406e4-89a3-452d-9c98-339bef9d47b7" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/semeval/semeval_svm.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/semeval/test.py" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/semeval/utils.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Trainset script.ipynb" afterPath="$PROJECT_DIR$/Trainset script.ipynb" />
+      <change type="DELETED" beforePath="$PROJECT_DIR$/semeval/test.py" afterPath="" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/cqadupstack/cqadupstack.py" afterPath="$PROJECT_DIR$/cqadupstack/cqadupstack.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/rankings/trlmranking.csv" afterPath="$PROJECT_DIR$/rankings/trlmranking.csv" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/semeval/features.py" afterPath="$PROJECT_DIR$/semeval/features.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/semeval/semeval_siamese.py" afterPath="$PROJECT_DIR$/semeval/semeval_siamese.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/siamese.py" afterPath="$PROJECT_DIR$/siamese.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/siamese_cos.py" afterPath="$PROJECT_DIR$/siamese_cos.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/translation.py" afterPath="$PROJECT_DIR$/translation.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/semeval/semeval_svm.py" afterPath="$PROJECT_DIR$/semeval/semeval_svm.py" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/semeval/utils.py" afterPath="$PROJECT_DIR$/semeval/utils.py" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <ignored path="$PROJECT_DIR$/.idea/" />
@@ -29,24 +25,15 @@
   <component name="ExecutionTargetManager" SELECTED_TARGET="default_target" />
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="load.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/semeval/load.py">
+      <file leaf-file-name="features.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/semeval/features.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="0">
-              <caret line="34" column="17" lean-forward="false" selection-start-line="34" selection-start-column="17" selection-end-line="34" selection-end-column="17" />
+            <state relative-caret-position="432">
+              <caret line="79" column="11" lean-forward="false" selection-start-line="79" selection-start-column="11" selection-end-line="79" selection-end-column="11" />
               <folding>
-                <element signature="e#35#44#0" expanded="true" />
+                <element signature="e#162#173#0" expanded="true" />
+                <element signature="e#2602#6634#0" expanded="false" />
               </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="semeval.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/semeval/semeval.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="60">
-              <caret line="4" column="0" lean-forward="false" selection-start-line="4" selection-start-column="0" selection-end-line="4" selection-end-column="9" />
-              <folding />
             </state>
           </provider>
         </entry>
@@ -54,80 +41,53 @@
       <file leaf-file-name="semeval_siamese.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/semeval/semeval_siamese.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-1158">
-              <caret line="519" column="47" lean-forward="true" selection-start-line="426" selection-start-column="4" selection-end-line="519" selection-end-column="47" />
+            <state relative-caret-position="135">
+              <caret line="9" column="0" lean-forward="false" selection-start-line="9" selection-start-column="0" selection-end-line="10" selection-end-column="38" />
               <folding>
-                <element signature="e#1464#2410#0" expanded="false" />
-                <element signature="e#2457#3667#0" expanded="false" />
-                <element signature="e#5781#6443#0" expanded="false" />
-                <element signature="e#6479#9031#0" expanded="false" />
-                <element signature="e#9067#10043#0" expanded="false" />
-                <element signature="e#10085#10407#0" expanded="false" />
-                <element signature="e#10500#11483#0" expanded="false" />
-                <element signature="e#11551#12079#0" expanded="false" />
-                <element signature="e#12138#12354#0" expanded="false" />
-                <element signature="e#12431#12867#0" expanded="false" />
-                <element signature="e#12918#15205#0" expanded="false" />
-                <element signature="e#15263#15493#0" expanded="false" />
-                <element signature="e#15565#16227#0" expanded="false" />
-                <element signature="e#16264#16289#0" expanded="false" />
-                <element signature="e#16321#16835#0" expanded="false" />
-                <element signature="e#21537#24757#0" expanded="false" />
+                <element signature="e#700#1389#0" expanded="false" />
+                <element signature="e#1410#2356#0" expanded="false" />
+                <element signature="e#2403#3613#0" expanded="false" />
+                <element signature="e#5727#6389#0" expanded="false" />
+                <element signature="e#6425#8977#0" expanded="false" />
+                <element signature="e#9013#9989#0" expanded="false" />
+                <element signature="e#10031#10353#0" expanded="false" />
+                <element signature="e#10446#11429#0" expanded="false" />
+                <element signature="e#11497#12025#0" expanded="false" />
+                <element signature="e#12084#12300#0" expanded="false" />
+                <element signature="e#12377#12813#0" expanded="false" />
+                <element signature="e#12864#15151#0" expanded="false" />
+                <element signature="e#15209#15439#0" expanded="false" />
+                <element signature="e#15511#16173#0" expanded="false" />
+                <element signature="e#16210#16235#0" expanded="false" />
+                <element signature="e#16267#16781#0" expanded="false" />
+                <element signature="e#21489#24709#0" expanded="false" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="features.py" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/semeval/features.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="585">
-              <caret line="39" column="26" lean-forward="true" selection-start-line="0" selection-start-column="0" selection-end-line="224" selection-end-column="19" />
-              <folding>
-                <element signature="e#162#173#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="test.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/semeval/test.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="165">
-              <caret line="11" column="17" lean-forward="true" selection-start-line="7" selection-start-column="4" selection-end-line="11" selection-end-column="17" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="semeval_svm.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="semeval_svm.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/semeval/semeval_svm.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="357">
-              <caret line="93" column="44" lean-forward="false" selection-start-line="93" selection-start-column="44" selection-end-line="93" selection-end-column="44" />
+            <state relative-caret-position="792">
+              <caret line="151" column="23" lean-forward="true" selection-start-line="151" selection-start-column="23" selection-end-line="151" selection-end-column="23" />
               <folding>
-                <element signature="e#35#50#0" expanded="true" />
+                <element signature="e#35#54#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="cqadupstack_align.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/cqadupstack/cqadupstack_align.py">
+      <file leaf-file-name="utils.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/semeval/utils.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="510">
-              <caret line="34" column="54" lean-forward="true" selection-start-line="34" selection-start-column="12" selection-end-line="34" selection-end-column="54" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="cqadupstack.sh" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/cqadupstack/cqadupstack.sh">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="405">
-              <caret line="27" column="20" lean-forward="true" selection-start-line="27" selection-start-column="20" selection-end-line="27" selection-end-column="20" />
-              <folding />
+            <state relative-caret-position="-15">
+              <caret line="7" column="38" lean-forward="false" selection-start-line="7" selection-start-column="38" selection-end-line="7" selection-end-column="38" />
+              <folding>
+                <element signature="e#294#516#0" expanded="false" />
+                <element signature="e#4402#4455#0" expanded="false" />
+                <element signature="e#4487#5487#0" expanded="false" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -178,11 +138,11 @@
         <option value="$PROJECT_DIR$/semeval/semeval.py" />
         <option value="$PROJECT_DIR$/semeval/load.py" />
         <option value="$PROJECT_DIR$/semeval/treekernel.py" />
-        <option value="$PROJECT_DIR$/semeval/semeval_siamese.py" />
-        <option value="$PROJECT_DIR$/semeval/utils.py" />
-        <option value="$PROJECT_DIR$/semeval/semeval_svm.py" />
         <option value="$PROJECT_DIR$/semeval/test.py" />
+        <option value="$PROJECT_DIR$/semeval/semeval_siamese.py" />
         <option value="$PROJECT_DIR$/semeval/features.py" />
+        <option value="$PROJECT_DIR$/semeval/semeval_svm.py" />
+        <option value="$PROJECT_DIR$/semeval/utils.py" />
       </list>
     </option>
   </component>
@@ -771,7 +731,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1280" height="800" extended-state="0" />
-    <editor active="false" />
+    <editor active="true" />
     <layout>
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -789,7 +749,7 @@
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24798061" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.24798061" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
@@ -1167,15 +1127,11 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/semeval/utils.py">
+    <entry file="file://$PROJECT_DIR$/semeval/test.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1512">
-          <caret line="107" column="32" lean-forward="false" selection-start-line="107" selection-start-column="32" selection-end-line="107" selection-end-column="32" />
-          <folding>
-            <element signature="e#221#443#0" expanded="false" />
-            <element signature="e#4329#4382#0" expanded="false" />
-            <element signature="e#4414#5414#0" expanded="false" />
-          </folding>
+        <state relative-caret-position="165">
+          <caret line="11" column="17" lean-forward="true" selection-start-line="7" selection-start-column="4" selection-end-line="11" selection-end-column="17" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -1187,55 +1143,61 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/semeval/semeval_svm.py">
+    <entry file="file://$PROJECT_DIR$/semeval/features.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="357">
-          <caret line="93" column="44" lean-forward="false" selection-start-line="93" selection-start-column="44" selection-end-line="93" selection-end-column="44" />
+        <state relative-caret-position="432">
+          <caret line="79" column="11" lean-forward="false" selection-start-line="79" selection-start-column="11" selection-end-line="79" selection-end-column="11" />
           <folding>
-            <element signature="e#35#50#0" expanded="true" />
+            <element signature="e#162#173#0" expanded="true" />
+            <element signature="e#2602#6634#0" expanded="false" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/semeval/semeval_siamese.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-1158">
-          <caret line="519" column="47" lean-forward="true" selection-start-line="426" selection-start-column="4" selection-end-line="519" selection-end-column="47" />
+        <state relative-caret-position="135">
+          <caret line="9" column="0" lean-forward="false" selection-start-line="9" selection-start-column="0" selection-end-line="10" selection-end-column="38" />
           <folding>
-            <element signature="e#1464#2410#0" expanded="false" />
-            <element signature="e#2457#3667#0" expanded="false" />
-            <element signature="e#5781#6443#0" expanded="false" />
-            <element signature="e#6479#9031#0" expanded="false" />
-            <element signature="e#9067#10043#0" expanded="false" />
-            <element signature="e#10085#10407#0" expanded="false" />
-            <element signature="e#10500#11483#0" expanded="false" />
-            <element signature="e#11551#12079#0" expanded="false" />
-            <element signature="e#12138#12354#0" expanded="false" />
-            <element signature="e#12431#12867#0" expanded="false" />
-            <element signature="e#12918#15205#0" expanded="false" />
-            <element signature="e#15263#15493#0" expanded="false" />
-            <element signature="e#15565#16227#0" expanded="false" />
-            <element signature="e#16264#16289#0" expanded="false" />
-            <element signature="e#16321#16835#0" expanded="false" />
-            <element signature="e#21537#24757#0" expanded="false" />
+            <element signature="e#700#1389#0" expanded="false" />
+            <element signature="e#1410#2356#0" expanded="false" />
+            <element signature="e#2403#3613#0" expanded="false" />
+            <element signature="e#5727#6389#0" expanded="false" />
+            <element signature="e#6425#8977#0" expanded="false" />
+            <element signature="e#9013#9989#0" expanded="false" />
+            <element signature="e#10031#10353#0" expanded="false" />
+            <element signature="e#10446#11429#0" expanded="false" />
+            <element signature="e#11497#12025#0" expanded="false" />
+            <element signature="e#12084#12300#0" expanded="false" />
+            <element signature="e#12377#12813#0" expanded="false" />
+            <element signature="e#12864#15151#0" expanded="false" />
+            <element signature="e#15209#15439#0" expanded="false" />
+            <element signature="e#15511#16173#0" expanded="false" />
+            <element signature="e#16210#16235#0" expanded="false" />
+            <element signature="e#16267#16781#0" expanded="false" />
+            <element signature="e#21489#24709#0" expanded="false" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/semeval/test.py">
+    <entry file="file://$PROJECT_DIR$/semeval/utils.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="165">
-          <caret line="11" column="17" lean-forward="true" selection-start-line="7" selection-start-column="4" selection-end-line="11" selection-end-column="17" />
-          <folding />
+        <state relative-caret-position="-15">
+          <caret line="7" column="38" lean-forward="false" selection-start-line="7" selection-start-column="38" selection-end-line="7" selection-end-column="38" />
+          <folding>
+            <element signature="e#294#516#0" expanded="false" />
+            <element signature="e#4402#4455#0" expanded="false" />
+            <element signature="e#4487#5487#0" expanded="false" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/semeval/features.py">
+    <entry file="file://$PROJECT_DIR$/semeval/semeval_svm.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="585">
-          <caret line="39" column="26" lean-forward="true" selection-start-line="0" selection-start-column="0" selection-end-line="224" selection-end-column="19" />
+        <state relative-caret-position="792">
+          <caret line="151" column="23" lean-forward="true" selection-start-line="151" selection-start-column="23" selection-end-line="151" selection-end-column="23" />
           <folding>
-            <element signature="e#162#173#0" expanded="true" />
+            <element signature="e#35#54#0" expanded="true" />
           </folding>
         </state>
       </provider>

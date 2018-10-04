@@ -7,15 +7,12 @@ import dynet as dy
 import ev, metrics
 import json
 import load
-import nltk
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
 import numpy as np
 import os
-import re
 import time
 import utils
-from operator import itemgetter
 from sklearn.metrics import f1_score
 # ELMo
 from allennlp.modules.elmo import Elmo, batch_to_ids
@@ -515,7 +512,7 @@ class SemevalSiamese():
             dy.renew_cg()
 
         gold = copy.copy(self.devgold)
-        map_baseline, map_model = evaluate(gold, ranking)
+        map_baseline, map_model = utils.evaluate(gold, ranking)
         f1score = f1_score(y_real, y_pred)
         return map_baseline, map_model, f1score
 

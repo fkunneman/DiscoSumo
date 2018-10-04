@@ -4,6 +4,8 @@ import sys
 sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
 import ev, metrics
 import nltk
+from nltk.corpus import stopwords
+stop = set(stopwords.words('english'))
 import re
 from operator import itemgetter
 
