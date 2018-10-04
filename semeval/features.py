@@ -9,41 +9,59 @@ Description:
 
 import copy
 import json
+import nltk
 import re
 import time
+from difflib import SequenceMatcher
 from scipy.spatial import distance
 from stanfordcorenlp import StanfordCoreNLP
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 
-def lcs(query, question):
+def lcsub(query, question):
     '''
-    Longest common subsequences
-    Reference: https://bogotobogo.com/python/python_longest_common_substring_lcs_algorithm_generalized_suffix_tree.php
-    :param query: query question + query body
-    :param question: question + body
-    :return:
+    :param query:
+    :param question:
+    :return: longest common substring and size
     '''
-    m = len(query)
-    n = len(question)
-    counter = [[0]*(n+1) for x in range(m+1)]
-    longest = 0
-    lcs_set = set()
-    for i in range(m):
-        for j in range(n):
-            if query[i] == question[j]:
-                c = counter[i][j] + 1
-                counter[i+1][j+1] = c
-                if c > longest:
-                    lcs_set = set()
-                    longest = c
-                    lcs_set.add(query[i - c + 1:i + 1])
-                elif c == longest:
-                    lcs_set.add(query[i - c + 1:i + 1])
+    # initialize SequenceMatcher object with
+    # input string
+    seqMatch = SequenceMatcher(None,query,question)
 
-    return len(list(lcs_set)[0]), lcs_set
+    # find match of longest sub-string
+    # output will be like Match(a=0, b=0, size=5)
+    match = seqMatch.find_longest_match(0, len(query), 0, len(question))
+
+    # print longest substring
+    if (match.size!=0):
+        sub = query[match.a: match.a + match.size]
+    else:
+        sub = ''
+    return (len(sub), sub)
+
+def lcs(query, question):
+    matrix = [["" for x in range(len(question))] for x in range(len(query))]
+    for i in range(len(query)):
+        for j in range(len(question)):
+            if query[i] == question[j]:
+                if i == 0 or j == 0:
+                    matrix[i][j] = query[i]
+                else:
+                    matrix[i][j] = matrix[i-1][j-1] + query[i]
+            else:
+                matrix[i][j] = max(matrix[i-1][j], matrix[i][j-1], key=len)
+
+    cs = matrix[-1][-1]
+
+    return len(cs), cs
 
 def jaccard(query, question, tokenize=False):
+    '''
+    :param query:
+    :param question:
+    :param tokenize:
+    :return: jaccard distance
+    '''
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
         question = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', question)
@@ -59,8 +77,8 @@ def containment_similarities(query, question, tokenize=False):
     query = set(query.split())
     question = set(question.split())
 
-    return (float(len(query & question)) / len(query)
-
+    return float(len(query & question)) / len(query)
+            
 def greedy_string_tiling(query, question, tokenize=False):
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
@@ -168,7 +186,6 @@ class TreeKernel():
 
 
     def constituency_tree(self, question):
-        # nlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
         out = json.loads(self.corenlp.annotate(question, properties=self.props))
 
         sentences = '(SENTENCES '
@@ -229,22 +246,30 @@ class TreeKernel():
         return result
 
 
-
 if __name__ == '__main__':
-    question = 'a cat eats a mouse.'
-    query = 'a mouse eats a cat.'
+    question = 'Longest common subsequence long'
+    query = 'Longest common substring long'
 
     start = time.time()
-    print(lcs(query, question))
+    print(lcs(re.split('(\W)', query), re.split('(\W)', question)))
+    for i in range(2, 4):
+        q1 = ''
+        for gram in nltk.ngrams(query.split(), i):
+            q1 += 'x'.join(gram) + ' '
+
+        q2 = ''
+        for gram in nltk.ngrams(question.split(), i):
+            q2 += 'x'.join(gram) + ' '
+
+        print(lcs(re.split('(\W)', q1), re.split('(\W)', q2)))
+    end = time.time()
+    print(end-start)
+    start = time.time()
+    print(lcsub(query, question))
     end = time.time()
     print(end-start)
     print(10 * '-')
     start = time.time()
     print(jaccard(query, question, True))
-    end = time.time()
-    print(end-start)
-    print(10 * '-')
-    start = time.time()
-    print(dice(query, question, True))
     end = time.time()
     print(end-start)
