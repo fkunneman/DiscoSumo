@@ -10,6 +10,8 @@ stop = set(stopwords.words('english'))
 import re
 from operator import itemgetter
 
+from gensim import corpora
+
 def get_trigrams(snt):
     trigrams = []
     for word in snt.split():
@@ -72,6 +74,7 @@ def prepare_corpus(indexset, corenlp, props):
 def prepare_traindata(indexset, unittype='token'):
     trainset, vocabulary = [], []
 
+    vocquestions = []
     rel_questions = []
     for i, qid in enumerate(indexset):
         percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
@@ -83,6 +86,7 @@ def prepare_traindata(indexset, unittype='token'):
             q1 = question['tokens']
         else:
             q1 = question['trigrams']
+        vocquestions.append(q1)
         vocabulary.extend(q1)
 
         # trainset.append({
@@ -101,6 +105,7 @@ def prepare_traindata(indexset, unittype='token'):
                 q2 = rel_question['tokens']
             else:
                 q2 = rel_question['trigrams']
+            vocquestions.append(q2)
             vocabulary.extend(q2)
 
             if rel_question['relevance'] != 'Irrelevant':
@@ -151,7 +156,9 @@ def prepare_traindata(indexset, unittype='token'):
         id2voc[i] = trigram
 
     voc2id = dict(map(lambda x: (x[1], x[0]), id2voc.items()))
-    return trainset, voc2id, id2voc
+
+    vocabulary = corpora.Dictionary(vocquestions)
+    return trainset, voc2id, id2voc, vocabulary
 
 def prepare_gold(path):
     ir = ev.read_res_file_aid(path, 'trec')

@@ -1,5 +1,7 @@
 __author__='thiagocastroferreira'
 
+import sys
+sys.path.append('../')
 import _pickle as p
 import copy
 import features
@@ -16,6 +18,8 @@ from sklearn import svm
 from sklearn.grid_search import RandomizedSearchCV
 from sklearn.metrics import f1_score
 
+from translation import *
+
 from stanfordcorenlp import StanfordCoreNLP
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
@@ -26,44 +30,62 @@ MODEL_PATH='svm.model'
 TRAIN_PATH='trainset.data'
 DEV_PATH='devset.data'
 
+TRANSLATION_PATH='translation/model/lex.f2e'
+
 class SemevalSVM():
     def __init__(self, trainset, devset, testset):
-        self.props={'annotators': 'tokenize,ssplit,pos,parse','pipelineLanguage':'en','outputFormat':'json'}
-        self.corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
+        props={'annotators': 'tokenize,ssplit,pos,parse','pipelineLanguage':'en','outputFormat':'json'}
+        corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
 
         print('\nPreparing development set...')
         if not os.path.exists(DEV_PATH):
-            self.devset = utils.prepare_corpus(devset, corenlp=self.corenlp, props=self.props)
+            self.devset = utils.prepare_corpus(devset, corenlp=corenlp, props=props)
             json.dump(self.devset, open(DEV_PATH, 'w'))
         else:
             self.devset = json.load(open(DEV_PATH))
         self.devgold = utils.prepare_gold(GOLD_PATH)
         print('Preparing trainset...')
         if not os.path.exists(TRAIN_PATH):
-            self.trainset = utils.prepare_corpus(trainset, corenlp=self.corenlp, props=self.props)
+            self.trainset = utils.prepare_corpus(trainset, corenlp=corenlp, props=props)
             json.dump(self.trainset, open(TRAIN_PATH, 'w'))
         else:
             self.trainset = json.load(open(TRAIN_PATH))
-        self.traindata, self.voc2id, self.id2voc = utils.prepare_traindata(self.trainset)
+        self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
         print('TRAIN DATA SIZE: ', len(self.traindata))
         print('\nPreparing test set...')
-        self.testset = utils.prepare_corpus(testset, corenlp=self.corenlp, props=self.props)
+        self.testset = utils.prepare_corpus(testset, corenlp=corenlp, props=props)
 
+        self.init_translation()
 
-    def __treekernel__(self, q1, q2):
-        treekernel = features.TreeKernel()
-        return treekernel(q1, q2)
+    def init_translation(self):
+        print('\nLoad background probabilities')
+
+        # TO DO: improve this
+        questions = {}
+        for trainrow in self.traindata:
+            qid, q = trainrow['q1_id'], trainrow['q1']
+            if qid not in questions:
+                questions[qid] = q
+
+            qid, q = trainrow['q2_id'], trainrow['q2']
+            if qid not in questions:
+                questions[qid] = q
+        w_C = compute_w_C(questions, self.vocabulary)  # background lm
+        print('Load translation probabilities')
+        t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
+        self.translation = TRLM([], w_C, t2w, len(self.vocabulary), 0.6, 0.6)  # translation-based language model
 
     def __transform__(self, q1, q2):
         if type(q1) == list: q1 = ' '.join(q1)
         if type(q2) == list: q2 = ' '.join(q2)
 
-        lcs = features.lcs(re.split('(\W)', q1), re.split('(\W)', q2))[0]
+        lcs = len(features.lcs(re.split('(\W)', q1), re.split('(\W)', q2))[1].split())
         lcsub = features.lcsub(q1, q2)[0]
         jaccard = features.jaccard(q1, q2)
         containment_similarity = features.containment_similarities(q1, q2)
+        lmprob, trmprob, trlmprob, proctime = self.translation.score(q1.split(), q2.split())
 
-        X = [lcs, lcsub, jaccard, containment_similarity]
+        X = [lcs, lcsub, jaccard, containment_similarity, lmprob, trmprob]
 
         # ngram features
         for n in range(2, 5):
@@ -75,8 +97,8 @@ class SemevalSVM():
             for gram in nltk.ngrams(q2.split(), n):
                 ngram2 += 'x'.join(gram) + ' '
 
-            X.append(features.lcs(re.split('(\W)', ngram1), re.split('(\W)', ngram2))[0])
-            X.append(features.lcs(ngram1, ngram2)[0])
+            X.append(len(features.lcs(re.split('(\W)', ngram1), re.split('(\W)', ngram2))[1].split()))
+            X.append(features.lcsub(ngram1, ngram2)[0])
             X.append(features.jaccard(ngram1, ngram2))
             X.append(features.containment_similarities(ngram1, ngram2))
 
@@ -106,14 +128,18 @@ class SemevalSVM():
             X = list(map(lambda x: x[0], f))
             y = list(map(lambda x: x[1], f))
 
-        self.train_classifier(
-            trainvectors=X,
-            labels=y,
-            c='search',
-            kernel='linear',
-            gamma='search',
-            degree='search'
-        )
+        if not os.path.exists(MODEL_PATH):
+            self.train_classifier(
+                trainvectors=X,
+                labels=y,
+                c='search',
+                kernel='linear',
+                gamma='search',
+                degree='search',
+                jobs=10
+            )
+        else:
+            self.model = p.load(open(MODEL_PATH, 'rb'))
 
 
     def train_classifier(self, trainvectors, labels, c='1.0', kernel='linear', gamma='0.1', degree='1', class_weight='balanced', iterations=10, jobs=1):
@@ -164,6 +190,7 @@ class SemevalSVM():
 
             query = self.devset[qid]
             q1 = query['tokens']
+            q1_tree = query['tree']
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
@@ -171,8 +198,11 @@ class SemevalSVM():
                 rel_question_id = rel_question['id']
 
                 q2 = rel_question['tokens']
-                X = self.__transform__(q1, q2, treekernel)
-                score = self.model.predict_proba(X)[0][1]
+                q2_tree = rel_question['tree']
+                X = self.__transform__(q1, q2)
+                X.append(treekernel(q1_tree, q2_tree))
+
+                score = self.model.predict_proba([X])[0][1]
                 if score > 0.5:
                     pred_label = 1
                 else:
@@ -185,8 +215,7 @@ class SemevalSVM():
                     y_real.append(0)
                 ranking[qid].append((pred_label, score, rel_question_id))
 
-        gold = copy.copy(self.devset)
-        map_baseline, map_model = utils.evaluate(gold, ranking)
+        map_baseline, map_model = utils.evaluate(self.devgold, ranking)
         f1score = f1_score(y_real, y_pred)
         return map_baseline, map_model, f1score
 

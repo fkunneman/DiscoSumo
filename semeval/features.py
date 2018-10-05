@@ -8,7 +8,6 @@ Description:
 """
 
 import copy
-import json
 import nltk
 import re
 import time
@@ -146,11 +145,7 @@ class TreeKernel():
     def __init__(self, alpha=0):
         self.alpha = alpha
 
-    def __call__(self, query, question, tokenize=False, tree=False):
-        if tokenize:
-            query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
-            question = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', question)
-
+    def __call__(self, query, question):
         if len(query) == 0 or len(question) == 0:
             return 0
 
