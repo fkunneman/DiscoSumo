@@ -5,8 +5,8 @@ MOSESDIR=/home/tcastrof/workspace/mosesdecoder
 MGIZA=/home/tcastrof/workspace/mgiza
 
 # cqadupstack path
-SEMEVAL=/home/tcastrof/Question/semeval
-TRANSLATION=/home/tcastrof/Question/semeval/translation
+SEMEVAL=/home/tcastrof/Question/DiscoSumo/semeval
+TRANSLATION=/home/tcastrof/Question/DiscoSumo/semeval/translation
 
 cd $SEMEVAL
 python3 semeval_align.py
