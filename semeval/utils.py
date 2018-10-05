@@ -89,14 +89,6 @@ def prepare_traindata(indexset, unittype='token'):
         vocquestions.append(q1)
         vocabulary.extend(q1)
 
-        # trainset.append({
-        #     'q1_id': qid,
-        #     'q1': q1,
-        #     'q2_id': qid,
-        #     'q2': q1,
-        #     'label':1
-        # })
-
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']

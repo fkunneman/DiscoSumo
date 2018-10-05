@@ -2,6 +2,7 @@ __author__='thiagocastroferreira'
 
 import sys
 sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
+sys.path.append('../')
 import ev
 import load
 import nltk
