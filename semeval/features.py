@@ -94,7 +94,7 @@ def greedy_string_tiling(query, question, tokenize=False):
         a=[0]
         minlen=1
     markit.a=[0]*len(query)
-    markit.minlen=minlength
+    markit.minlen=1
 
     #output char index
     out=[]
