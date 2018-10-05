@@ -14,9 +14,6 @@ import re
 import time
 from difflib import SequenceMatcher
 from scipy.spatial import distance
-from stanfordcorenlp import StanfordCoreNLP
-
-STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 
 def lcsub(query, question):
     '''
@@ -24,6 +21,9 @@ def lcsub(query, question):
     :param question:
     :return: longest common substring and size
     '''
+    if len(query) == 0 or len(question) == 0:
+        return 0, ''
+
     # initialize SequenceMatcher object with
     # input string
     seqMatch = SequenceMatcher(None,query,question)
@@ -40,6 +40,9 @@ def lcsub(query, question):
     return (len(sub), sub)
 
 def lcs(query, question):
+    if len(query) == 0 or len(question) == 0:
+        return 0, ''
+
     matrix = [["" for x in range(len(question))] for x in range(len(query))]
     for i in range(len(query)):
         for j in range(len(question)):
@@ -68,6 +71,9 @@ def jaccard(query, question, tokenize=False):
     query = set(query.split())
     question = set(question.split())
 
+    if len(query) == 0 or len(question) == 0:
+        return 0
+
     return float(len(query & question)) / len(query | question)
 
 def containment_similarities(query, question, tokenize=False):
@@ -77,8 +83,11 @@ def containment_similarities(query, question, tokenize=False):
     query = set(query.split())
     question = set(question.split())
 
+    if len(query) == 0 or len(question) == 0:
+        return 0
+
     return float(len(query & question)) / len(query)
- 
+
 def dice(query, question, tokenize=False):
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
@@ -86,22 +95,25 @@ def dice(query, question, tokenize=False):
     query = set(query.split())
     question = set(question.split())
 
+    if len(query) == 0 or len(question) == 0:
+        return 0
+
     return distance.dice(query, question)
 
 class TreeKernel():
     def __init__(self, alpha=0):
-        self.props={'annotators': 'tokenize,ssplit,pos,parse','pipelineLanguage':'en','outputFormat':'json'}
-        self.corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
         self.alpha = alpha
 
-    def __call__(self, query, question, tokenize=False):
+    def __call__(self, query, question, tokenize=False, tree=False):
         if tokenize:
             query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
             question = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', question)
 
-        query_tree = self.constituency_tree(query)
-        question_tree = self.constituency_tree(question)
+        if len(query) == 0 or len(question) == 0:
+            return 0
 
+        query_tree = self.parse_tree(query)
+        question_tree = self.parse_tree(question)
         return self.tree_kernel(query_tree, question_tree)
 
 
@@ -143,26 +155,13 @@ class TreeKernel():
         return {'nodes': nodes, 'edges': edges, 'root': root}
 
 
-    def constituency_tree(self, question):
-        out = json.loads(self.corenlp.annotate(question, properties=self.props))
-
-        sentences = '(SENTENCES '
-        for snt in out['sentences']:
-            sentences += snt['parse'].replace('\n', '') + ' '
-        sentences = sentences.strip()
-        sentences += ')'
-
-        tree = self.parse_tree(sentences)
-        return tree
-
-
     def __is_same_production__(self, tree1, tree2, root1, root2):
         production1 = tree1['nodes'][root1]['name'] + ' -> '
         for child in tree1['edges'][root1]:
             production1 += tree1['nodes'][child]['name'] + ' '
 
-        production2 = tree1['nodes'][root2]['name'] + ' -> '
-        for child in tree1['edges'][root2]:
+        production2 = tree2['nodes'][root2]['name'] + ' -> '
+        for child in tree2['edges'][root2]:
             production2 += tree2['nodes'][child]['name'] + ' '
 
         if production1.strip() == production2.strip():
@@ -179,11 +178,11 @@ class TreeKernel():
                 return 1
             else:
                 result = 1
-                for i in range(len(tree1['edges'])):
+                for i in range(len(tree1['edges'][root1])):
                     if result == 0:
                         break
-                    child1 = tree1['edges'][i]
-                    child2 = tree2['edges'][i]
+                    child1 = tree1['edges'][root1][i]
+                    child2 = tree2['edges'][root2][i]
                     result *= self.__delta__(tree1, tree2, child1, child2)
                 return result
         return 0

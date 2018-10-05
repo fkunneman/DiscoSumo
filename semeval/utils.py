@@ -3,6 +3,7 @@ __author__='thiagocastroferreira'
 import sys
 sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
 import ev, metrics
+import json
 import nltk
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
@@ -17,12 +18,31 @@ def get_trigrams(snt):
     trigrams.append('eos')
     return trigrams
 
-def prepare_corpus(indexset):
-    for qid in indexset:
+def parse(question, corenlp, props):
+    try:
+        out = json.loads(corenlp.annotate(question, properties=props))
+
+        tokens = []
+        sentences = '(SENTENCES '
+        for snt in out['sentences']:
+            tokens.extend(map(lambda x: x['originalText'], snt['tokens']))
+            sentences += snt['parse'].replace('\n', '') + ' '
+        sentences = sentences.strip()
+        sentences += ')'
+    except:
+        print('parsing error...')
+        tokens, sentences = '', '()'
+    return ' '.join(tokens), sentences
+
+def prepare_corpus(indexset, corenlp, props):
+    for i, qid in enumerate(indexset):
+        percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
+        print('Process: ', percentage, end='\r')
         question = indexset[qid]
         q1 = question['subject'] + ' ' + question['body']
-        q1 = re.sub(r'[^A-Za-z0-9]+',' ', q1).strip()
-        q1 = [w for w in nltk.word_tokenize(q1.lower()) if w not in stop]
+        tokens, question['tree'] = parse(q1, corenlp, props)
+        q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
+        q1 = [w for w in q1.lower().split() if w not in stop]
         question['tokens'] = q1 + ['eos']
         question['trigrams'] = get_trigrams(' '.join(q1))
 
@@ -32,16 +52,18 @@ def prepare_corpus(indexset):
             q2 = rel_question['subject']
             if rel_question['body']:
                 q2 += ' ' + rel_question['body']
-            q2 = re.sub(r'[^A-Za-z0-9]+',' ', q2).strip()
-            q2 = [w for w in nltk.word_tokenize(q2.lower()) if w not in stop]
+            tokens, rel_question['tree'] = parse(q2, corenlp, props)
+            q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
+            q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['tokens'] = q2 + ['eos']
             rel_question['trigrams'] = get_trigrams(' '.join(q2))
 
             rel_comments = duplicate['rel_comments']
             for rel_comment in rel_comments:
                 q2 = rel_comment['text']
-                q2 = re.sub(r'[^A-Za-z0-9]+',' ', q2).strip()
-                q2 = [w for w in nltk.word_tokenize(q2.lower()) if w not in stop]
+                tokens, rel_comment['tree'] = parse(q2, corenlp, props)
+                q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
+                q2 = [w for w in q2.lower().split() if w not in stop]
                 rel_comment['tokens'] = q2 + ['eos']
                 rel_comment['trigrams'] = get_trigrams(' '.join(q2))
 
@@ -56,6 +78,7 @@ def prepare_traindata(indexset, unittype='token'):
         print('Process: ', percentage, end='\r')
 
         question = indexset[qid]
+        q1_tree = question['tree']
         if unittype == 'token':
             q1 = question['tokens']
         else:
@@ -73,6 +96,7 @@ def prepare_traindata(indexset, unittype='token'):
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
+            q2_tree = rel_question['tree']
             if unittype == 'token':
                 q2 = rel_question['tokens']
             else:
@@ -83,16 +107,20 @@ def prepare_traindata(indexset, unittype='token'):
                 trainset.append({
                     'q1_id': qid,
                     'q1': q1,
+                    'q1_tree': q1_tree,
                     'q2_id': rel_question['id'],
                     'q2': q2,
+                    'q2_tree': q2_tree,
                     'label':1
                 })
             else:
                 trainset.append({
                     'q1_id': qid,
                     'q1': q1,
+                    'q1_tree': q1_tree,
                     'q2_id': rel_question['id'],
                     'q2': q2,
+                    'q2_tree': q2_tree,
                     'label':0
                 })
 

@@ -1,12 +1,14 @@
 __author__='thiagocastroferreira'
 
-import cPickle as p
+import _pickle as p
 import copy
 import features
+import json
 import load
 import nltk
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
+import os
 import re
 import utils
 
@@ -14,42 +16,62 @@ from sklearn import svm
 from sklearn.grid_search import RandomizedSearchCV
 from sklearn.metrics import f1_score
 
+from stanfordcorenlp import StanfordCoreNLP
+
+STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+FEATURE_PATH='trainfeatures.pickle'
+MODEL_PATH='svm.model'
+
+TRAIN_PATH='trainset.data'
+DEV_PATH='devset.data'
 
 class SemevalSVM():
     def __init__(self, trainset, devset, testset):
+        self.props={'annotators': 'tokenize,ssplit,pos,parse','pipelineLanguage':'en','outputFormat':'json'}
+        self.corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
+
+        print('\nPreparing development set...')
+        if not os.path.exists(DEV_PATH):
+            self.devset = utils.prepare_corpus(devset, corenlp=self.corenlp, props=self.props)
+            json.dump(self.devset, open(DEV_PATH, 'w'))
+        else:
+            self.devset = json.load(open(DEV_PATH))
+        self.devgold = utils.prepare_gold(GOLD_PATH)
         print('Preparing trainset...')
-        self.trainset = utils.prepare_corpus(trainset)
+        if not os.path.exists(TRAIN_PATH):
+            self.trainset = utils.prepare_corpus(trainset, corenlp=self.corenlp, props=self.props)
+            json.dump(self.trainset, open(TRAIN_PATH, 'w'))
+        else:
+            self.trainset = json.load(open(TRAIN_PATH))
         self.traindata, self.voc2id, self.id2voc = utils.prepare_traindata(self.trainset)
         print('TRAIN DATA SIZE: ', len(self.traindata))
-        print('\nPreparing development set...')
-        self.devset = utils.prepare_corpus(devset)
-        self.devgold = utils.prepare_gold(GOLD_PATH)
         print('\nPreparing test set...')
-        self.testset = utils.prepare_corpus(testset)
+        self.testset = utils.prepare_corpus(testset, corenlp=self.corenlp, props=self.props)
 
 
-    def __transform__(self, q1, q2, treekernel):
-        if not treekernel:
-            treekernel = features.TreeKernel()
+    def __treekernel__(self, q1, q2):
+        treekernel = features.TreeKernel()
+        return treekernel(q1, q2)
+
+    def __transform__(self, q1, q2):
         if type(q1) == list: q1 = ' '.join(q1)
         if type(q2) == list: q2 = ' '.join(q2)
 
-        treek = treekernel(q1, q2)
         lcs = features.lcs(re.split('(\W)', q1), re.split('(\W)', q2))[0]
         lcsub = features.lcsub(q1, q2)[0]
         jaccard = features.jaccard(q1, q2)
         containment_similarity = features.containment_similarities(q1, q2)
 
-        X = [treek, lcs, lcsub, jaccard, containment_similarity]
+        X = [lcs, lcsub, jaccard, containment_similarity]
 
         # ngram features
         for n in range(2, 5):
-            ngram1 = ''
+            ngram1 = ' '
             for gram in nltk.ngrams(q1.split(), n):
                 ngram1 += 'x'.join(gram) + ' '
 
-            ngram2 = ''
+            ngram2 = ' '
             for gram in nltk.ngrams(q2.split(), n):
                 ngram2 += 'x'.join(gram) + ' '
 
@@ -64,16 +86,25 @@ class SemevalSVM():
     def train(self):
         treekernel = features.TreeKernel()
 
-        X, y = [], []
-        for i, query_question in enumerate(self.traindata):
-            percentage = round(float(i+1) / len(self.traindata), 2)
-            print('Preparing traindata: ', percentage, sep='\t', end='\r')
-            q1, q2 = query_question['q1'], query_question['q2']
-            x = self.__transform__(q1, q2, treekernel)
-            X.append(x)
-            y.append(query_question['label'])
+        if not os.path.exists(FEATURE_PATH):
+            X, y = [], []
+            for i, query_question in enumerate(self.traindata):
+                percentage = round(float(i+1) / len(self.traindata), 2)
+                print('Preparing traindata: ', percentage, sep='\t', end='\r')
+                q1, q2 = query_question['q1'], query_question['q2']
+                x = self.__transform__(q1, q2)
 
+                q1, q2 = query_question['q1_tree'], query_question['q2_tree']
+                x.append(treekernel(q1, q2))
 
+                X.append(x)
+                y.append(query_question['label'])
+
+            p.dump(list(zip(X, y)), open(FEATURE_PATH, 'wb'))
+        else:
+            f = p.load(open(FEATURE_PATH, 'rb'))
+            X = list(map(lambda x: x[0], f))
+            y = list(map(lambda x: x[1], f))
 
         self.train_classifier(
             trainvectors=X,
@@ -119,7 +150,7 @@ class SemevalSVM():
             verbose = 2
         )
         self.model.fit(trainvectors, labels)
-        p.dump(self.model, open('svm.model', 'w'))
+        p.dump(self.model, open(MODEL_PATH, 'wb'))
 
 
     def validate(self):
