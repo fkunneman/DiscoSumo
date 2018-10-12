@@ -16,7 +16,7 @@ import nltk
 import os
 import re
 from difflib import SequenceMatcher
-from scipy.spatial import distance
+from sklearn.metrics.pairwise import cosine_similarity
 
 from translation import *
 
@@ -273,7 +273,7 @@ class TreeKernel():
 
                     idx1 = tree1['nodes'][child1]['idx']
                     idx2 = tree2['nodes'][child2]['idx']
-                    result = 1 - distance.cosine(self.query_emb[idx1], self.question_emb[idx2])
+                    result = cosine_similarity([self.query_emb[idx1]], [self.question_emb[idx2]])[0][0]
             else:
                 result = 1
                 for i in range(len(tree1['edges'][root1])):

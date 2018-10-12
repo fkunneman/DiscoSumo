@@ -208,7 +208,7 @@ class LinearSVM(SVM):
                 c='search',
                 kernel='search',
                 gamma='search',
-                # degree='search',
+                degree='search',
                 jobs=10
             )
             p.dump(self.model, open(LINEAR_MODEL_PATH, 'wb'))
@@ -268,7 +268,7 @@ class LinearSVM(SVM):
                     label = 'false'
                     if row[0] == 1:
                         label = 'true'
-                    f.write('\t'.join([str(q1id), str(row[2]), str(row[1]), label, '\n']))
+                    f.write('\t'.join([str(q1id), str(row[2]), 0, str(row[1]), label, '\n']))
 
         logging.info('Finishing to validate svm.')
         return ranking, y_real, y_pred
@@ -429,7 +429,7 @@ class TreeSVM(SVM):
                     label = 'false'
                     if row[0] == 1:
                         label = 'true'
-                    f.write('\t'.join([str(qid), str(row[2]), str(row[1]), label, '\n']))
+                    f.write('\t'.join([str(qid), str(row[2]), 0, str(row[1]), label, '\n']))
 
         logging.info('Finishing to validate tree svm.')
         return ranking, y_real, y_pred
@@ -578,7 +578,7 @@ class ELMoSVM(SVM):
 
 
 if __name__ == '__main__':
-    print('Load corpus')
+    logging.info('Load corpus')
     trainset, devset = load.run()
 
     if not os.path.exists(DATA_PATH):
@@ -587,19 +587,17 @@ if __name__ == '__main__':
     # Linear SVM
     linear = LinearSVM(trainset, devset, [])
     linear.train()
-    linear_ranking, y_real, y_pred = linear.validate()
     # Tree SVM
     semeval = TreeSVM(trainset, devset, [])
     semeval.train()
-    tree_ranking, y_real, y_pred = semeval.validate()
     p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
 
     # Evaluation
+    linear_ranking, y_real, y_pred = linear.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
     map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
     f1score = f1_score(y_real, y_pred)
     accuracy = accuracy_score(y_real, y_pred)
-
     print('Evaluation Linear')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
@@ -607,11 +605,11 @@ if __name__ == '__main__':
     print('F-Score: ', f1score)
     print(10 * '-')
 
+    tree_ranking, y_real, y_pred = semeval.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
     map_baseline, map_model = utils.evaluate(devgold, copy.copy(tree_ranking))
     f1score = f1_score(y_real, y_pred)
     accuracy = accuracy_score(y_real, y_pred)
-
     print('Evaluation Tree')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
@@ -619,26 +617,26 @@ if __name__ == '__main__':
     print('F-Score: ', f1score)
     print(10 * '-')
 
-    ranking = {}
-    for qid in linear_ranking:
-        lrank = linear_ranking[qid]
-        trank = tree_ranking[qid]
-
-        ranking[qid] = []
-        for row1 in lrank:
-            for row2 in trank:
-                if row1[2] == row2[2]:
-                    score = (0.6 * row1[1]) + (0.4 * row2[1])
-                    ranking[qid].append((row1[0], score, row1[2]))
-
-
-    devgold = utils.prepare_gold(GOLD_PATH)
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
-
-    print('Evaluation Linear+Tree Weighted')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
+    # ranking = {}
+    # for qid in linear_ranking:
+    #     lrank = linear_ranking[qid]
+    #     trank = tree_ranking[qid]
+    #
+    #     ranking[qid] = []
+    #     for row1 in lrank:
+    #         for row2 in trank:
+    #             if row1[2] == row2[2]:
+    #                 score = (0.6 * row1[1]) + (0.4 * row2[1])
+    #                 ranking[qid].append((row1[0], score, row1[2]))
+    #
+    #
+    # devgold = utils.prepare_gold(GOLD_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
+    #
+    # print('Evaluation Linear+Tree Weighted')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print(10 * '-')
 
 
     ranking = {}
