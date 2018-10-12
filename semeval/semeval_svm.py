@@ -18,6 +18,7 @@ import time
 from sklearn import svm
 from sklearn.grid_search import RandomizedSearchCV
 from sklearn.metrics import f1_score, accuracy_score
+from sklearn.preprocessing import MinMaxScaler
 
 from stanfordcorenlp import StanfordCoreNLP
 
@@ -82,9 +83,9 @@ class SVM():
             if len(class_weight.split(':')) > 1: # dictionary
                 class_weight = dict([label_weight.split(':') for label_weight in class_weight.split()])
             c_values = [0.001, 0.005, 0.01, 0.5, 1, 5, 10, 50, 100, 500, 1000] if c == 'search' else [float(x) for x in c.split()]
-            kernel_values = ['linear', 'rbf', 'poly'] if kernel == 'search' else [k for  k in kernel.split()]
+            kernel_values = ['linear', 'poly'] if kernel == 'search' else [k for  k in kernel.split()]
             gamma_values = [0.0005, 0.002, 0.008, 0.032, 0.128, 0.512, 1.024, 2.048] if gamma == 'search' else [float(x) for x in gamma.split()]
-            degree_values = [1, 2, 3, 4] if degree == 'search' else [int(x) for x in degree.split()]
+            degree_values = [1, 2] if degree == 'search' else [int(x) for x in degree.split()]
             grid_values = [c_values, kernel_values, gamma_values, degree_values]
             if not False in [len(x) == 1 for x in grid_values]: # only sinle parameter settings
                 settings = {}
@@ -130,6 +131,42 @@ class SVM():
         raise NotImplementedError("Please Implement this method")
 
 
+class BM25(SVM):
+    def __init__(self, trainset, devset, testset):
+        SVM.__init__(self, trainset, devset, testset)
+
+    def train(self):
+        logging.info('Setting BM25 model')
+        self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
+
+    def validate(self):
+        logging.info('Validating bm25.')
+        ranking = {}
+        y_real, y_pred = [], []
+        for i, q1id in enumerate(self.devset):
+            ranking[q1id] = []
+            percentage = round(float(i+1) / len(self.devset), 2)
+            print('Progress: ', percentage, i+1, sep='\t', end='\r')
+
+            query = self.devset[q1id]
+            q1 = query['tokens']
+            scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
+
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2score = scores[self.bm25_qid_index[q2id]]
+
+                real_label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    real_label = 1
+                ranking[q1id].append((real_label, q2score, q2id))
+
+                logging.info('Finishing bm25 validation.')
+        return ranking
+    
+        
 class LinearSVM(SVM):
     def __init__(self, trainset, devset, testset):
         SVM.__init__(self, trainset, devset, testset)
@@ -201,6 +238,12 @@ class LinearSVM(SVM):
             X = list(map(lambda x: x[0], f))
             y = list(map(lambda x: x[1], f))
 
+        # scale features
+        self.scaler = MinMaxScaler(feature_range=(-1,1))
+        X_array = np.array(X)
+        self.scaler.fit(X_array)
+        X = self.scaler.transform(X_array).tolist()
+        
         if not os.path.exists(LINEAR_MODEL_PATH):
             self.model = self.train_classifier(
                 trainvectors=X,
@@ -246,6 +289,9 @@ class LinearSVM(SVM):
                 # frobenius norm
                 q2_emb = self.develmo.get(str(self.devidx[q2id]))
                 X.append(features.frobenius_norm(q1_emb, q2_emb))
+
+                # scale
+                X = self.scaler.transform(X.toarray()).tolist()
 
                 score = self.model.decision_function([X])[0]
                 pred_label = self.model.predict([X])[0]
@@ -591,8 +637,11 @@ if __name__ == '__main__':
     semeval = TreeSVM(trainset, devset, [])
     semeval.train()
     p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
+    # BM25
+    bm25 = BM25(trainset, devset, [])
+    bm25.train()
 
-    # Evaluation
+    # Linear performance
     linear_ranking, y_real, y_pred = linear.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
     map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
@@ -605,6 +654,7 @@ if __name__ == '__main__':
     print('F-Score: ', f1score)
     print(10 * '-')
 
+    # Tree performance
     tree_ranking, y_real, y_pred = semeval.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
     map_baseline, map_model = utils.evaluate(devgold, copy.copy(tree_ranking))
@@ -617,26 +667,35 @@ if __name__ == '__main__':
     print('F-Score: ', f1score)
     print(10 * '-')
 
-    # ranking = {}
-    # for qid in linear_ranking:
-    #     lrank = linear_ranking[qid]
-    #     trank = tree_ranking[qid]
-    #
-    #     ranking[qid] = []
-    #     for row1 in lrank:
-    #         for row2 in trank:
-    #             if row1[2] == row2[2]:
-    #                 score = (0.6 * row1[1]) + (0.4 * row2[1])
-    #                 ranking[qid].append((row1[0], score, row1[2]))
-    #
-    #
-    # devgold = utils.prepare_gold(GOLD_PATH)
-    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
-    #
-    # print('Evaluation Linear+Tree Weighted')
-    # print('MAP baseline: ', map_baseline)
-    # print('MAP model: ', map_model)
-    # print(10 * '-')
+    # BM25 performance
+    bm25_ranking = bm25.validate()
+    map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
+
+    print('Evaluation BM25')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    
+    ranking = {}
+    for qid in linear_ranking:
+        lrank = linear_ranking[qid]
+        trank = tree_ranking[qid]
+
+        ranking[qid] = []
+        for row1 in lrank:
+            for row2 in trank:
+                if row1[2] == row2[2]:
+                    score = (0.6 * row1[1]) + (0.4 * row2[1])
+                    ranking[qid].append((row1[0], score, row1[2]))
+
+
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
+
+    print('Evaluation Linear+Tree Weighted')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
 
 
     ranking = {}

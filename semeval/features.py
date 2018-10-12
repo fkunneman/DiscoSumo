@@ -17,8 +17,14 @@ import os
 import re
 from difflib import SequenceMatcher
 from sklearn.metrics.pairwise import cosine_similarity
+from gensim.summarization import bm25
+from gensim.corpora import Dictionary
 
 from translation import *
+
+import logging
+FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
+logging.basicConfig(format=FORMAT)
 
 GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
 ELMO_PATH='elmo/'
@@ -168,6 +174,47 @@ def init_translation(traindata, vocabulary, alpha, sigma):
     t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
     translation = TRLM([], w_C, t2w, len(vocabulary), alpha=alpha, sigma=sigma)  # translation-based language model
     return translation
+
+def init_bm25(traindata,devdata=False,testdata=False):
+
+    def add_data(data, qs, index_dct, ind):
+        for row in data:
+            qid, q = row['q1_id'], row['q1']
+            if qid not in qs:
+                index_dct[qid] = ind
+                ind += 1
+                qs.append(q)
+            qid, q = row['q2_id'], row['q2']
+            if qid not in qs:
+                index_dct[qid] = ind
+                ind += 1
+                qs.append(q)
+        return qs, index_dct, ind
+
+    # set corpus
+    print('Setting corpus')
+    questions = []
+    index_qid = {}
+    index = 0
+
+    questions, index_qid, index = add_data(traindata, questions, index_qid, index)
+    if devdata:
+        questions, index_qid, index = add_data(devdata, questions, index_qid, index)
+    if testdata:
+        questions, index_qid, index = add_data(testdata, questions, index_qid, index)
+            
+    dct = Dictionary(questions)  # initialize a Dictionary
+    corpus = [dct.doc2bow(text) for text in questions]
+
+    # set bm25 model
+    logging.info('Initializing bm25 model')
+    model = bm25.BM25(corpus)
+
+    # get average idf
+    print('Calculating average idf')
+    average_idf = sum(map(lambda k: float(model.idf[k]), model.idf.keys())) / len(model.idf.keys())
+
+    return model, average_idf, dct, index_qid
 
 def init_elmo():
     trainelmo = h5py.File(os.path.join(ELMO_PATH, 'train', 'elmovectors.hdf5'), 'r')

@@ -86,6 +86,7 @@ def prepare_corpus(indexset, corenlp, props):
         q1 = copy.copy(question['subject'])
         tokens, question['subj_str_tree'] = parse(q1, corenlp, props)
         question['subj_tree'] = parse_tree(question['subj_str_tree'])
+        question['subj_tokens_full'] =  [w for w in q1.lower().split()]
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['subj_tokens'] = q1 + ['eos']
@@ -94,6 +95,7 @@ def prepare_corpus(indexset, corenlp, props):
         q1 = question['subject'] + ' ' + question['body']
         tokens, question['str_tree'] = parse(q1, corenlp, props)
         question['tree'] = parse_tree(question['str_tree'])
+        question['tokens_full'] = [w for w in q1.lower().split()]
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['tokens'] = q1 + ['eos']
@@ -105,6 +107,7 @@ def prepare_corpus(indexset, corenlp, props):
             q2 = copy.copy(rel_question['subject'])
             tokens, rel_question['subj_str_tree'] = parse(q2, corenlp, props)
             rel_question['subj_tree'] = parse_tree(rel_question['subj_str_tree'])
+            rel_question['subj_tokens_full'] = [w for w in q2.lower().split()]
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['subj_tokens'] = q2 + ['eos']
@@ -115,6 +118,7 @@ def prepare_corpus(indexset, corenlp, props):
                 q2 += ' ' + rel_question['body']
             tokens, rel_question['str_tree'] = parse(q2, corenlp, props)
             rel_question['tree'] = parse_tree(rel_question['str_tree'])
+            rel_question['tokens_full'] = [w for w in q2.lower().split()]
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['tokens'] = q2 + ['eos']
@@ -125,6 +129,7 @@ def prepare_corpus(indexset, corenlp, props):
                 q2 = rel_comment['text']
                 tokens, rel_comment['str_tree'] = parse(q2, corenlp, props)
                 rel_comment['tree'] = parse_tree(rel_comment['str_tree'])
+                rel_comment['tokens_full'] = [w for w in q2.lower().split()]
                 q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
                 q2 = [w for w in q2.lower().split() if w not in stop]
                 rel_comment['tokens'] = q2 + ['eos']
