@@ -288,6 +288,7 @@ class LinearSVM(SVM):
 
             query = self.devset[q1id]
             q1 = query['tokens']
+            q1_bm25_scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
             q1_lemma = query['subj_lemmas_full']
             q1_pos = query['subj_pos_full']
             q1_tree = query['subj_tree']
@@ -299,6 +300,9 @@ class LinearSVM(SVM):
                 q2id = rel_question['id']
                 q2 = rel_question['tokens']
                 X = self.__transform__(q1, q2)
+                # bm25
+                x.append(scores[self.bm25_qid_index[q2id]])
+                
                 # cosine
                 q2_lemma = rel_question['subj_lemma_full']
                 q2_pos = rel_question['subj_pos_full']
@@ -311,6 +315,7 @@ class LinearSVM(SVM):
                 q2_tree = rel_question['subj_tree']
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 X.append(treekernel(q1_tree, q2_tree))
+
                 # frobenius norm
                 q2_emb = self.develmo.get(str(self.devidx[q2id]))
                 X.append(features.frobenius_norm(q1_emb, q2_emb))

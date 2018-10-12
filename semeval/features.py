@@ -158,37 +158,9 @@ def dice(query, question, tokenize=False):
 
     return distance.dice(query, question)
 
-def cosine(q1, q2, wordtype='token', n=1):
+def cosine(q1, q2, n=1):
     vectorizer = CountVectorizer(ngram_range=(n,n))
-    if wordtype == 'token': # set sklearn CountVectorizer to have the right input to the similarity function
-        vectors = vectorizer.fit_transform([q1,q2])
-    elif wordtype == 'pos':
-        q1_pos = []
-        for i in range(1,len(q1['nodes'].keys())+1):
-            node = q1['nodes'][i]
-            if node['type'] == 'preterminal':
-                q1_pos.append(node['name'])
-        q2_pos = []
-        for i in range(1,len(q2['nodes'].keys())+1):
-            node = q2['nodes'][i]
-            if node['type'] == 'preterminal':
-                q2_pos.append(node['name'])
-        print('Q1',q1_pos)
-        print('Q2',q2_pos)
-        vectors = vectorizer.fit_transform([' '.join(q1_pos),' '.join(q2_pos)])
-    elif wordtype == 'lemma':
-        q1_lemma = []
-        for i in range(1,len(q1['nodes'].keys())+1):
-            node = q1['nodes'][i]
-            if node['type'] == 'terminal':
-                q1_lemma.append(node['lemma'])
-        q2_lemma = []
-        for i in range(1,len(q2['nodes'].keys())+1):
-            node = q2['nodes'][i]
-            if node['type'] == 'terminal':
-                q2_lemma.append(node['lemma'])
-        vectors = vectorizer.fit_transform([' '.join(q1_pos),' '.join(q2_pos)])
-    print(vectorizer.get_feature_names())
+    vectors = vectorizer.fit_transform([q1,q2])
     return cosine_similarity(vectors)[0,1]
 
 def init_translation(traindata, vocabulary, alpha, sigma):
