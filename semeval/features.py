@@ -7,12 +7,22 @@ Description:
     Script for extracting features for our ranking model
 """
 
-import copy
+import sys
+
+sys.path.append('../')
+import dynet as dy
+import h5py
 import nltk
+import os
 import re
-import time
 from difflib import SequenceMatcher
 from scipy.spatial import distance
+
+from translation import *
+
+GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
+ELMO_PATH='elmo/'
+TRANSLATION_PATH='translation/model/lex.f2e'
 
 def lcsub(query, question):
     '''
@@ -86,7 +96,7 @@ def containment_similarities(query, question, tokenize=False):
         return 0
 
     return float(len(query & question)) / len(query)
-            
+
 def greedy_string_tiling(query, question, tokenize=False):
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
@@ -141,55 +151,185 @@ def dice(query, question, tokenize=False):
 
     return distance.dice(query, question)
 
+def init_translation(traindata, vocabulary, alpha, sigma):
+    print('Load background probabilities')
+    # TO DO: improve this
+    questions = {}
+    for trainrow in traindata:
+        qid, q = trainrow['q1_id'], trainrow['q1']
+        if qid not in questions:
+            questions[qid] = q
+
+        qid, q = trainrow['q2_id'], trainrow['q2']
+        if qid not in questions:
+            questions[qid] = q
+    w_C = compute_w_C(questions, vocabulary)  # background lm
+    print('Load translation probabilities')
+    t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
+    translation = TRLM([], w_C, t2w, len(vocabulary), alpha=alpha, sigma=sigma)  # translation-based language model
+    return translation
+
+def init_elmo():
+    trainelmo = h5py.File(os.path.join(ELMO_PATH, 'train', 'elmovectors.hdf5'), 'r')
+    with open(os.path.join(ELMO_PATH, 'train', 'index.txt')) as f:
+        trainidx = f.read().split('\n')
+        trainidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(trainidx)])
+
+    develmo = h5py.File(os.path.join(ELMO_PATH, 'dev', 'elmovectors.hdf5'), 'r')
+    with open(os.path.join(ELMO_PATH, 'dev', 'index.txt')) as f:
+        devidx = f.read().split('\n')
+        devidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(devidx)])
+    return trainidx, trainelmo, devidx, develmo
+
+def init_glove():
+    tokens, embeddings = [], []
+    with open(GLOVE_PATH) as f:
+        for row in f.read().split('\n')[:-1]:
+            _row = row.split()
+            embeddings.append(np.array([float(x) for x in _row[1:]]))
+            tokens.append(_row[0])
+
+    # insert unk and eos token in the representations
+    tokens.append('UNK')
+    tokens.append('eos')
+    id2voc = {}
+    for i, token in enumerate(tokens):
+        id2voc[i] = token
+
+    voc2id = dict(map(lambda x: (x[1], x[0]), id2voc.items()))
+
+    UNK = np.random.uniform(-0.1, 0.1, (300,))
+    eos = np.random.uniform(-0.1, 0.1, (300,))
+    embeddings.append(UNK)
+    embeddings.append(eos)
+
+    return np.array(embeddings), voc2id, id2voc
+
+def cosine(query_vec, question_vec):
+    num = dy.transpose(query_vec) * question_vec
+    dem1 = dy.sqrt(dy.transpose(query_vec) * query_vec)
+    dem2 = dy.sqrt(dy.transpose(question_vec) * question_vec)
+    dem = dem1 * dem2
+
+    return dy.cdiv(num, dem)
+
+def frobenius_norm(query_emb, question_emb):
+    query_emb = list(map(lambda x: dy.inputTensor(x), list(query_emb)))
+    question_emb = list(map(lambda x: dy.inputTensor(x), list(question_emb)))
+
+    frobenius = 0.0
+    for i in range(len(query_emb)):
+        for j in range(len(question_emb)):
+            cos = dy.rectify(cosine(query_emb[i], question_emb[j])).value()
+            frobenius += (cos**2)
+
+    dy.renew_cg()
+    return np.sqrt(frobenius)
+
 class TreeKernel():
-    def __init__(self, alpha=0):
+    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True):
         self.alpha = alpha
-
-    def __call__(self, query, question):
-        if len(query) == 0 or len(question) == 0:
-            return 0
-
-        query_tree = self.parse_tree(query)
-        question_tree = self.parse_tree(question)
-        return self.tree_kernel(query_tree, question_tree)
+        self.decay = decay
+        self.ignore_leaves = ignore_leaves
+        self.smoothed = smoothed
 
 
-    def parse_tree(self, tree):
-        nodes, edges, root = {}, {}, 1
-        node_id = 1
-        prev_id = 0
+    def __call__(self, query_tree, question_tree, query_emb=[], question_emb=[]):
+        result = 0
+        self.query_emb = query_emb
+        self.question_emb = question_emb
 
-        for child in tree.replace('\n', '').split():
-            closing = list(filter(lambda x: x == ')', child))
-            if child[0] == '(':
-                nodes[node_id] = {
-                    'id': node_id,
-                    'name': child[1:],
-                    'parent': prev_id,
-                    'type': 'nonterminal'
-                }
-                edges[node_id] = []
+        for node1 in query_tree['nodes']:
+            node1_type = query_tree['nodes'][node1]['type']
+            edgelen1 = len(query_tree['edges'][node1])
+            for node2 in question_tree['nodes']:
+                node2_type = question_tree['nodes'][node2]['type']
+                if 'terminal' not in [node1_type, node2_type]:
+                    edgelen2 = len(question_tree['edges'][node2])
+                    delta = (self.decay**(edgelen1+edgelen2)) * self.__delta__(query_tree, question_tree, node1, node2)
+                    result += delta
 
-                if prev_id > 0:
-                    edges[prev_id].append(node_id)
-                prev_id = copy.copy(node_id)
+        return result
+
+
+    def __delta__(self, tree1, tree2, root1, root2):
+        if 'production' not in tree1['nodes'][root1]:
+            tree1['nodes'][root1]['production'] = self.get_production(tree1, root1)
+        if 'production' not in tree2['nodes'][root2]:
+            tree2['nodes'][root2]['production'] = self.get_production(tree2, root2)
+
+        production1 = tree1['nodes'][root1]['production']
+        production2 = tree2['nodes'][root2]['production']
+        result = 0
+        if production1 == production2:
+            node1_type = tree1['nodes'][root1]['type']
+            node2_type = tree2['nodes'][root2]['type']
+            if node1_type == 'preterminal' and node2_type == 'preterminal':
+                if not self.smoothed:
+                    result = 1
+                else:
+                    child1 = tree1['edges'][root1][0]
+                    child2 = tree2['edges'][root2][0]
+
+                    idx1 = tree1['nodes'][child1]['idx']
+                    idx2 = tree2['nodes'][child2]['idx']
+                    result = 1 - distance.cosine(self.query_emb[idx1], self.question_emb[idx2])
             else:
-                terminal = child.replace(')', '')
-                nodes[prev_id]['type'] = 'preterminal'
+                result = 1
+                for i in range(len(tree1['edges'][root1])):
+                    if result == 0:
+                        break
+                    child1 = tree1['edges'][root1][i]
+                    child2 = tree2['edges'][root2][i]
+                    result *= (self.alpha + self.__delta__(tree1, tree2, child1, child2))
+        return result
 
-                nodes[node_id] = {
-                    'id': node_id,
-                    'name': terminal.lower(),
-                    'parent': prev_id,
-                    'type': 'terminal'
-                }
-                edges[node_id] = []
-                edges[prev_id].append(node_id)
 
-            node_id += 1
-            for i in range(len(closing)):
-                prev_id = nodes[prev_id]['parent']
-        return {'nodes': nodes, 'edges': edges, 'root': root}
+    def similar_terminals(self, query_tree, question_tree):
+        for node1 in query_tree['nodes']:
+            node1_type = query_tree['nodes'][node1]['type']
+            for node2 in question_tree['nodes']:
+                node2_type = question_tree['nodes'][node2]['type']
+
+                if node1_type == 'terminal' and node2_type == 'terminal':
+                    w1 = query_tree['nodes'][node1]['name'].replace('-rel', '').strip()
+                    w2 = question_tree['nodes'][node2]['name'].replace('-rel', '').strip()
+
+                    if w1 == w2:
+                        if '-rel' not in query_tree['nodes'][node1]['name']:
+                            query_tree['nodes'][node1]['name'] += '-rel'
+                        if '-rel' not in question_tree['nodes'][node2]['name']:
+                            question_tree['nodes'][node2]['name'] += '-rel'
+
+                        # fathers
+                        prev_id1 = query_tree['nodes'][node1]['parent']
+                        if '-rel' not in query_tree['nodes'][prev_id1]['name']:
+                            query_tree['nodes'][prev_id1]['name'] += '-rel'
+
+                        prev_id2 = question_tree['nodes'][node2]['parent']
+                        if '-rel' not in question_tree['nodes'][prev_id2]['name']:
+                            question_tree['nodes'][prev_id2]['name'] += '-rel'
+
+                        # grandfathers
+                        prev_prev_id1 = query_tree['nodes'][prev_id1]['parent']
+                        if '-rel' not in query_tree['nodes'][prev_prev_id1]['name']:
+                            query_tree['nodes'][prev_prev_id1]['name'] += '-rel'
+
+                        prev_prev_id2 = question_tree['nodes'][prev_id2]['parent']
+                        if '-rel' not in question_tree['nodes'][prev_prev_id2]['name']:
+                            question_tree['nodes'][prev_prev_id2]['name'] += '-rel'
+        return query_tree, question_tree
+
+
+    def get_production(self, tree, root):
+        production = tree['nodes'][root]['name']
+        node_type = tree['nodes'][root]['type']
+
+        if node_type == 'nonterminal' or (node_type == 'preterminal' and not self.ignore_leaves):
+            production += ' -> '
+            for child in tree['edges'][root]:
+                production += tree['nodes'][child]['name'] + ' '
+        return production.strip()
 
 
     def __is_same_production__(self, tree1, tree2, root1, root2):
@@ -207,37 +347,15 @@ class TreeKernel():
             return False
 
 
-    def __delta__(self, tree1, tree2, root1, root2):
-        if self.__is_same_production__(tree1, tree2, root1, root2):
-            node1_type = tree1['nodes'][root1]['type']
-            node2_type = tree2['nodes'][root2]['type']
-            if node1_type == 'preterminal' and node2_type == 'preterminal':
-                return 1
-            else:
-                result = 1
-                for i in range(len(tree1['edges'][root1])):
-                    if result == 0:
-                        break
-                    child1 = tree1['edges'][root1][i]
-                    child2 = tree2['edges'][root2][i]
-                    result *= self.__delta__(tree1, tree2, child1, child2)
-                return result
-        return 0
+    def print_tree(self, root, tree, stree=''):
+        if tree['nodes'][root]['type'] == 'terminal':
+            stree += ' ' + tree['nodes'][root]['name']
+        else:
+            stree += '(' + tree['nodes'][root]['name'] + ' '
 
-
-    def tree_kernel(self, tree1, tree2):
-        result = 0
-        for node1 in tree1['nodes']:
-            for node2 in tree2['nodes']:
-                node1_type = tree1['nodes'][node1]['type']
-                node2_type = tree2['nodes'][node2]['type']
-                if 'terminal' not in [node1_type, node2_type]:
-                    delta = self.__delta__(tree1, tree2, node1, node2)
-                    result += delta
-                    if delta == 1:
-                        break
-
-        return result
+        for node in tree['edges'][root]:
+            stree = self.print_tree(node, tree, stree) + ')'
+        return stree
 
 
 if __name__ == '__main__':
