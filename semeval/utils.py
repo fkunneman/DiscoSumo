@@ -166,6 +166,8 @@ def prepare_traindata(indexset, unittype='token'):
         question = indexset[qid]
         subj_q1_tree = question['subj_tree']
         q1_tree = question['tree']
+        subj_q1_pos = question['subj_pos_full']
+        subj_q1_lemmas = question['subj_lemmas_full']
         if unittype == 'token':
             q1 = question['tokens']
         else:
@@ -178,6 +180,8 @@ def prepare_traindata(indexset, unittype='token'):
             rel_question = duplicate['rel_question']
             subj_q2_tree = rel_question['subj_tree']
             q2_tree = rel_question['tree']
+            subj_q2_pos = rel_question['subj_pos_full']
+            subj_q2_lemmas = rel_question['subj_lemmas_full']
             if unittype == 'token':
                 q2 = rel_question['tokens']
             else:
@@ -191,10 +195,14 @@ def prepare_traindata(indexset, unittype='token'):
                     'q1': q1,
                     'q1_tree': q1_tree,
                     'subj_q1_tree': subj_q1_tree,
+                    'subj_q1_lemmas': subj_q1_lemmas,
+                    'subj_q1_pos': subj_q1_pos,
                     'q2_id': rel_question['id'],
                     'q2': q2,
                     'q2_tree': q2_tree,
                     'subj_q2_tree': subj_q2_tree,
+                    'subj_q2_lemmas': subj_q2_lemmas,
+                    'subj_q2_pos': subj_q2_pos,
                     'label':1
                 })
             else:
@@ -203,10 +211,14 @@ def prepare_traindata(indexset, unittype='token'):
                     'q1': q1,
                     'q1_tree': q1_tree,
                     'subj_q1_tree': subj_q1_tree,
+                    'subj_q1_lemmas': subj_q1_lemmas,
+                    'subj_q1_pos': subj_q1_pos,
                     'q2_id': rel_question['id'],
                     'q2': q2,
                     'q2_tree': q2_tree,
                     'subj_q2_tree': subj_q2_tree,
+                    'subj_q2_lemmas': subj_q2_lemmas,
+                    'subj_q2_pos': subj_q2_pos,
                     'label':0
                 })
 

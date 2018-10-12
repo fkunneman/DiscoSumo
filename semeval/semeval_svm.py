@@ -73,7 +73,7 @@ class SVM():
                                                      alpha=0.6,
                                                      sigma=0.6)
 
-        # self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
+        self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
         # self.embeddings, self.voc2id, self.id2voc = features.init_glove()
 
