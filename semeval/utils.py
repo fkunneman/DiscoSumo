@@ -2,6 +2,7 @@ __author__='thiagocastroferreira'
 
 import sys
 sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
+import copy
 import ev, metrics
 import json
 import nltk
@@ -22,7 +23,8 @@ def get_trigrams(snt):
 
 def parse(question, corenlp, props):
     try:
-        out = json.loads(corenlp.annotate(question, properties=props))
+        out = corenlp.annotate(question, properties=props)
+        out = json.loads(out)
 
         tokens = []
         sentences = '(SENTENCES '
@@ -36,13 +38,62 @@ def parse(question, corenlp, props):
         tokens, sentences = '', '()'
     return ' '.join(tokens), sentences
 
+def parse_tree(tree):
+    nodes, edges, root = {}, {}, 1
+    node_id = 1
+    prev_id = 0
+    terminalidx = 0
+
+    for child in tree.replace('\n', '').split():
+        closing = list(filter(lambda x: x == ')', child))
+        if child[0] == '(':
+            nodes[node_id] = {
+                'id': node_id,
+                'name': child[1:],
+                'parent': prev_id,
+                'type': 'nonterminal',
+            }
+            edges[node_id] = []
+
+            if prev_id > 0:
+                edges[prev_id].append(node_id)
+            prev_id = copy.copy(node_id)
+        else:
+            terminal = child.replace(')', '')
+            nodes[prev_id]['type'] = 'preterminal'
+
+            nodes[node_id] = {
+                'id': node_id,
+                'name': terminal.lower(),
+                'parent': prev_id,
+                'type': 'terminal',
+                'idx': terminalidx
+            }
+            terminalidx += 1
+            edges[node_id] = []
+            edges[prev_id].append(node_id)
+
+        node_id += 1
+        for i in range(len(closing)):
+            prev_id = nodes[prev_id]['parent']
+    return {'nodes': nodes, 'edges': edges, 'root': root}
+
 def prepare_corpus(indexset, corenlp, props):
     for i, qid in enumerate(indexset):
         percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
         print('Process: ', percentage, end='\r')
         question = indexset[qid]
+        q1 = copy.copy(question['subject'])
+        tokens, question['subj_str_tree'] = parse(q1, corenlp, props)
+        question['subj_tree'] = parse_tree(question['subj_str_tree'])
+        q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
+        q1 = [w for w in q1.lower().split() if w not in stop]
+        question['subj_tokens'] = q1 + ['eos']
+        question['subj_trigrams'] = get_trigrams(' '.join(q1))
+
         q1 = question['subject'] + ' ' + question['body']
-        tokens, question['tree'] = parse(q1, corenlp, props)
+        tokens, question['str_tree'] = parse(q1, corenlp, props)
+        question['tree'] = parse_tree(question['str_tree'])
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['tokens'] = q1 + ['eos']
@@ -51,10 +102,19 @@ def prepare_corpus(indexset, corenlp, props):
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
-            q2 = rel_question['subject']
+            q2 = copy.copy(rel_question['subject'])
+            tokens, rel_question['subj_str_tree'] = parse(q2, corenlp, props)
+            rel_question['subj_tree'] = parse_tree(rel_question['subj_str_tree'])
+            q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
+            q2 = [w for w in q2.lower().split() if w not in stop]
+            rel_question['subj_tokens'] = q2 + ['eos']
+            rel_question['subj_trigrams'] = get_trigrams(' '.join(q2))
+
+            q2 = copy.copy(rel_question['subject'])
             if rel_question['body']:
                 q2 += ' ' + rel_question['body']
-            tokens, rel_question['tree'] = parse(q2, corenlp, props)
+            tokens, rel_question['str_tree'] = parse(q2, corenlp, props)
+            rel_question['tree'] = parse_tree(rel_question['str_tree'])
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['tokens'] = q2 + ['eos']
@@ -63,7 +123,8 @@ def prepare_corpus(indexset, corenlp, props):
             rel_comments = duplicate['rel_comments']
             for rel_comment in rel_comments:
                 q2 = rel_comment['text']
-                tokens, rel_comment['tree'] = parse(q2, corenlp, props)
+                tokens, rel_comment['str_tree'] = parse(q2, corenlp, props)
+                rel_comment['tree'] = parse_tree(rel_comment['str_tree'])
                 q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
                 q2 = [w for w in q2.lower().split() if w not in stop]
                 rel_comment['tokens'] = q2 + ['eos']
@@ -81,7 +142,8 @@ def prepare_traindata(indexset, unittype='token'):
         print('Process: ', percentage, end='\r')
 
         question = indexset[qid]
-        q1_tree = question['tree']
+        subj_q1_tree = question['subj_str_tree']
+        q1_tree = question['str_tree']
         if unittype == 'token':
             q1 = question['tokens']
         else:
@@ -92,7 +154,8 @@ def prepare_traindata(indexset, unittype='token'):
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
-            q2_tree = rel_question['tree']
+            subj_q2_tree = rel_question['subj_str_tree']
+            q2_tree = rel_question['str_tree']
             if unittype == 'token':
                 q2 = rel_question['tokens']
             else:
@@ -105,9 +168,11 @@ def prepare_traindata(indexset, unittype='token'):
                     'q1_id': qid,
                     'q1': q1,
                     'q1_tree': q1_tree,
+                    'subj_q1_tree': subj_q1_tree,
                     'q2_id': rel_question['id'],
                     'q2': q2,
                     'q2_tree': q2_tree,
+                    'subj_q2_tree': subj_q2_tree,
                     'label':1
                 })
             else:
@@ -115,9 +180,11 @@ def prepare_traindata(indexset, unittype='token'):
                     'q1_id': qid,
                     'q1': q1,
                     'q1_tree': q1_tree,
+                    'subj_q1_tree': subj_q1_tree,
                     'q2_id': rel_question['id'],
                     'q2': q2,
                     'q2_tree': q2_tree,
+                    'subj_q2_tree': subj_q2_tree,
                     'label':0
                 })
 
