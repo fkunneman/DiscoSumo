@@ -22,23 +22,24 @@ def get_trigrams(snt):
     return trigrams
 
 def parse(question, corenlp, props):
+    tokens, lemmas = [], []
     try:
         out = corenlp.annotate(question, properties=props)
         out = json.loads(out)
 
-        tokens = []
-        sentences = '(SENTENCES '
+        trees = '(SENTENCES '
         for snt in out['sentences']:
             tokens.extend(map(lambda x: x['originalText'], snt['tokens']))
-            sentences += snt['parse'].replace('\n', '') + ' '
-        sentences = sentences.strip()
-        sentences += ')'
+            lemmas.extend(map(lambda x: x['lemma'], snt['tokens']))
+            trees += snt['parse'].replace('\n', '') + ' '
+        trees = trees.strip()
+        trees += ')'
     except:
         print('parsing error...')
-        tokens, sentences = '', '()'
-    return ' '.join(tokens), sentences
+        tokens, trees = '', '()'
+    return ' '.join(tokens), trees, ' '.join(lemmas)
 
-def parse_tree(tree):
+def parse_tree(tree, token2lemma={}):
     nodes, edges, root = {}, {}, 1
     node_id = 1
     prev_id = 0
@@ -69,6 +70,11 @@ def parse_tree(tree):
                 'type': 'terminal',
                 'idx': terminalidx
             }
+            try:
+                nodes[node_id]['lemma'] = token2lemma[terminal.lower()]
+            except:
+                nodes[node_id]['lemma'] = ''
+
             terminalidx += 1
             edges[node_id] = []
             edges[prev_id].append(node_id)
@@ -84,60 +90,65 @@ def prepare_corpus(indexset, corenlp, props):
         print('Process: ', percentage, end='\r')
         question = indexset[qid]
         q1 = copy.copy(question['subject'])
-        tokens, question['subj_str_tree'] = parse(q1, corenlp, props)
-        question['subj_tree'] = parse_tree(question['subj_str_tree'])
-        question['subj_tokens_full'] =  [w for w in q1.lower().split()]
+        tokens, question['subj_str_tree'], lemmas = parse(q1, corenlp, props)
+        question['subj_tokens_full'] =  [w for w in tokens.lower().split()]
+        question['subj_lemmas_full'] =  [w for w in lemmas.lower().split()]
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['subj_tokens'] = q1 + ['eos']
         question['subj_trigrams'] = get_trigrams(' '.join(q1))
+        question['subj_tree'] = parse_tree(question['subj_str_tree'], dict(zip(tokens, lemmas)))
 
         q1 = question['subject'] + ' ' + question['body']
-        tokens, question['str_tree'] = parse(q1, corenlp, props)
-        question['tree'] = parse_tree(question['str_tree'])
-        question['tokens_full'] = [w for w in q1.lower().split()]
+        tokens, question['str_tree'], lemmas = parse(q1, corenlp, props)
+        question['tokens_full'] = [w for w in tokens.lower().split()]
+        question['lemmas_full'] = [w for w in lemmas.lower().split()]
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['tokens'] = q1 + ['eos']
         question['trigrams'] = get_trigrams(' '.join(q1))
+        question['tree'] = parse_tree(question['str_tree'], dict(zip(tokens, lemmas)))
 
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
             q2 = copy.copy(rel_question['subject'])
-            tokens, rel_question['subj_str_tree'] = parse(q2, corenlp, props)
-            rel_question['subj_tree'] = parse_tree(rel_question['subj_str_tree'])
-            rel_question['subj_tokens_full'] = [w for w in q2.lower().split()]
+            tokens, rel_question['subj_str_tree'], lemmas = parse(q2, corenlp, props)
+            rel_question['subj_tokens_full'] = [w for w in tokens.lower().split()]
+            rel_question['subj_lemmas_full'] = [w for w in lemmas.lower().split()]
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['subj_tokens'] = q2 + ['eos']
             rel_question['subj_trigrams'] = get_trigrams(' '.join(q2))
+            rel_question['subj_tree'] = parse_tree(rel_question['subj_str_tree'], dict(zip(tokens, lemmas)))
 
             q2 = copy.copy(rel_question['subject'])
             if rel_question['body']:
                 q2 += ' ' + rel_question['body']
-            tokens, rel_question['str_tree'] = parse(q2, corenlp, props)
-            rel_question['tree'] = parse_tree(rel_question['str_tree'])
-            rel_question['tokens_full'] = [w for w in q2.lower().split()]
+            tokens, rel_question['str_tree'], lemmas = parse(q2, corenlp, props)
+            rel_question['tokens_full'] = [w for w in tokens.lower().split()]
+            rel_question['lemmas_full'] = [w for w in lemmas.lower().split()]
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['tokens'] = q2 + ['eos']
             rel_question['trigrams'] = get_trigrams(' '.join(q2))
+            rel_question['tree'] = parse_tree(rel_question['str_tree'], dict(zip(tokens, lemmas)))
 
             rel_comments = duplicate['rel_comments']
             for rel_comment in rel_comments:
                 q2 = rel_comment['text']
-                tokens, rel_comment['str_tree'] = parse(q2, corenlp, props)
-                rel_comment['tree'] = parse_tree(rel_comment['str_tree'])
-                rel_comment['tokens_full'] = [w for w in q2.lower().split()]
+                tokens, rel_comment['str_tree'], lemmas = parse(q2, corenlp, props)
+                rel_comment['tokens_full'] = [w for w in tokens.lower().split()]
+                rel_comment['lemmas_full'] = [w for w in lemmas.lower().split()]
                 q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
                 q2 = [w for w in q2.lower().split() if w not in stop]
                 rel_comment['tokens'] = q2 + ['eos']
                 rel_comment['trigrams'] = get_trigrams(' '.join(q2))
+                rel_comment['tree'] = parse_tree(rel_comment['str_tree'], dict(zip(tokens, lemmas)))
 
     return indexset
 
-def prepare_traindata(indexset, unittype='token'):
+def prepare_traindata(indexset, unittype='tokens_full'):
     trainset, vocabulary = [], []
 
     vocquestions = []
@@ -147,24 +158,24 @@ def prepare_traindata(indexset, unittype='token'):
         print('Process: ', percentage, end='\r')
 
         question = indexset[qid]
-        subj_q1_tree = question['subj_str_tree']
-        q1_tree = question['str_tree']
+        subj_q1_tree = question['subj_tree']
+        q1_tree = question['tree']
         if unittype == 'token':
             q1 = question['tokens']
         else:
-            q1 = question['trigrams']
+            q1 = question['tokens_full']
         vocquestions.append(q1)
         vocabulary.extend(q1)
 
         duplicates = question['duplicates']
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
-            subj_q2_tree = rel_question['subj_str_tree']
-            q2_tree = rel_question['str_tree']
+            subj_q2_tree = rel_question['subj_tree']
+            q2_tree = rel_question['tree']
             if unittype == 'token':
                 q2 = rel_question['tokens']
             else:
-                q2 = rel_question['trigrams']
+                q2 = rel_question['tokens_full']
             vocquestions.append(q2)
             vocabulary.extend(q2)
 
