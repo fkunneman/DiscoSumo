@@ -171,21 +171,36 @@ def init_translation(traindata, vocabulary, alpha, sigma):
     translation = TRLM([], w_C, t2w, len(vocabulary), alpha=alpha, sigma=sigma)  # translation-based language model
     return translation
 
-def init_bm25(traindata):
+def init_bm25(traindata,devdata=False,testdata=False):
+
+    def add_data(data, qs, index_dct, ind):
+        for row in data:
+            qid, q = row['q1_id'], row['q1']
+            if qid not in qs:
+                index_dct[qid] = ind
+                ind += 1
+                qs.append(q)
+            qid, q = row['q2_id'], row['q2']
+            if qid not in qs:
+                index_dct[qid] = ind
+                ind += 1
+                qs.append(q)
+        return qs, index_dct, ind
+
     # set corpus
     print('Setting corpus')
-    questions = {}
-    for trainrow in traindata:
-        qid, q = trainrow['q1_id'], trainrow['q1']
-        if qid not in questions:
-            questions[qid] = q
-        qid, q = trainrow['q2_id'], trainrow['q2']
-        if qid not in questions:
-            questions[qid] = q
+    questions = []
+    index_qid = {}
+    index = 0
 
-    texts = [q.split() for q in questions.values()]
-    dct = Dictionary(texts)  # initialize a Dictionary
-    corpus = [dct.doc2bow(text) for text in texts]
+    questions, index_qid, index = add_data(traindata, questions, index_qid, index)
+    if devdata:
+        questions, index_qid, index = add_data(devdata, questions, index_qid, index)
+    if testdata:
+        questions, index_qid, index = add_data(testdata, questions, index_qid, index)
+            
+    dct = Dictionary(questions)  # initialize a Dictionary
+    corpus = [dct.doc2bow(text) for text in questions]
 
     # set bm25 model
     print('Initializing bm25 model')
@@ -195,7 +210,7 @@ def init_bm25(traindata):
     print('Calculating average idf')
     average_idf = sum(map(lambda k: float(model.idf[k]), model.idf.keys())) / len(model.idf.keys())
 
-    return model, average_idf
+    return model, average_idf, dct, index_qid
 
 def init_elmo():
     trainelmo = h5py.File(os.path.join(ELMO_PATH, 'train', 'elmovectors.hdf5'), 'r')

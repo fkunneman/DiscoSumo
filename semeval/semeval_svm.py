@@ -72,7 +72,7 @@ class SVM():
                                                      alpha=0.6,
                                                      sigma=0.6)
 
-        self.bm25_model, self.avg_idf = features.init_bm25(traindata=self.traindata)
+        self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata)
 
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
@@ -132,6 +132,42 @@ class SVM():
         raise NotImplementedError("Please Implement this method")
 
 
+class BM25(SVM):
+    def __init__(self, trainset, devset, testset):
+        SVM.__init__(self, trainset, devset, testset)
+
+    def train(self):
+        logging.info('Setting BM25 model')
+        self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
+
+    def validate(self):
+        logging.info('Validating bm25.')
+        ranking = {}
+        y_real, y_pred = [], []
+        for i, q1id in enumerate(self.devset):
+            ranking[q1id] = []
+            percentage = round(float(i+1) / len(self.devset), 2)
+            print('Progress: ', percentage, i+1, sep='\t', end='\r')
+
+            query = self.devset[q1id]
+            q1 = query['tokens']
+            scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
+
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2score = scores[self.bm25_qid_index[q2id]]
+
+                real_label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    real_label = 1
+                ranking[q1id].append((real_label, q2score, q2id))
+
+                logging.info('Finishing bm25 validation.')
+        return ranking
+    
+        
 class LinearSVM(SVM):
     def __init__(self, trainset, devset, testset):
         SVM.__init__(self, trainset, devset, testset)
@@ -595,7 +631,11 @@ if __name__ == '__main__':
     semeval.train()
     tree_ranking, y_real, y_pred = semeval.validate()
     p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
-
+    # BM25
+    bm25 = BM25(trainset, devset, [])
+    bm25.train()
+    bm25_ranking = bm25.validate()
+    
     # Evaluation
     devgold = utils.prepare_gold(GOLD_PATH)
     map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
@@ -621,6 +661,14 @@ if __name__ == '__main__':
     print('F-Score: ', f1score)
     print(10 * '-')
 
+    # BM25 performance
+    map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
+
+    print('Evaluation BM25')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    
     ranking = {}
     for qid in linear_ranking:
         lrank = linear_ranking[qid]
