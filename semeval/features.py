@@ -17,6 +17,8 @@ import os
 import re
 from difflib import SequenceMatcher
 from scipy.spatial import distance
+from gensim.summarization import bm25
+from gensim.corpora import Dictionary
 
 from translation import *
 
@@ -168,6 +170,32 @@ def init_translation(traindata, vocabulary, alpha, sigma):
     t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
     translation = TRLM([], w_C, t2w, len(vocabulary), alpha=alpha, sigma=sigma)  # translation-based language model
     return translation
+
+def init_bm25(traindata):
+    # set corpus
+    print('Setting corpus')
+    questions = {}
+    for trainrow in traindata:
+        qid, q = trainrow['q1_id'], trainrow['q1']
+        if qid not in questions:
+            questions[qid] = q
+        qid, q = trainrow['q2_id'], trainrow['q2']
+        if qid not in questions:
+            questions[qid] = q
+
+    texts = [q.split() for q in questions.values()]
+    dct = Dictionary(texts)  # initialize a Dictionary
+    corpus = [dct.doc2bow(text) for text in texts]
+
+    # set bm25 model
+    print('Initializing bm25 model')
+    model = bm25.BM25(corpus)
+
+    # get average idf
+    print('Calculating average idf')
+    average_idf = sum(map(lambda k: float(model.idf[k]), model.idf.keys())) / len(model.idf.keys())
+
+    return model, average_idf
 
 def init_elmo():
     trainelmo = h5py.File(os.path.join(ELMO_PATH, 'train', 'elmovectors.hdf5'), 'r')

@@ -72,6 +72,8 @@ class SVM():
                                                      alpha=0.6,
                                                      sigma=0.6)
 
+        self.bm25_model, self.avg_idf = features.init_bm25(traindata=self.traindata)
+
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
         # self.embeddings, self.voc2id, self.id2voc = features.init_glove()
