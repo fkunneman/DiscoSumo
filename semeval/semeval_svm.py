@@ -18,6 +18,7 @@ import time
 from sklearn import svm
 from sklearn.grid_search import RandomizedSearchCV
 from sklearn.metrics import f1_score, accuracy_score
+from sklearn.preprocessing import MinMaxScaler
 
 from stanfordcorenlp import StanfordCoreNLP
 
@@ -237,6 +238,12 @@ class LinearSVM(SVM):
             X = list(map(lambda x: x[0], f))
             y = list(map(lambda x: x[1], f))
 
+        # scale features
+        self.scaler = MinMaxScaler(feature_range=(-1,1))
+        X_array = np.array(X)
+        self.scaler.fit(X_array)
+        X = self.scaler.transform(X_array).tolist()
+        
         if not os.path.exists(LINEAR_MODEL_PATH):
             self.model = self.train_classifier(
                 trainvectors=X,
@@ -282,6 +289,9 @@ class LinearSVM(SVM):
                 # frobenius norm
                 q2_emb = self.develmo.get(str(self.devidx[q2id]))
                 X.append(features.frobenius_norm(q1_emb, q2_emb))
+
+                # scale
+                X = self.scaler.transform(X.toarray()).tolist()
 
                 score = self.model.decision_function([X])[0]
                 pred_label = self.model.predict([X])[0]
