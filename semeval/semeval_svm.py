@@ -73,7 +73,7 @@ class SVM():
                                                      alpha=0.6,
                                                      sigma=0.6)
 
-        self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
+        # self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
         # self.embeddings, self.voc2id, self.id2voc = features.init_glove()
 
@@ -210,7 +210,8 @@ class LinearSVM(SVM):
     def train(self):
         logging.info('Training svm.')
         treekernel = features.TreeKernel(alpha=0, decay=1, ignore_leaves=True, smoothed=False)
-
+        self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
+        
         if not os.path.exists(FEATURE_PATH):
             X, y = [], []
             for i, query_question in enumerate(self.traindata):
@@ -219,8 +220,21 @@ class LinearSVM(SVM):
                 q1, q2 = query_question['q1'], query_question['q2']
                 x = self.__transform__(q1, q2)
 
-                # tree kernels
+                # bm25
+                q1id = query_question['q1_id']
+                q2id = query_question['q2_id']
+                scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
+                x.append(scores[self.bm25_qid_index[q2id]])
+
+                # cosine
+                for n in range(1,5):
+                    x.append(features.cosine(' '.join(q1), ' '.join(q2), wordtype='token', n=n))
                 q1, q2 = utils.parse_tree(query_question['q1_tree']), utils.parse_tree(query_question['q2_tree'])
+                for n in range(1,5):
+                    x.append(features.cosine(q1, q2, wordtype='pos', n=n))
+                    x.append(features.cosine(q1, q2, wordtype='lemma', n=n))
+                    
+                # tree kernels
                 q1, q2 = treekernel.similar_terminals(q1, q2)
                 x.append(treekernel(q1, q2))
 

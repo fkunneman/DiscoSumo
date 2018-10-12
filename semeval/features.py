@@ -16,6 +16,7 @@ import nltk
 import os
 import re
 from difflib import SequenceMatcher
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from gensim.summarization import bm25
 from gensim.corpora import Dictionary
@@ -157,6 +158,39 @@ def dice(query, question, tokenize=False):
 
     return distance.dice(query, question)
 
+def cosine(q1, q2, wordtype='token', n=1):
+    vectorizer = CountVectorizer(ngram_range=(n,n))
+    if wordtype == 'token': # set sklearn CountVectorizer to have the right input to the similarity function
+        vectors = vectorizer.fit_transform([q1,q2])
+    elif wordtype == 'pos':
+        q1_pos = []
+        for i in range(1,len(q1['nodes'].keys())+1):
+            node = q1['nodes'][i]
+            if node['type'] == 'preterminal':
+                q1_pos.append(node['name'])
+        q2_pos = []
+        for i in range(1,len(q2['nodes'].keys())+1):
+            node = q2['nodes'][i]
+            if node['type'] == 'preterminal':
+                q2_pos.append(node['name'])
+        print('Q1',q1_pos)
+        print('Q2',q2_pos)
+        vectors = vectorizer.fit_transform([' '.join(q1_pos),' '.join(q2_pos)])
+    elif wordtype == 'lemma':
+        q1_lemma = []
+        for i in range(1,len(q1['nodes'].keys())+1):
+            node = q1['nodes'][i]
+            if node['type'] == 'terminal':
+                q1_lemma.append(node['lemma'])
+        q2_lemma = []
+        for i in range(1,len(q2['nodes'].keys())+1):
+            node = q2['nodes'][i]
+            if node['type'] == 'terminal':
+                q2_lemma.append(node['lemma'])
+        vectors = vectorizer.fit_transform([' '.join(q1_pos),' '.join(q2_pos)])
+    print(vectorizer.get_feature_names())
+    return cosine_similarity(vectors)[0,1]
+
 def init_translation(traindata, vocabulary, alpha, sigma):
     print('Load background probabilities')
     # TO DO: improve this
@@ -250,15 +284,15 @@ def init_glove():
     embeddings.append(UNK)
     embeddings.append(eos)
 
-    return np.array(embeddings), voc2id, id2voc
+    return np.array(embeddings), voc2id, id2voc    
 
-def cosine(query_vec, question_vec):
-    num = dy.transpose(query_vec) * question_vec
-    dem1 = dy.sqrt(dy.transpose(query_vec) * query_vec)
-    dem2 = dy.sqrt(dy.transpose(question_vec) * question_vec)
-    dem = dem1 * dem2
-
-    return dy.cdiv(num, dem)
+#def cosine(query_vec, question_vec):
+#    num = dy.transpose(query_vec) * question_vec
+#    dem1 = dy.sqrt(dy.transpose(query_vec) * query_vec)
+#   dem2 = dy.sqrt(dy.transpose(question_vec) * question_vec)
+#    dem = dem1 * dem2
+#
+#    return dy.cdiv(num, dem)
 
 def frobenius_norm(query_emb, question_emb):
     query_emb = list(map(lambda x: dy.inputTensor(x), list(query_emb)))
