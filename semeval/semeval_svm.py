@@ -43,7 +43,7 @@ DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 class SVM():
     def __init__(self, trainset, devset, testset):
-        props={'annotators': 'tokenize,ssplit,pos,parse','pipelineLanguage':'en','outputFormat':'json'}
+        props={'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
         corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
 
         logging.info('Preparing development set...')
@@ -220,7 +220,7 @@ class LinearSVM(SVM):
                 x = self.__transform__(q1, q2)
 
                 # tree kernels
-                q1, q2 = utils.parse_tree(query_question['q1_tree']), utils.parse_tree(query_question['q2_tree'])
+                q1, q2 = query_question['subj_q1_tree'], query_question['subj_q2_tree']
                 q1, q2 = treekernel.similar_terminals(q1, q2)
                 x.append(treekernel(q1, q2))
 
@@ -272,7 +272,7 @@ class LinearSVM(SVM):
 
             query = self.devset[q1id]
             q1 = query['tokens']
-            q1_tree = utils.parse_tree(query['subj_str_tree'])
+            q1_tree = query['subj_tree']
             q1_emb = self.develmo.get(str(self.devidx[q1id]))
 
             duplicates = query['duplicates']
@@ -283,7 +283,7 @@ class LinearSVM(SVM):
                 q2 = rel_question['tokens']
                 X = self.__transform__(q1, q2)
                 # tree kernel
-                q2_tree = utils.parse_tree(rel_question['subj_str_tree'])
+                q2_tree = rel_question['subj_tree']
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 X.append(treekernel(q1_tree, q2_tree))
                 # frobenius norm
@@ -361,7 +361,7 @@ class TreeSVM(SVM):
                 x = []
                 q1id, q2id = q['q1_id'], q['q2_id']
                 # trees
-                q1, q2 = utils.parse_tree(q['subj_q1_tree']), utils.parse_tree(q['subj_q2_tree'])
+                q1, q2 = q['subj_q1_tree'], q['subj_q2_tree']
                 # elmo vectors
                 q1_emb = self.trainelmo.get(str(self.trainidx[q1id]))
                 q2_emb = self.trainelmo.get(str(self.trainidx[q2id]))
@@ -371,7 +371,7 @@ class TreeSVM(SVM):
                 for j, c in enumerate(self.traindata):
                     c1id, c2id = c['q1_id'], c['q2_id']
                     # trees
-                    c1, c2 = utils.parse_tree(c['subj_q1_tree']), utils.parse_tree(c['subj_q2_tree'])
+                    c1, c2 = c['subj_q1_tree'], c['subj_q2_tree']
                     # elmo vectors
                     c1_emb = self.trainelmo.get(str(self.trainidx[c1id]))
                     c2_emb = self.trainelmo.get(str(self.trainidx[c2id]))
@@ -423,14 +423,14 @@ class TreeSVM(SVM):
             percentage = round(float(i+1) / len(self.devset), 2)
 
             query = self.devset[q1id]
-            q1_tree = utils.parse_tree(query['subj_str_tree'])
+            q1_tree = query['subj_str_tree']
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 # tree kernel
-                q2_tree = utils.parse_tree(rel_question['subj_str_tree'])
+                q2_tree = rel_question['subj_str_tree']
                 # similar terminals
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 # elmo vectors
@@ -440,7 +440,7 @@ class TreeSVM(SVM):
                 X = []
                 for j, trainrow in enumerate(self.traindata):
                     c1id, c2id = trainrow['q1_id'], trainrow['q2_id']
-                    c1_tree, c2_tree = utils.parse_tree(trainrow['subj_q1_tree']), utils.parse_tree(trainrow['subj_q2_tree'])
+                    c1_tree, c2_tree = trainrow['subj_q1_tree'], trainrow['subj_q2_tree']
                     # similar terminals
                     c1_tree, c2_tree = treekernel.similar_terminals(c1_tree, c2_tree)
                     # elmo vectors

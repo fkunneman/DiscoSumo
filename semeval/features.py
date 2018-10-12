@@ -158,7 +158,7 @@ def dice(query, question, tokenize=False):
     return distance.dice(query, question)
 
 def init_translation(traindata, vocabulary, alpha, sigma):
-    print('Load background probabilities')
+    logging.info('Load background probabilities')
     # TO DO: improve this
     questions = {}
     for trainrow in traindata:
@@ -170,7 +170,7 @@ def init_translation(traindata, vocabulary, alpha, sigma):
         if qid not in questions:
             questions[qid] = q
     w_C = compute_w_C(questions, vocabulary)  # background lm
-    print('Load translation probabilities')
+    logging.info('Load translation probabilities')
     t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
     translation = TRLM([], w_C, t2w, len(vocabulary), alpha=alpha, sigma=sigma)  # translation-based language model
     return translation
