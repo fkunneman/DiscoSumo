@@ -227,12 +227,14 @@ class LinearSVM(SVM):
                 x.append(scores[self.bm25_qid_index[q2id]])
 
                 # cosine
+                q1_lemma = query_question['subj_q1_lemmas']
+                q1_pos = query_question['subj_q1_pos']
+                q2_lemma = query_question['subj_q2_lemmas']
+                q2_pos = query_question['subj_q2_pos']
                 for n in range(1,5):
-                    x.append(features.cosine(' '.join(q1), ' '.join(q2), wordtype='token', n=n))
-                q1, q2 = query_question['q1_tree'], query_question['q2_tree']
-                for n in range(1,5):
-                    x.append(features.cosine(q1, q2, wordtype='pos', n=n))
-                    x.append(features.cosine(q1, q2, wordtype='lemma', n=n))
+                    x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                    x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n)
+                    x.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n)
                     
                 # tree kernels
                 q1, q2 = treekernel.similar_terminals(q1, q2)
@@ -286,16 +288,25 @@ class LinearSVM(SVM):
 
             query = self.devset[q1id]
             q1 = query['tokens']
+            q1_lemma = query['subj_lemmas_full']
+            q1_pos = query['subj_pos_full']
             q1_tree = query['subj_tree']
             q1_emb = self.develmo.get(str(self.devidx[q1id]))
-
+            
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-
                 q2 = rel_question['tokens']
                 X = self.__transform__(q1, q2)
+                # cosine
+                q2_lemma = rel_question['subj_lemma_full']
+                q2_pos = rel_question['subj_pos_full']
+                for n in range(1,5):
+                    x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                    x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
+                    x.append(features.cosine(' '.join(q1_pos, q2_pos, n=n))
+                
                 # tree kernel
                 q2_tree = rel_question['subj_tree']
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
