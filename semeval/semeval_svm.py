@@ -229,7 +229,7 @@ class LinearSVM(SVM):
                 # cosine
                 for n in range(1,5):
                     x.append(features.cosine(' '.join(q1), ' '.join(q2), wordtype='token', n=n))
-                q1, q2 = utils.parse_tree(query_question['q1_tree']), utils.parse_tree(query_question['q2_tree'])
+                q1, q2 = query_question['q1_tree'], query_question['q2_tree']
                 for n in range(1,5):
                     x.append(features.cosine(q1, q2, wordtype='pos', n=n))
                     x.append(features.cosine(q1, q2, wordtype='lemma', n=n))

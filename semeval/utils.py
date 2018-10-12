@@ -22,7 +22,7 @@ def get_trigrams(snt):
     return trigrams
 
 def parse(question, corenlp, props):
-    tokens, lemmas = [], []
+    tokens, lemmas, pos = [], [], []
     try:
         out = corenlp.annotate(question, properties=props)
         out = json.loads(out)
@@ -31,13 +31,14 @@ def parse(question, corenlp, props):
         for snt in out['sentences']:
             tokens.extend(map(lambda x: x['originalText'], snt['tokens']))
             lemmas.extend(map(lambda x: x['lemma'], snt['tokens']))
+            pos.extend(map(lambda x: x['pos'], snt['tokens']))
             trees += snt['parse'].replace('\n', '') + ' '
         trees = trees.strip()
         trees += ')'
     except:
         print('parsing error...')
         tokens, trees = '', '()'
-    return ' '.join(tokens), trees, ' '.join(lemmas)
+    return ' '.join(tokens), trees, ' '.join(lemmas), pos
 
 def parse_tree(tree, token2lemma={}):
     nodes, edges, root = {}, {}, 1
@@ -90,9 +91,10 @@ def prepare_corpus(indexset, corenlp, props):
         print('Process: ', percentage, end='\r')
         question = indexset[qid]
         q1 = copy.copy(question['subject'])
-        tokens, question['subj_str_tree'], lemmas = parse(q1, corenlp, props)
+        tokens, question['subj_str_tree'], lemmas, pos = parse(q1, corenlp, props)
         question['subj_tokens_full'] =  [w for w in tokens.lower().split()]
         question['subj_lemmas_full'] =  [w for w in lemmas.lower().split()]
+        question['subj_pos_full'] =  pos
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['subj_tokens'] = q1 + ['eos']
@@ -100,9 +102,10 @@ def prepare_corpus(indexset, corenlp, props):
         question['subj_tree'] = parse_tree(question['subj_str_tree'], dict(zip(tokens, lemmas)))
 
         q1 = question['subject'] + ' ' + question['body']
-        tokens, question['str_tree'], lemmas = parse(q1, corenlp, props)
+        tokens, question['str_tree'], lemmas, pos = parse(q1, corenlp, props)
         question['tokens_full'] = [w for w in tokens.lower().split()]
         question['lemmas_full'] = [w for w in lemmas.lower().split()]
+        question['pos_full'] = pos
         q1 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
         q1 = [w for w in q1.lower().split() if w not in stop]
         question['tokens'] = q1 + ['eos']
@@ -113,9 +116,10 @@ def prepare_corpus(indexset, corenlp, props):
         for duplicate in duplicates:
             rel_question = duplicate['rel_question']
             q2 = copy.copy(rel_question['subject'])
-            tokens, rel_question['subj_str_tree'], lemmas = parse(q2, corenlp, props)
+            tokens, rel_question['subj_str_tree'], lemmas, pos = parse(q2, corenlp, props)
             rel_question['subj_tokens_full'] = [w for w in tokens.lower().split()]
             rel_question['subj_lemmas_full'] = [w for w in lemmas.lower().split()]
+            rel_question['subj_pos_full'] = pos
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['subj_tokens'] = q2 + ['eos']
@@ -125,9 +129,10 @@ def prepare_corpus(indexset, corenlp, props):
             q2 = copy.copy(rel_question['subject'])
             if rel_question['body']:
                 q2 += ' ' + rel_question['body']
-            tokens, rel_question['str_tree'], lemmas = parse(q2, corenlp, props)
+            tokens, rel_question['str_tree'], lemmas, pos = parse(q2, corenlp, props)
             rel_question['tokens_full'] = [w for w in tokens.lower().split()]
             rel_question['lemmas_full'] = [w for w in lemmas.lower().split()]
+            rel_question['pos_full'] = pos
             q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
             q2 = [w for w in q2.lower().split() if w not in stop]
             rel_question['tokens'] = q2 + ['eos']
@@ -137,9 +142,10 @@ def prepare_corpus(indexset, corenlp, props):
             rel_comments = duplicate['rel_comments']
             for rel_comment in rel_comments:
                 q2 = rel_comment['text']
-                tokens, rel_comment['str_tree'], lemmas = parse(q2, corenlp, props)
+                tokens, rel_comment['str_tree'], lemmas, pos = parse(q2, corenlp, props)
                 rel_comment['tokens_full'] = [w for w in tokens.lower().split()]
                 rel_comment['lemmas_full'] = [w for w in lemmas.lower().split()]
+                rel_comment['pos_full'] = pos
                 q2 = re.sub(r'[^A-Za-z0-9]+',' ', tokens).strip()
                 q2 = [w for w in q2.lower().split() if w not in stop]
                 rel_comment['tokens'] = q2 + ['eos']
@@ -148,7 +154,7 @@ def prepare_corpus(indexset, corenlp, props):
 
     return indexset
 
-def prepare_traindata(indexset, unittype='tokens_full'):
+def prepare_traindata(indexset, unittype='token'):
     trainset, vocabulary = [], []
 
     vocquestions = []
