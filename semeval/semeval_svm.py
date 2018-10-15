@@ -164,7 +164,7 @@ class BM25(SVM):
                 real_label = 0
                 if rel_question['relevance'] != 'Irrelevant':
                     real_label = 1
-                ranking[q1id].append((real_label, q2score, q2id))
+                ranking[q1id].append((real_label, q2score, str(0), q2id))
 
                 logging.info('Finishing bm25 validation.')
         return ranking
@@ -363,9 +363,8 @@ class LinearSVM(SVM):
 
         # scale features
         self.scaler = MinMaxScaler(feature_range=(-1,1))
-        X_array = np.array(X)
-        self.scaler.fit(X_array)
-        X = self.scaler.transform(X_array).tolist()
+        self.scaler.fit(X)
+        X = self.scaler.transform(X)
 
         if not os.path.exists(LINEAR_MODEL_PATH):
             self.model = self.train_classifier(
@@ -420,7 +419,7 @@ class LinearSVM(SVM):
 
                 # tree kernel
                 q2_tree = utils.parse_tree(rel_question['subj_tree'])
-                # q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
+                q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 X.append(treekernel(q1_tree, q2_tree))
 
                 # frobenius norm
@@ -428,10 +427,10 @@ class LinearSVM(SVM):
                 X.append(features.frobenius_norm(q1_emb, q2_emb))
 
                 # scale
-                X = self.scaler.transform(X.toarray()).tolist()
+                X = self.scaler.transform([X])
 
-                score = self.model.decision_function([X])[0]
-                pred_label = self.model.predict([X])[0]
+                score = self.model.decision_function(X)[0]
+                pred_label = self.model.predict(X)[0]
                 y_pred.append(pred_label)
 
                 # if pred_label == 1:
@@ -560,14 +559,14 @@ class TreeSVM(SVM):
             percentage = round(float(i+1) / len(self.devset), 2)
 
             query = self.devset[q1id]
-            q1_tree = utils.parse_tree(query['subj_str_tree'])
+            q1_tree = utils.parse_tree(query['subj_tree'])
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 # tree kernel
-                q2_tree = utils.parse_tree(rel_question['subj_str_tree'])
+                q2_tree = utils.parse_tree(rel_question['subj_tree'])
                 # similar terminals
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 # elmo vectors
