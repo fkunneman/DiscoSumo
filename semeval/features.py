@@ -26,6 +26,9 @@ from translation import *
 import logging
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
+d = {'clientip': 'localhost', 'user': 'tcastrof'}
+logger = logging.getLogger('tcpserver')
+
 
 GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
 ELMO_PATH='elmo/'
@@ -164,7 +167,7 @@ def cosine(q1, q2, n=1):
     return cosine_similarity(vectors)[0,1]
 
 def init_translation(traindata, vocabulary, alpha, sigma):
-    logging.info('Load background probabilities')
+    logging.info('Load background probabilities', extra=d)
     # TO DO: improve this
     questions = {}
     for trainrow in traindata:
@@ -198,7 +201,7 @@ def init_bm25(traindata,devdata=False,testdata=False):
         return qs, index_dct, ind
 
     # set corpus
-    print('Setting corpus')
+    logging.info('Setting corpus')
     questions = []
     index_qid = {}
     index = 0
@@ -213,11 +216,11 @@ def init_bm25(traindata,devdata=False,testdata=False):
     corpus = [dct.doc2bow(text) for text in questions]
 
     # set bm25 model
-    logging.info('Initializing bm25 model')
+    logging.info('Initializing bm25 model', extra=d)
     model = bm25.BM25(corpus)
 
     # get average idf
-    print('Calculating average idf')
+    logging.info('Calculating average idf')
     average_idf = sum(map(lambda k: float(model.idf[k]), model.idf.keys())) / len(model.idf.keys())
 
     return model, average_idf, dct, index_qid
@@ -258,22 +261,23 @@ def init_glove():
 
     return np.array(embeddings), voc2id, id2voc    
 
-#def cosine(query_vec, question_vec):
-#    num = dy.transpose(query_vec) * question_vec
-#    dem1 = dy.sqrt(dy.transpose(query_vec) * query_vec)
-#   dem2 = dy.sqrt(dy.transpose(question_vec) * question_vec)
-#    dem = dem1 * dem2
-#
-#    return dy.cdiv(num, dem)
 
 def frobenius_norm(query_emb, question_emb):
+    def dycosine(query_vec, question_vec):
+        num = dy.transpose(query_vec) * question_vec
+        dem1 = dy.sqrt(dy.transpose(query_vec) * query_vec)
+        dem2 = dy.sqrt(dy.transpose(question_vec) * question_vec)
+        dem = dem1 * dem2
+
+        return dy.cdiv(num, dem)
+
     query_emb = list(map(lambda x: dy.inputTensor(x), list(query_emb)))
     question_emb = list(map(lambda x: dy.inputTensor(x), list(question_emb)))
 
     frobenius = 0.0
     for i in range(len(query_emb)):
         for j in range(len(question_emb)):
-            cos = dy.rectify(cosine(query_emb[i], question_emb[j])).value()
+            cos = dy.rectify(dycosine(query_emb[i], question_emb[j])).value()
             frobenius += (cos**2)
 
     dy.renew_cg()

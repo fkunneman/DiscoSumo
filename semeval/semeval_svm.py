@@ -1,5 +1,11 @@
 __author__='thiagocastroferreira'
 
+import logging
+FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
+logging.basicConfig(format=FORMAT)
+d = {'clientip': 'localhost', 'user': 'tcastrof'}
+logger = logging.getLogger('tcpserver')
+
 import copy
 import _pickle as p
 import features
@@ -22,10 +28,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 from stanfordcorenlp import StanfordCoreNLP
 
-import logging
-FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
-logging.basicConfig(format=FORMAT)
-
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
@@ -46,7 +48,7 @@ class SVM():
         props={'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
         corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
 
-        logging.info('Preparing development set...')
+        logging.info('Preparing development set...', extra=d)
         if not os.path.exists(DEV_PATH):
             self.devset = utils.prepare_corpus(devset, corenlp=corenlp, props=props)
             json.dump(self.devset, open(DEV_PATH, 'w'))
@@ -54,7 +56,7 @@ class SVM():
             self.devset = json.load(open(DEV_PATH))
         self.devdata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.devset)
 
-        logging.info('Preparing trainset...')
+        logging.info('Preparing trainset...', extra=d)
         if not os.path.exists(TRAIN_PATH):
             self.trainset = utils.prepare_corpus(trainset, corenlp=corenlp, props=props)
             json.dump(self.trainset, open(TRAIN_PATH, 'w'))
@@ -62,8 +64,8 @@ class SVM():
             self.trainset = json.load(open(TRAIN_PATH))
         self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
-        logging.info(info)
-        logging.info('Preparing test set...')
+        logging.info(info, extra=d)
+        logging.info('Preparing test set...', extra=d)
         self.testset = utils.prepare_corpus(testset, corenlp=corenlp, props=props)
 
         corenlp.close()
@@ -136,11 +138,11 @@ class BM25(SVM):
         SVM.__init__(self, trainset, devset, testset)
 
     def train(self):
-        logging.info('Setting BM25 model')
+        logging.info('Setting BM25 model', extra=d)
         self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
 
     def validate(self):
-        logging.info('Validating bm25.')
+        logging.info('Validating bm25.', extra=d)
         ranking = {}
         y_real, y_pred = [], []
         for i, q1id in enumerate(self.devset):
@@ -165,8 +167,8 @@ class BM25(SVM):
 
                 logging.info('Finishing bm25 validation.')
         return ranking
-    
-        
+
+
 class LinearSVM(SVM):
     def __init__(self, trainset, devset, testset):
         SVM.__init__(self, trainset, devset, testset)
@@ -208,10 +210,10 @@ class LinearSVM(SVM):
 
 
     def train(self):
-        logging.info('Training svm.')
+        logging.info('Training svm.', extra=d)
         treekernel = features.TreeKernel(alpha=0, decay=1, ignore_leaves=True, smoothed=False)
         self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
-        
+
         if not os.path.exists(FEATURE_PATH):
             X, y = [], []
             for i, query_question in enumerate(self.traindata):
@@ -227,18 +229,19 @@ class LinearSVM(SVM):
                 x.append(scores[self.bm25_qid_index[q2id]])
 
                 # cosine
-                q1_lemma = query_question['subj_q1_lemmas']
-                q1_pos = query_question['subj_q1_pos']
-                q2_lemma = query_question['subj_q2_lemmas']
-                q2_pos = query_question['subj_q2_pos']
-                for n in range(1,5):
-                    x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
-                    x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n)
-                    x.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n)
-                    
+                # q1_lemma = query_question['subj_q1_lemmas']
+                # q1_pos = query_question['subj_q1_pos']
+                # q2_lemma = query_question['subj_q2_lemmas']
+                # q2_pos = query_question['subj_q2_pos']
+                # for n in range(1,5):
+                #     x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                #     x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
+                #     x.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n))
+
                 # tree kernels
-                q1, q2 = treekernel.similar_terminals(q1, q2)
-                x.append(treekernel(q1, q2))
+                q1_tree, q2_tree = utils.parse_tree(query_question['q1_tree']), utils.parse_tree(query_question['q2_tree'])
+                q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
+                x.append(treekernel(q1_tree, q2_tree))
 
                 # frobenius norm
                 q1_emb = self.trainelmo.get(str(self.trainidx[query_question['q1_id']]))
@@ -259,7 +262,7 @@ class LinearSVM(SVM):
         X_array = np.array(X)
         self.scaler.fit(X_array)
         X = self.scaler.transform(X_array).tolist()
-        
+
         if not os.path.exists(LINEAR_MODEL_PATH):
             self.model = self.train_classifier(
                 trainvectors=X,
@@ -277,7 +280,7 @@ class LinearSVM(SVM):
 
 
     def validate(self):
-        logging.info('Validating svm.')
+        logging.info('Validating svm.', extra=d)
         treekernel = features.TreeKernel(alpha=0, decay=1, ignore_leaves=True, smoothed=False)
         ranking = {}
         y_real, y_pred = [], []
@@ -288,12 +291,12 @@ class LinearSVM(SVM):
 
             query = self.devset[q1id]
             q1 = query['tokens']
-            q1_bm25_scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
+            scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
             q1_lemma = query['subj_lemmas_full']
             q1_pos = query['subj_pos_full']
-            q1_tree = query['subj_tree']
+            q1_tree = utils.parse_tree(query['subj_tree'])
             q1_emb = self.develmo.get(str(self.devidx[q1id]))
-            
+
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
@@ -301,19 +304,19 @@ class LinearSVM(SVM):
                 q2 = rel_question['tokens']
                 X = self.__transform__(q1, q2)
                 # bm25
-                x.append(scores[self.bm25_qid_index[q2id]])
-                
+                X.append(scores[self.bm25_qid_index[q2id]])
+
                 # cosine
-                q2_lemma = rel_question['subj_lemma_full']
-                q2_pos = rel_question['subj_pos_full']
-                for n in range(1,5):
-                    x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
-                    x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
-                    x.append(features.cosine(' '.join(q1_pos, q2_pos, n=n))
-                
+                # q2_lemma = rel_question['subj_lemma_full']
+                # q2_pos = rel_question['subj_pos_full']
+                # for n in range(1,5):
+                #     X.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                #     X.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
+                #     X.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n))
+
                 # tree kernel
-                q2_tree = rel_question['subj_tree']
-                q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
+                q2_tree = utils.parse_tree(rel_question['subj_tree'])
+                # q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 X.append(treekernel(q1_tree, q2_tree))
 
                 # frobenius norm
@@ -344,9 +347,9 @@ class LinearSVM(SVM):
                     label = 'false'
                     if row[0] == 1:
                         label = 'true'
-                    f.write('\t'.join([str(q1id), str(row[2]), 0, str(row[1]), label, '\n']))
+                    f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
 
-        logging.info('Finishing to validate svm.')
+        logging.info('Finishing to validate svm.', extra=d)
         return ranking, y_real, y_pred
 
 
@@ -356,7 +359,7 @@ class TreeSVM(SVM):
 
         # self.traindata = self.select_traindata(self.traindata, 1500)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
-        logging.info(info)
+        logging.info(info, extra=d)
         self.memoization = {}
 
 
@@ -381,7 +384,7 @@ class TreeSVM(SVM):
 
 
     def train(self):
-        logging.info('Training tree svm.')
+        logging.info('Training tree svm.', extra=d)
         treekernel = features.TreeKernel()
 
         if not os.path.exists(KERNEL_PATH):
@@ -391,7 +394,7 @@ class TreeSVM(SVM):
                 x = []
                 q1id, q2id = q['q1_id'], q['q2_id']
                 # trees
-                q1, q2 = q['subj_q1_tree'], q['subj_q2_tree']
+                q1, q2 = utils.parse_tree(q['subj_q1_tree']), utils.parse_tree(q['subj_q2_tree'])
                 # elmo vectors
                 q1_emb = self.trainelmo.get(str(self.trainidx[q1id]))
                 q2_emb = self.trainelmo.get(str(self.trainidx[q2id]))
@@ -401,7 +404,7 @@ class TreeSVM(SVM):
                 for j, c in enumerate(self.traindata):
                     c1id, c2id = c['q1_id'], c['q2_id']
                     # trees
-                    c1, c2 = c['subj_q1_tree'], c['subj_q2_tree']
+                    c1, c2 = utils.parse_tree(c['subj_q1_tree']), utils.parse_tree(c['subj_q2_tree'])
                     # elmo vectors
                     c1_emb = self.trainelmo.get(str(self.trainidx[c1id]))
                     c2_emb = self.trainelmo.get(str(self.trainidx[c2id]))
@@ -440,11 +443,11 @@ class TreeSVM(SVM):
             p.dump(self.model, open(TREE_MODEL_PATH, 'wb'))
         else:
             self.model = p.load(open(TREE_MODEL_PATH, 'rb'))
-        logging.info('Finishing to train tree svm.')
+        logging.info('Finishing to train tree svm.', extra=d)
 
 
     def validate(self):
-        logging.info('Validating tree svm.')
+        logging.info('Validating tree svm.', extra=d)
         treekernel = features.TreeKernel()
         ranking = {}
         y_real, y_pred = [], []
@@ -453,14 +456,14 @@ class TreeSVM(SVM):
             percentage = round(float(i+1) / len(self.devset), 2)
 
             query = self.devset[q1id]
-            q1_tree = query['subj_str_tree']
+            q1_tree = utils.parse_tree(query['subj_str_tree'])
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 # tree kernel
-                q2_tree = rel_question['subj_str_tree']
+                q2_tree = utils.parse_tree(rel_question['subj_str_tree'])
                 # similar terminals
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
                 # elmo vectors
@@ -470,7 +473,7 @@ class TreeSVM(SVM):
                 X = []
                 for j, trainrow in enumerate(self.traindata):
                     c1id, c2id = trainrow['q1_id'], trainrow['q2_id']
-                    c1_tree, c2_tree = trainrow['subj_q1_tree'], trainrow['subj_q2_tree']
+                    c1_tree, c2_tree = utils.parse_tree(trainrow['subj_q1_tree']), utils.parse_tree(trainrow['subj_q2_tree'])
                     # similar terminals
                     c1_tree, c2_tree = treekernel.similar_terminals(c1_tree, c2_tree)
                     # elmo vectors
@@ -505,9 +508,9 @@ class TreeSVM(SVM):
                     label = 'false'
                     if row[0] == 1:
                         label = 'true'
-                    f.write('\t'.join([str(qid), str(row[2]), 0, str(row[1]), label, '\n']))
+                    f.write('\t'.join([str(qid), str(row[2]), str(0), str(row[1]), label, '\n']))
 
-        logging.info('Finishing to validate tree svm.')
+        logging.info('Finishing to validate tree svm.', extra=d)
         return ranking, y_real, y_pred
 
 
@@ -516,7 +519,7 @@ class ELMoSVM(SVM):
         SVM.__init__(self, trainset, devset, testset)
         self.traindata = self.select_traindata(self.traindata, 1000)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
-        logging.info(info)
+        logging.info(info, extra=d)
         self.memoization = {}
 
 
@@ -541,7 +544,7 @@ class ELMoSVM(SVM):
 
 
     def train(self):
-        logging.info('Training frobenius svm.')
+        logging.info('Training frobenius svm.', extra=d)
 
         if not os.path.exists(FROBENIUS_PATH):
             X, y = [], []
@@ -593,11 +596,11 @@ class ELMoSVM(SVM):
             p.dump(self.model, open(FROBENIUS_MODEL_PATH, 'wb'))
         else:
             self.model = p.load(open(FROBENIUS_MODEL_PATH, 'rb'))
-        logging.info('Finishing to train frobenius svm.')
+        logging.info('Finishing to train frobenius svm.', extra=d)
 
 
     def validate(self):
-        logging.info('Validating frobenius svm.')
+        logging.info('Validating frobenius svm.', extra=d)
         ranking = {}
         y_real, y_pred = [], []
         for i, q1id in enumerate(self.devset):
@@ -649,12 +652,12 @@ class ELMoSVM(SVM):
                 for row in ranking[qid]:
                     f.write('\t'.join([str(qid), str(row[2]), str(row[1]), str(row[0]), '\n']))
 
-        logging.info('Finishing to validate frobenius svm.')
+        logging.info('Finishing to validate frobenius svm.', extra=d)
         return ranking, y_real, y_pred
 
 
 if __name__ == '__main__':
-    logging.info('Load corpus')
+    logging.info('Load corpus', extra=d)
     trainset, devset = load.run()
 
     if not os.path.exists(DATA_PATH):
@@ -705,7 +708,7 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
-    
+
     ranking = {}
     for qid in linear_ranking:
         lrank = linear_ranking[qid]

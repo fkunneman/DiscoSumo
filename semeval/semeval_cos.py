@@ -17,6 +17,8 @@ from stanfordcorenlp import StanfordCoreNLP
 import logging
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
+d = {'clientip': 'localhost', 'user': 'tcastrof'}
+logger = logging.getLogger('tcpserver')
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
@@ -28,17 +30,17 @@ DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 class SemevalCosine():
     def __init__(self, trainset, devset, testset):
-        props={'annotators': 'tokenize,ssplit,pos,parse','pipelineLanguage':'en','outputFormat':'json'}
+        props={'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
         corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
 
-        logging.info('Preparing development set...')
+        logging.info('Preparing development set...', extra=d)
         if not os.path.exists(DEV_PATH):
             self.devset = utils.prepare_corpus(devset, corenlp=corenlp, props=props)
             json.dump(self.devset, open(DEV_PATH, 'w'))
         else:
             self.devset = json.load(open(DEV_PATH))
 
-        logging.info('Preparing trainset...')
+        logging.info('Preparing trainset...', extra=d)
         if not os.path.exists(TRAIN_PATH):
             self.trainset = utils.prepare_corpus(trainset, corenlp=corenlp, props=props)
             json.dump(self.trainset, open(TRAIN_PATH, 'w'))
@@ -47,7 +49,7 @@ class SemevalCosine():
         self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
-        logging.info('Preparing test set...')
+        logging.info('Preparing test set...', extra=d)
         self.testset = utils.prepare_corpus(testset, corenlp=corenlp, props=props)
 
         corenlp.close()
@@ -96,7 +98,7 @@ class SemevalCosine():
 
 
     def validate(self):
-        logging.info('Validating')
+        logging.info('Validating', extra=d)
         ranking = {}
         for i, q1id in enumerate(self.devset):
             ranking[q1id] = []
@@ -127,13 +129,13 @@ class SemevalCosine():
                     label = 'false'
                     if row[0] == 1:
                         label = 'true'
-                    f.write('\t'.join([str(q1id), str(row[2]), 0, str(row[1]), label, '\n']))
+                    f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
 
-        logging.info('Finishing to validate.')
+        logging.info('Finishing to validate.', extra=d)
         return ranking
 
 if __name__ == '__main__':
-    logging.info('Load corpus')
+    logging.info('Load corpus', extra=d)
     trainset, devset = load.run()
 
     if not os.path.exists(DATA_PATH):
