@@ -31,7 +31,8 @@ from stanfordcorenlp import StanfordCoreNLP
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
-DATA_PATH='data'
+#DATA_PATH='data'
+DATA_PATH='/roaming/tcastrof/semeval/corpus'
 FEATURE_PATH=os.path.join(DATA_PATH, 'trainfeatures.pickle')
 FROBENIUS_PATH=os.path.join(DATA_PATH, 'trainfrobenius.pickle')
 KERNEL_PATH=os.path.join(DATA_PATH, 'trainkernel.pickle')
@@ -168,6 +169,109 @@ class BM25(SVM):
                 logging.info('Finishing bm25 validation.')
         return ranking
 
+class CosineTest(SVM):
+    def __init__(self, trainset, devset, testset):
+        SVM.__init__(self, trainset, devset, testset)
+
+    def train(self):
+        logging.info('Setting cosine model', extra=d)
+        if not os.path.exists(FEATURE_PATH):
+            X, y = [], []
+            for i, query_question in enumerate(self.traindata):
+                x = []
+                # cosine
+                q1_lemma = query_question['subj_q1_lemmas']
+                q1_pos = query_question['subj_q1_pos']
+                q2_lemma = query_question['subj_q2_lemmas']
+                q2_pos = query_question['subj_q2_pos']
+                for n in range(1,5):
+                    x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                    x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
+                    x.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n))
+                X.append(x)
+                y.append(query_question['label'])
+
+            p.dump(list(zip(X, y)), open(FEATURE_PATH, 'wb'))
+        else:
+            f = p.load(open(FEATURE_PATH, 'rb'))
+            X = list(map(lambda x: x[0], f))
+            y = list(map(lambda x: x[1], f))
+
+        # scale features
+        self.scaler = MinMaxScaler(feature_range=(-1,1))
+        X_array = np.array(X)
+        self.scaler.fit(X_array)
+        X = self.scaler.transform(X_array).tolist()
+
+        if not os.path.exists(LINEAR_MODEL_PATH):
+            self.model = self.train_classifier(
+                trainvectors=X,
+                labels=y,
+                c='search',
+                kernel='search',
+                gamma='search',
+                degree='search',
+                jobs=10
+            )
+            p.dump(self.model, open(LINEAR_MODEL_PATH, 'wb'))
+        else:
+            self.model = p.load(open(LINEAR_MODEL_PATH, 'rb'))
+        logging.info('Finishing to train svm cosine.')
+
+    def validate(self):
+        logging.info('Validating svm cosine.', extra=d)
+        ranking = {}
+        y_real, y_pred = [], []
+        for i, q1id in enumerate(self.devset):
+            ranking[q1id] = []
+            percentage = round(float(i+1) / len(self.devset), 2)
+            print('Progress: ', percentage, i+1, sep='\t', end='\r')
+
+            query = self.devset[q1id]
+            q1 = query['tokens']
+            q1_lemma = query['subj_lemmas_full']
+            q1_pos = query['subj_pos_full']
+            q1_tree = utils.parse_tree(query['subj_tree'])
+
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2 = rel_question['tokens']
+                X = []
+
+                # cosine
+                q2_lemma = rel_question['subj_lemma_full']
+                q2_pos = rel_question['subj_pos_full']
+                for n in range(1,5):
+                    X.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                    X.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
+                    X.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n))
+
+                # scale
+                X = self.scaler.transform(X.toarray()).tolist()
+
+                score = self.model.decision_function([X])[0]
+                pred_label = self.model.predict([X])[0]
+                y_pred.append(pred_label)
+
+                real_label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    real_label = 1
+                y_real.append(real_label)
+                ranking[q1id].append((real_label, score, q2id))
+
+        print('Done!')
+        for q1id in ranking:
+            for row in ranking[q1id]:
+                label = 'false'
+                if row[0] == 1:
+                    label = 'true'
+                print('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
+
+        logging.info('Finishing to validate svm.', extra=d)
+        return ranking, y_real, y_pred
+    
 
 class LinearSVM(SVM):
     def __init__(self, trainset, devset, testset):
@@ -663,91 +767,109 @@ if __name__ == '__main__':
     if not os.path.exists(DATA_PATH):
         os.mkdir(DATA_PATH)
 
-    # Linear SVM
-    linear = LinearSVM(trainset, devset, [])
-    linear.train()
-    # Tree SVM
-    semeval = TreeSVM(trainset, devset, [])
-    semeval.train()
-    p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
-    # BM25
-    bm25 = BM25(trainset, devset, [])
-    bm25.train()
+    # cosine
+    cosine = CosineTest(trainset, devset, [])
+    cosine.train()
 
-    # Linear performance
-    linear_ranking, y_real, y_pred = linear.validate()
+    # # Linear SVM
+    # linear = LinearSVM(trainset, devset, [])
+    # linear.train()
+    # # Tree SVM
+    # semeval = TreeSVM(trainset, devset, [])
+    # semeval.train()
+    # p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
+    # # BM25
+    # bm25 = BM25(trainset, devset, [])
+    # bm25.train()
+
+    # cosine performance
+    cosine_ranking, y_real, y_pred = linear.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
     map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
     f1score = f1_score(y_real, y_pred)
     accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Linear')
+    print('Evaluation Cosine')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print('Accuracy: ', accuracy)
     print('F-Score: ', f1score)
     print(10 * '-')
+    
+    
+    # # Linear performance
+    # linear_ranking, y_real, y_pred = linear.validate()
+    # devgold = utils.prepare_gold(GOLD_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
+    # f1score = f1_score(y_real, y_pred)
+    # accuracy = accuracy_score(y_real, y_pred)
+    # print('Evaluation Linear')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print('Accuracy: ', accuracy)
+    # print('F-Score: ', f1score)
+    # print(10 * '-')
 
-    # Tree performance
-    tree_ranking, y_real, y_pred = semeval.validate()
-    devgold = utils.prepare_gold(GOLD_PATH)
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(tree_ranking))
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Tree')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
+    # # Tree performance
+    # tree_ranking, y_real, y_pred = semeval.validate()
+    # devgold = utils.prepare_gold(GOLD_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(tree_ranking))
+    # f1score = f1_score(y_real, y_pred)
+    # accuracy = accuracy_score(y_real, y_pred)
+    # print('Evaluation Tree')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print('Accuracy: ', accuracy)
+    # print('F-Score: ', f1score)
+    # print(10 * '-')
 
-    # BM25 performance
-    bm25_ranking = bm25.validate()
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
+    # # BM25 performance
+    # bm25_ranking = bm25.validate()
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
 
-    print('Evaluation BM25')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
+    # print('Evaluation BM25')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print(10 * '-')
 
-    ranking = {}
-    for qid in linear_ranking:
-        lrank = linear_ranking[qid]
-        trank = tree_ranking[qid]
+    # ranking = {}
+    # for qid in linear_ranking:
+    #     lrank = linear_ranking[qid]
+    #     trank = tree_ranking[qid]
 
-        ranking[qid] = []
-        for row1 in lrank:
-            for row2 in trank:
-                if row1[2] == row2[2]:
-                    score = (0.6 * row1[1]) + (0.4 * row2[1])
-                    ranking[qid].append((row1[0], score, row1[2]))
-
-
-    devgold = utils.prepare_gold(GOLD_PATH)
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
-
-    print('Evaluation Linear+Tree Weighted')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-
-    ranking = {}
-    for qid in linear_ranking:
-        lrank = linear_ranking[qid]
-        trank = tree_ranking[qid]
-
-        ranking[qid] = []
-        for row1 in lrank:
-            for row2 in trank:
-                if row1[2] == row2[2]:
-                    score = row1[1] + row2[1]
-                    ranking[qid].append((row1[0], score, row1[2]))
+    #     ranking[qid] = []
+    #     for row1 in lrank:
+    #         for row2 in trank:
+    #             if row1[2] == row2[2]:
+    #                 score = (0.6 * row1[1]) + (0.4 * row2[1])
+    #                 ranking[qid].append((row1[0], score, row1[2]))
 
 
-    devgold = utils.prepare_gold(GOLD_PATH)
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
+    # devgold = utils.prepare_gold(GOLD_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
 
-    print('Evaluation Linear+Tree')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
+    # print('Evaluation Linear+Tree Weighted')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print(10 * '-')
+
+
+    # ranking = {}
+    # for qid in linear_ranking:
+    #     lrank = linear_ranking[qid]
+    #     trank = tree_ranking[qid]
+
+    #     ranking[qid] = []
+    #     for row1 in lrank:
+    #         for row2 in trank:
+    #             if row1[2] == row2[2]:
+    #                 score = row1[1] + row2[1]
+    #                 ranking[qid].append((row1[0], score, row1[2]))
+
+
+    # devgold = utils.prepare_gold(GOLD_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(ranking))
+
+    # print('Evaluation Linear+Tree')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print(10 * '-')

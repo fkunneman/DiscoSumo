@@ -3,7 +3,8 @@ __author__='thiagocastroferreira'
 import os
 import xml.etree.ElementTree as ET
 
-DATASET_PATH='/home/tcastrof/Question/semeval/dataset'
+#DATASET_PATH='/home/tcastrof/Question/semeval/dataset'
+DATASET_PATH='/roaming/tcastrof/semeval/dataset'
 TRAIN_PATH=os.path.join(DATASET_PATH, 'train', 'SemEval2016-Task3-CQA-QL-train-part1.xml')
 DEV_PATH=os.path.join(DATASET_PATH, 'dev', 'SemEval2016-Task3-CQA-QL-dev.xml')
 
