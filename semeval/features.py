@@ -165,8 +165,9 @@ def dice(query, question, tokenize=False):
     return distance.dice(query, question)
 
 def cosine(q1, q2, n=1):
-    vectorizer = CountVectorizer(ngram_range=(n,n))
-    vectors = vectorizer.fit_transform([q1,q2])
+    vectorizer = CountVectorizer(ngram_range=(n,n), stop_words=None)
+    model = vectorizer.fit((q1,q2))
+    vectors = vectorizer.transform([q1,q2])
     return cosine_similarity(vectors)[0,1]
 
 def init_translation(traindata, vocabulary, alpha, sigma):

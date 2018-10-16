@@ -73,9 +73,9 @@ class SVM():
         corenlp.close()
 
         self.translation = features.init_translation(traindata=self.traindata,
-                                                     vocabulary=self.vocabulary,
-                                                     alpha=0.6,
-                                                     sigma=0.6)
+                                                    vocabulary=self.vocabulary,
+                                                    alpha=0.6,
+                                                    sigma=0.6)
 
         logging.info('Preparing SimBOW...', extra=d)
         self.simbow = SemevalCosine(trainset, devset, testset)
@@ -83,7 +83,7 @@ class SVM():
 
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
-        # self.embeddings, self.voc2id, self.id2voc = features.init_glove()
+        self.embeddings, self.voc2id, self.id2voc = features.init_glove()
 
 
     def train_classifier(self, trainvectors, labels, c='1.0', kernel='linear', gamma='0.1', degree='1', class_weight='balanced', iterations=10, jobs=1):
@@ -171,9 +171,9 @@ class BM25(SVM):
                 ranking[q1id].append((real_label, q2score, q2id))
 
                 logging.info('Finishing bm25 validation.')
-        return ranking
+        return ranking    
 
-
+    
 class LinearSVM(SVM):
     def __init__(self, trainset, devset, testset):
         SVM.__init__(self, trainset, devset, testset)
@@ -234,15 +234,24 @@ class LinearSVM(SVM):
                 x.append(scores[self.bm25_qid_index[q2id]])
 
                 # cosine
-                # q1_lemma = query_question['subj_q1_lemmas']
-                # q1_pos = query_question['subj_q1_pos']
-                # q2_lemma = query_question['subj_q2_lemmas']
-                # q2_pos = query_question['subj_q2_pos']
-                # for n in range(1,5):
-                #     x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
-                #     x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
-                #     x.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n))
-
+                q1_lemma = query_question['subj_q1_lemmas']
+                q1_pos = query_question['subj_q1_pos']
+                q2_lemma = query_question['subj_q2_lemmas']
+                q2_pos = query_question['subj_q2_pos']
+                for n in range(1,5):
+                    try:
+                        x.append(features.cosine(' '.join(q1), ' '.join(q2), n=n))
+                    except:
+                        x.append(0.0)
+                    try:
+                        x.append(features.cosine(' '.join(q1_lemma), ' '.join(q2_lemma), n=n))
+                    except:
+                        x.append(0.0)
+                    try:
+                        x.append(features.cosine(' '.join(q1_pos), ' '.join(q2_pos), n=n))
+                    except:
+                        x.append(0.0)
+                        
                 # tree kernels
                 q1_tree, q2_tree = utils.parse_tree(query_question['q1_tree']), utils.parse_tree(query_question['q2_tree'])
                 q1_tree, q2_tree = treekernel.similar_terminals(q1_tree, q2_tree)
