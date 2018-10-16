@@ -20,6 +20,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from gensim.summarization import bm25
 from gensim.corpora import Dictionary
+from gensim.models import KeyedVectors
+from gensim.test.utils import datapath
 
 from translation import *
 
@@ -30,6 +32,7 @@ d = {'clientip': 'localhost', 'user': 'tcastrof'}
 logger = logging.getLogger('tcpserver')
 
 
+WORD2VEC_PATH='/home/tcastrof/workspace/word2vec/GoogleNews-vectors-negative300.bin.gz'
 GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
 ELMO_PATH='elmo/'
 TRANSLATION_PATH='translation/model/lex.f2e'
@@ -237,6 +240,18 @@ def init_elmo():
         devidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(devidx)])
     return trainidx, trainelmo, devidx, develmo
 
+def init_word2vec():
+    return KeyedVectors.load_word2vec_format(datapath(WORD2VEC_PATH), binary=True)
+
+def encode(question, w2vec):
+    emb = []
+    for w in question:
+        try:
+            emb.append(w2vec[w.lower()])
+        except:
+            emb.append(w2vec['unk'])
+    return emb
+
 def init_glove():
     tokens, embeddings = [], []
     with open(GLOVE_PATH) as f:
@@ -259,8 +274,16 @@ def init_glove():
     embeddings.append(UNK)
     embeddings.append(eos)
 
-    return np.array(embeddings), voc2id, id2voc    
+    return np.array(embeddings), voc2id, id2voc
 
+def glove_encode(question, glovevec, voc2id):
+    emb = []
+    for w in question:
+        try:
+            emb.append(glovevec[voc2id[w].lower()])
+        except:
+            emb.append(glovevec[voc2id['UNK']])
+    return emb
 
 def frobenius_norm(query_emb, question_emb):
     def dycosine(query_vec, question_vec):

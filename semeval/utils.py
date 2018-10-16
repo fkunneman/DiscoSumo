@@ -149,7 +149,7 @@ def prepare_corpus(indexset, corenlp, props):
 
     return indexset
 
-def prepare_traindata(indexset, unittype='token'):
+def prepare_traindata(indexset):
     trainset, vocabulary = [], []
 
     vocquestions = []
@@ -163,10 +163,9 @@ def prepare_traindata(indexset, unittype='token'):
         q1_tree = question['tree']
         subj_q1_pos = question['subj_pos_full']
         subj_q1_lemmas = question['subj_lemmas_full']
-        if unittype == 'token':
-            q1 = question['tokens']
-        else:
-            q1 = question['tokens_full']
+        q1 = question['tokens']
+        q1_full = question['tokens_full']
+
         vocquestions.append(q1)
         vocabulary.extend(q1)
 
@@ -177,10 +176,8 @@ def prepare_traindata(indexset, unittype='token'):
             q2_tree = rel_question['tree']
             subj_q2_pos = rel_question['subj_pos_full']
             subj_q2_lemmas = rel_question['subj_lemmas_full']
-            if unittype == 'token':
-                q2 = rel_question['tokens']
-            else:
-                q2 = rel_question['tokens_full']
+            q2 = rel_question['tokens']
+            q2_full = rel_question['tokens_full']
             vocquestions.append(q2)
             vocabulary.extend(q2)
 
@@ -188,12 +185,14 @@ def prepare_traindata(indexset, unittype='token'):
                 trainset.append({
                     'q1_id': qid,
                     'q1': q1,
+                    'q1_full': q1_full,
                     'q1_tree': q1_tree,
                     'subj_q1_tree': subj_q1_tree,
                     'subj_q1_lemmas': subj_q1_lemmas,
                     'subj_q1_pos': subj_q1_pos,
                     'q2_id': rel_question['id'],
                     'q2': q2,
+                    'q2_full': q2_full,
                     'q2_tree': q2_tree,
                     'subj_q2_tree': subj_q2_tree,
                     'subj_q2_lemmas': subj_q2_lemmas,
@@ -204,12 +203,14 @@ def prepare_traindata(indexset, unittype='token'):
                 trainset.append({
                     'q1_id': qid,
                     'q1': q1,
+                    'q1_full': q1_full,
                     'q1_tree': q1_tree,
                     'subj_q1_tree': subj_q1_tree,
                     'subj_q1_lemmas': subj_q1_lemmas,
                     'subj_q1_pos': subj_q1_pos,
                     'q2_id': rel_question['id'],
                     'q2': q2,
+                    'q2_full': q2_full,
                     'q2_tree': q2_tree,
                     'subj_q2_tree': subj_q2_tree,
                     'subj_q2_lemmas': subj_q2_lemmas,

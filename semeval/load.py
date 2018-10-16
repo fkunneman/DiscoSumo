@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 
 DATASET_PATH='/home/tcastrof/Question/semeval/dataset'
 TRAIN_PATH=os.path.join(DATASET_PATH, 'train', 'SemEval2016-Task3-CQA-QL-train-part1.xml')
+TRAIN_PATH_PART2=os.path.join(DATASET_PATH, 'train', 'SemEval2016-Task3-CQA-QL-train-part2.xml')
 DEV_PATH=os.path.join(DATASET_PATH, 'dev', 'SemEval2016-Task3-CQA-QL-dev.xml')
 
 def load(path):
@@ -63,6 +64,7 @@ def load(path):
 
 def run():
     trainset, devset = load(TRAIN_PATH), load(DEV_PATH)
+    trainset.update(load(TRAIN_PATH_PART2))
     return trainset, devset
 
 def rank(ranking):

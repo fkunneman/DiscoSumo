@@ -3,6 +3,8 @@ __author__='thiagocastroferreira'
 import features
 import json
 import load
+from nltk.corpus import stopwords
+stop = set(stopwords.words('english'))
 import numpy as np
 import os
 import utils
@@ -54,6 +56,10 @@ class SemevalCosine():
 
         corenlp.close()
 
+        logging.info('Preparing word2vec...', extra=d)
+        self.word2vec = features.init_word2vec()
+        # self.glove, self.voc2id, self.id2voc = features.init_glove()
+        logging.info('Preparing elmo...', extra=d)
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
 
@@ -74,12 +80,37 @@ class SemevalCosine():
         self.tfidf = TfidfModel(corpus)  # fit model
 
 
+    def dot(self, q1, q2):
+        cos = 0.0
+        for i, w1 in enumerate(q1):
+            for j, w2 in enumerate(q2):
+                if w1[0] == w2[0]:
+                    if q1[i] not in stop and q2[j] not in stop:
+                        cos += (w1[1] * w2[1])
+        return cos
+
+
+    def simple_score(self, q1, q2):
+        if type(q1) == str:
+            q1 = q1.split()
+        if type(q2) == str:
+            q2 = q2.split()
+
+        q1 = self.tfidf[self.dict.doc2bow(q1)]
+        q2 = self.tfidf[self.dict.doc2bow(q2)]
+        q1q1 = np.sqrt(self.dot(q1, q1))
+        q2q2 = np.sqrt(self.dot(q2, q2))
+        return self.dot(q1, q2) / (q1q1 * q2q2)
+
+
     def softdot(self, q1, q1emb, q2, q2emb):
         cos = 0.0
         for i, w1 in enumerate(q1):
             for j, w2 in enumerate(q2):
-                m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])
-                cos += (w1[1] * m_ij * w2[1])
+                if q1[i] not in stop and q2[j] not in stop:
+                    m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])**2
+                    # m_ij = cosine_similarity([q1emb[i]], [q2emb[j]])[0][0]
+                    cos += (w1[1] * m_ij * w2[1])
         return cos
 
 
@@ -99,15 +130,18 @@ class SemevalCosine():
 
     def validate(self):
         logging.info('Validating', extra=d)
-        ranking = {}
-        for i, q1id in enumerate(self.devset):
-            ranking[q1id] = []
-            percentage = round(float(i+1) / len(self.devset), 2)
-            print('Progress: ', percentage, i+1, sep='\t', end='\r')
+        softranking, simranking = {}, {}
+        for j, q1id in enumerate(self.devset):
+            softranking[q1id], simranking[q1id] = [], []
+            percentage = round(float(j+1) / len(self.devset), 2)
+            print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
             query = self.devset[q1id]
             q1 = query['tokens_full']
-            q1emb = self.develmo.get(str(self.devidx[q1id]))
+            elmo_emb1 = self.develmo.get(str(self.devidx[q1id]))
+            w2v_emb = features.encode(q1, self.word2vec)
+            # q1emb = features.glove_encode(q1, self.glove, self.voc2id)
+            q1emb = [np.concatenate([w2v_emb[i], elmo_emb1[i]]) for i in range(len(w2v_emb))]
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
@@ -115,24 +149,29 @@ class SemevalCosine():
                 q2id = rel_question['id']
 
                 q2 = rel_question['tokens_full']
-                q2emb = self.develmo.get(str(self.devidx[q2id]))
+                elmo_emb2 = self.develmo.get(str(self.devidx[q2id]))
+                w2v_emb = features.encode(q2, self.word2vec)
+                # q2emb = features.glove_encode(q2, self.glove, self.voc2id)
+                q2emb = [np.concatenate([w2v_emb[i], elmo_emb2[i]]) for i in range(len(w2v_emb))]
 
+                simple_score = self.simple_score(q1, q2)
                 score = self.score(q1, q1emb, q2, q2emb)
                 real_label = 0
                 if rel_question['relevance'] != 'Irrelevant':
                     real_label = 1
-                ranking[q1id].append((real_label, score, q2id))
+                simranking[q1id].append((real_label, simple_score, q2id))
+                softranking[q1id].append((real_label, score, q2id))
 
         with open('data/softranking.txt', 'w') as f:
-            for q1id in ranking:
-                for row in ranking[q1id]:
+            for q1id in softranking:
+                for row in softranking[q1id]:
                     label = 'false'
                     if row[0] == 1:
                         label = 'true'
                     f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
 
         logging.info('Finishing to validate.', extra=d)
-        return ranking
+        return softranking, simranking
 
 if __name__ == '__main__':
     logging.info('Load corpus', extra=d)
@@ -145,9 +184,16 @@ if __name__ == '__main__':
     semeval = SemevalCosine(trainset, devset, [])
     semeval.train()
 
-    ranking = semeval.validate()
+    softranking, simranking = semeval.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
-    map_baseline, map_model = utils.evaluate(devgold, ranking)
+    map_baseline, map_model = utils.evaluate(devgold, softranking)
+    print('Evaluation Soft-Cosine')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, simranking)
     print('Evaluation Cosine')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)

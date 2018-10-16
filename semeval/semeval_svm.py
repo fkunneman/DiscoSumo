@@ -26,6 +26,8 @@ from sklearn.grid_search import RandomizedSearchCV
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.preprocessing import MinMaxScaler
 
+from semeval_cos import SemevalCosine
+
 from stanfordcorenlp import StanfordCoreNLP
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
@@ -74,6 +76,10 @@ class SVM():
                                                      vocabulary=self.vocabulary,
                                                      alpha=0.6,
                                                      sigma=0.6)
+
+        logging.info('Preparing SimBOW...', extra=d)
+        self.simbow = SemevalCosine(trainset, devset, testset)
+        self.simbow.train()
 
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
@@ -144,7 +150,6 @@ class BM25(SVM):
     def validate(self):
         logging.info('Validating bm25.', extra=d)
         ranking = {}
-        y_real, y_pred = [], []
         for i, q1id in enumerate(self.devset):
             ranking[q1id] = []
             percentage = round(float(i+1) / len(self.devset), 2)
@@ -163,7 +168,7 @@ class BM25(SVM):
                 real_label = 0
                 if rel_question['relevance'] != 'Irrelevant':
                     real_label = 1
-                ranking[q1id].append((real_label, q2score, str(0), q2id))
+                ranking[q1id].append((real_label, q2score, q2id))
 
                 logging.info('Finishing bm25 validation.')
         return ranking
@@ -248,6 +253,11 @@ class LinearSVM(SVM):
                 q2_emb = self.trainelmo.get(str(self.trainidx[query_question['q2_id']]))
                 x.append(features.frobenius_norm(q1_emb, q2_emb))
 
+                # softcosine
+                q1_full, q2_full = query_question['q1_full'], query_question['q2_full']
+                simbow = self.simbow.score(q1_full, q1_emb, q2_full, q2_emb)
+                x.append(simbow)
+
                 X.append(x)
                 y.append(query_question['label'])
 
@@ -290,6 +300,7 @@ class LinearSVM(SVM):
 
             query = self.devset[q1id]
             q1 = query['tokens']
+            q1_full = query['tokens_full']
             scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
             q1_lemma = query['subj_lemmas_full']
             q1_pos = query['subj_pos_full']
@@ -301,6 +312,7 @@ class LinearSVM(SVM):
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 q2 = rel_question['tokens']
+                q2_full = rel_question['tokens_full']
                 X = self.__transform__(q1, q2)
                 # bm25
                 X.append(scores[self.bm25_qid_index[q2id]])
@@ -322,17 +334,16 @@ class LinearSVM(SVM):
                 q2_emb = self.develmo.get(str(self.devidx[q2id]))
                 X.append(features.frobenius_norm(q1_emb, q2_emb))
 
+                # softcosine
+                simbow = self.simbow.score(q1_full, q1_emb, q2_full, q2_emb)
+                X.append(simbow)
+
                 # scale
                 X = self.scaler.transform([X])
 
                 score = self.model.decision_function(X)[0]
                 pred_label = self.model.predict(X)[0]
                 y_pred.append(pred_label)
-
-                # if pred_label == 1:
-                #     score += 100
-                # else:
-                #     score -= 100
 
                 real_label = 0
                 if rel_question['relevance'] != 'Irrelevant':
@@ -665,13 +676,13 @@ if __name__ == '__main__':
     # Linear SVM
     linear = LinearSVM(trainset, devset, [])
     linear.train()
+    # BM25
+    bm25 = BM25(trainset, devset, [])
+    bm25.train()
     # Tree SVM
     semeval = TreeSVM(trainset, devset, [])
     semeval.train()
     p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
-    # BM25
-    bm25 = BM25(trainset, devset, [])
-    bm25.train()
 
     # Linear performance
     linear_ranking, y_real, y_pred = linear.validate()
@@ -686,6 +697,16 @@ if __name__ == '__main__':
     print('F-Score: ', f1score)
     print(10 * '-')
 
+    # BM25 performance
+    devgold = utils.prepare_gold(GOLD_PATH)
+    bm25_ranking = bm25.validate()
+    map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
+
+    print('Evaluation BM25')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+
     # Tree performance
     tree_ranking, y_real, y_pred = semeval.validate()
     devgold = utils.prepare_gold(GOLD_PATH)
@@ -697,15 +718,6 @@ if __name__ == '__main__':
     print('MAP model: ', map_model)
     print('Accuracy: ', accuracy)
     print('F-Score: ', f1score)
-    print(10 * '-')
-
-    # BM25 performance
-    bm25_ranking = bm25.validate()
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
-
-    print('Evaluation BM25')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
     print(10 * '-')
 
     ranking = {}
