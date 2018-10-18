@@ -5,147 +5,79 @@ sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
 import copy
 import dynet as dy
 import ev, metrics
+import features
 import json
 import load
+import nltk
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
-import numpy as np
 import os
+import re
 import time
 import utils
 from sklearn.metrics import f1_score
-# ELMo
-from allennlp.modules.elmo import Elmo, batch_to_ids
 
-MODEL_PATH='models/models_elmo'
-EVALUATION_PATH='results/results_elmo'
+from stanfordcorenlp import StanfordCoreNLP
+
+STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
+
+EVALUATION_PATH='siamese'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
 GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
-ELMO_PATH='elmo'
 
-def load_glove():
-    tokens, embeddings = [], []
-    with open(GLOVE_PATH) as f:
-        for row in f.read().split('\n')[:-1]:
-            _row = row.split()
-            embeddings.append(np.array([float(x) for x in _row[1:]]))
-            tokens.append(_row[0])
-
-    # insert unk and eos token in the representations
-    tokens.append('UNK')
-    tokens.append('eos')
-    id2voc = {}
-    for i, token in enumerate(tokens):
-        id2voc[i] = token
-
-    voc2id = dict(map(lambda x: (x[1], x[0]), id2voc.items()))
-
-    UNK = np.random.uniform(-0.1, 0.1, (300,))
-    eos = np.random.uniform(-0.1, 0.1, (300,))
-    embeddings.append(UNK)
-    embeddings.append(eos)
-
-    return np.array(embeddings), voc2id, id2voc
-
-class _Elmo():
-    def __init__(self):
-        options_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json"
-        weight_file = "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
-
-        self.elmo = Elmo(options_file, weight_file, 2, dropout=0)
-
-    def contextualize(self, sentences):
-        token_ids = batch_to_ids(sentences)
-        context = self.elmo(token_ids)
-        embeddings = context['elmo_representations'][0].detach().tolist()
-
-        sentences = []
-        for snt_id, snt in enumerate(context['mask'].tolist()):
-            sntcontext = embeddings[snt_id]
-            sentence = []
-            for w_id, w in enumerate(snt):
-                if w_id == 1:
-                    sentence.append(sntcontext[w_id])
-            sentences.append(sentence)
-        return sentences
-
-def prepare_elmo(elmo, indexset, fname):
-    contexts = {}
-    for i, qid in enumerate(indexset):
-        percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
-        print('Process: ', percentage, end='\r')
-
-        question = indexset[qid]
-        if qid not in contexts:
-            contexts[qid] = { 'elmo': [], 'rel_questions': {}, 'rel_comments': {} }
-            contexts[qid]['elmo'] = elmo.contextualize(question['tokens'])[0]
-
-        duplicates = question['duplicates']
-        for duplicate in duplicates:
-            ids, texts = [], []
-            rel_question = duplicate['rel_question']
-            texts.append(rel_question['tokens'])
-            for rel_comment in duplicate['rel_comments']:
-                ids.append(rel_comment['id'])
-                texts.append(rel_comment['tokens'])
-
-            results = elmo.contextualize(texts)
-            contexts[qid]['rel_questions'][rel_question['id']] = results[0]
-            for j, result in enumerate(results[1:]):
-                contexts[qid]['rel_comments'][ids[j]] = result
-
-        if not os.path.exists(ELMO_PATH):
-            os.mkdir(ELMO_PATH)
-
-    json.dump(contexts, open(os.path.join(ELMO_PATH, fname), 'w'), separators=(':'), indent=4)
-    return contexts
+DATA_PATH='data'
+TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
+DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 class SemevalSiamese():
     def __init__(self, properties, trainset, devset, testset):
+        props={'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
+        corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
+
         self.INPUT = properties['INPUT']
         self.MODEL = properties['MODEL']
         self.EPOCH = properties['EPOCH']
         self.BATCH = properties['BATCH']
         self.EMB_DIM = properties['EMB_DIM']
         self.HIDDEN_DIM = properties['HIDDEN_DIM']
-        self.FEATURE_DIM = properties['FEATURE_DIM']
         self.ERROR = properties['ERROR']
         self.DROPOUT = properties['DROPOUT']
         self.EARLY_STOP = properties['EARLY_STOP']
         self.m = properties['m']
-        self.use_elmo = properties['ELMo']
         self.pretrained = properties['pretrained_input']
 
         print('Preparing trainset...')
-        self.trainset = utils.prepare_corpus(trainset)
-        self.traindata, self.voc2id, self.id2voc = utils.prepare_traindata(self.trainset, self.INPUT)
+        if not os.path.exists(TRAIN_PATH):
+            self.trainset = utils.prepare_corpus(trainset, corenlp=corenlp, props=props)
+            json.dump(self.trainset, open(TRAIN_PATH, 'w'))
+        else:
+            self.trainset = json.load(open(TRAIN_PATH))
+        self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
         print('TRAIN DATA SIZE: ', len(self.traindata))
         print('\nPreparing development set...')
-        self.devset = utils.prepare_corpus(devset)
+        if not os.path.exists(DEV_PATH):
+            self.devset = utils.prepare_corpus(devset, corenlp=corenlp, props=props)
+            json.dump(self.devset, open(DEV_PATH, 'w'))
+        else:
+            self.devset = json.load(open(DEV_PATH))
         self.devgold = utils.prepare_gold(GOLD_PATH)
         print('\nPreparing test set...')
-        self.testset = utils.prepare_corpus(testset)
+        self.testset = []
 
-        if self.use_elmo:
-            print('\nInitializing ELMo...')
+        corenlp.close()
 
-            if not os.path.exists(ELMO_PATH):
-                self.elmo = _Elmo()
-                self.trainelmo = prepare_elmo(self.elmo, self.trainset, 'trainvectors.json')
-                self.develmo = prepare_elmo(self.elmo, self.devset, 'devvectors.json')
-                self.testelmo = prepare_elmo(self.elmo, self.testset, 'testvectors.json')
-            else:
-                self.trainelmo = json.load(open(os.path.join(ELMO_PATH, 'trainvectors.json')))
-                self.develmo = json.load(open(os.path.join(ELMO_PATH, 'devvectors.json')))
-                self.testelmo = json.load(open(os.path.join(ELMO_PATH, 'testvectors.json')))
+        self.translation = features.init_translation(traindata=self.traindata,
+                                                     vocabulary=self.vocabulary,
+                                                     alpha=0.6,
+                                                     sigma=0.6)
+
+        self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
         print('\nInitializing model...')
+        self.FEATURE_DIM = len(self.__transform__(self.traindata[0]['q1'], self.traindata[0]['q2']))
         print(self.fname())
         self.init()
-
-        print('\nPreparing training data...')
-        self.traindata = self.extract_train_features()
 
 
     def init(self):
@@ -153,7 +85,7 @@ class SemevalSiamese():
         self.model = dy.Model()
 
         if self.pretrained:
-            embeddings, self.voc2id, self.id2voc = load_glove()
+            embeddings, self.voc2id, self.id2voc = features.init_glove()
             self.lp = self.model.lookup_parameters_from_numpy(embeddings)
         else:
             VOCAB_SIZE = len(self.voc2id)
@@ -385,7 +317,8 @@ class SemevalSiamese():
 
     def get_loss(self, query, question, label, features={}):
         # forward
-        query_vec, question_vec = self.forward(query['tokens'], question['tokens'])
+        q1, q2 = query['tokens'], question['tokens']
+        query_vec, question_vec = self.forward(q1, q2)
 
         if self.ERROR == 'cosine':
             cosine = self.cosine(query_vec, question_vec)
@@ -394,7 +327,7 @@ class SemevalSiamese():
             else:
                 loss = dy.rectify(cosine-dy.scalarInput(self.m))
         else:
-            features = dy.concatenate(list(map(lambda feature: dy.inputTensor(feature), features.values())))
+            features = dy.inputTensor(self.__transform__(q1, q2))
             x = dy.concatenate([query_vec, question_vec, features])
             probs = dy.softmax(self.W * x + self.bW)
             loss = -dy.log(dy.pick(probs, label))
@@ -417,8 +350,7 @@ class SemevalSiamese():
                          str(self.BATCH),
                          str(self.DROPOUT),
                          str(self.MODEL),
-                         str(self.pretrained),
-                         str(self.use_elmo)])
+                         str(self.pretrained)])
 
 
     def test(self, testset):
@@ -491,11 +423,9 @@ class SemevalSiamese():
                     pred_label = 'true'
                 else:
                     # FEATURES
-                    query_input = { 'id': qid, 'tokens': q1, 'embedding': query_embedding }
-                    question_input = { 'id': rel_question_id, 'tokens': q2, 'embedding': question_embedding }
-                    frobenius = dy.inputTensor(self.frobenius_norm(query=query_input, question=question_input, typeset='dev'))
+                    features = dy.inputTensor(self.__transform__(q1, q2))
 
-                    x = dy.concatenate([query_vec, question_vec, frobenius])
+                    x = dy.concatenate([query_vec, question_vec, features])
                     probs = dy.softmax(self.W * x + self.bW)
                     score = dy.pick(probs, 1).value()
                     if score > 0.5:
@@ -523,7 +453,7 @@ class SemevalSiamese():
 
         # Loggin
         path = self.fname() + '.log'
-        f = open(os.path.join(MODEL_PATH, path), 'w')
+        f = open(os.path.join(EVALUATION_PATH, path), 'w')
 
         epoch_timing = []
         early = 0.0
@@ -591,7 +521,7 @@ class SemevalSiamese():
                 best = copy.copy(map_model)
                 early = 0
                 path = self.fname() + '.dy'
-                self.model.save(os.path.join(MODEL_PATH, path))
+                self.model.save(os.path.join(EVALUATION_PATH, path))
             else:
                 early += 1
 
@@ -601,58 +531,43 @@ class SemevalSiamese():
 
 
     # FEATURE EXTRACTION METHODS
-    def extract_train_features(self):
-        for i, trainrow in enumerate(self.traindata):
-            percentage = round(float(i+1) / len(self.traindata), 2)
-            print('Progress: ', percentage, sep='\t', end='\r')
-            query = { 'id': trainrow['q1_id'], 'tokens': trainrow['q1'] }
-            question = { 'id': trainrow['q2_id'], 'tokens': trainrow['q2'] }
+    def __transform__(self, q1, q2):
+        if type(q1) == list: q1 = ' '.join(q1)
+        if type(q2) == list: q2 = ' '.join(q2)
 
-            query['embedding'] = self.__embed__(query['tokens'])
-            question['embedding'] = self.__embed__(question['tokens'])
+        lcs = features.lcs(re.split('(\W)', q1), re.split('(\W)', q2))
+        lcs1 = len(lcs[1].split())
+        lcs2 = lcs[0]
+        lcsub = features.lcsub(q1, q2)[0]
+        jaccard = features.jaccard(q1, q2)
+        containment_similarity = features.containment_similarities(q1, q2)
+        # greedy_tiling = features.greedy_string_tiling(q1, q2)
+        lmprob, trmprob, trlmprob, proctime = self.translation.score(q1.split(), q2.split())
 
-            if 'features' not in trainrow:
-                trainrow['features'] = {}
-            trainrow['features']['frobenius'] = self.frobenius_norm(query, question)
-        return self.traindata
+        X = [lcs1, lcsub, jaccard, containment_similarity, lmprob]
 
+        # ngram features
+        for n in range(2, 5):
+            ngram1 = ' '
+            for gram in nltk.ngrams(q1.split(), n):
+                ngram1 += 'x'.join(gram) + ' '
 
-    def frobenius_norm(self, query, question, typeset='train'):
-        if self.use_elmo:
-            if typeset == 'train':
-                elmovectors = self.trainelmo
-            elif typeset == 'dev':
-                elmovectors = self.develmo
-            else:
-                elmovectors = self.testelmo
+            ngram2 = ' '
+            for gram in nltk.ngrams(q2.split(), n):
+                ngram2 += 'x'.join(gram) + ' '
 
-            query_id = query['id']
-            query_context = list(map(lambda x: dy.inputTensor(np.array(x)), elmovectors[query_id]['elmo']))
-            query_emb = [dy.concatenate(list(p)) for p in zip(query['embedding'], query_context)]
+            lcs = features.lcs(re.split('(\W)', ngram1), re.split('(\W)', ngram2))
+            X.append(len(lcs[1].split()))
+            # X.append(lcs[0])
+            X.append(features.lcsub(ngram1, ngram2)[0])
+            X.append(features.jaccard(ngram1, ngram2))
+            X.append(features.containment_similarities(ngram1, ngram2))
 
-            question_id = question['id']
-            if question_id in elmovectors[query_id]['rel_questions']:
-                question_context = list(map(lambda x: dy.inputTensor(np.array(x)), elmovectors[query_id]['rel_questions'][question_id]))
-            else:
-                question_context = list(map(lambda x: dy.inputTensor(np.array(x)), elmovectors[query_id]['rel_comments'][question_id]))
-            question_emb = [dy.concatenate(list(p)) for p in zip(question['embedding'], question_context)]
-        else:
-            query_emb = query['embedding']
-            question_emb = question['embedding']
-
-        frobenius = 0.0
-        for i in range(len(query_emb)):
-            for j in range(len(question_emb)):
-                cos = dy.rectify(self.cosine(query_emb[i], question_emb[j])).value()
-                frobenius += (cos**2)
-
-        return [np.sqrt(frobenius)]
+        return X
 
 if __name__ == '__main__':
     if not os.path.exists(EVALUATION_PATH):
         os.mkdir(EVALUATION_PATH)
-    if not os.path.exists(MODEL_PATH):
-        os.mkdir(MODEL_PATH)
 
     print('Load corpus')
     trainset, devset = load.run()
@@ -665,18 +580,16 @@ if __name__ == '__main__':
         'BATCH': 64,
         'EMB_DIM': 300,
         'HIDDEN_DIM': 512,
-        'FEATURE_DIM':1,
-        'ERROR':'cosine',
+        'ERROR':'entropy',
         'DROPOUT': 0.2,
         'm': 0.1,
         'EARLY_STOP': 10,
         'MODEL': 'lstm',
-        'ELMo': True,
         'pretrained_input': True
     }
 
-    # siamese = SemevalSiamese(properties, trainset, devset, [])
-    # siamese.train()
+    siamese = SemevalSiamese(properties, trainset, devset, [])
+    siamese.train()
 
     # CONV
     properties = {
@@ -685,15 +598,13 @@ if __name__ == '__main__':
         'BATCH': 32,
         'EMB_DIM': 300,
         'HIDDEN_DIM': 128,
-        'FEATURE_DIM':1,
         'ERROR':'entropy',
         'DROPOUT': 0.2,
         'm': 0.1,
         'EARLY_STOP': 20,
         'MODEL': 'conv',
-        'ELMo': True,
         'pretrained_input': True
     }
 
-    siamese = SemevalSiamese(properties, trainset, devset, [])
-    siamese.train()
+    # siamese = SemevalSiamese(properties, trainset, devset, [])
+    # siamese.train()

@@ -20,8 +20,9 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from gensim.summarization import bm25
 from gensim.corpora import Dictionary
-from gensim.models import KeyedVectors
-from gensim.test.utils import datapath
+from gensim.models import Word2Vec
+# from gensim.models import KeyedVectors
+# from gensim.test.utils import datapath
 
 from translation import *
 
@@ -32,7 +33,7 @@ d = {'clientip': 'localhost', 'user': 'tcastrof'}
 logger = logging.getLogger('tcpserver')
 
 
-WORD2VEC_PATH='/home/tcastrof/workspace/word2vec/GoogleNews-vectors-negative300.bin.gz'
+WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec_stop/word2vec.model'
 GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
 ELMO_PATH='elmo/'
 TRANSLATION_PATH='translation/model/lex.f2e'
@@ -242,7 +243,8 @@ def init_elmo():
     return trainidx, trainelmo, devidx, develmo
 
 def init_word2vec():
-    return KeyedVectors.load_word2vec_format(datapath(WORD2VEC_PATH), binary=True)
+    # return KeyedVectors.load_word2vec_format(datapath(WORD2VEC_PATH), binary=True)
+    return Word2Vec.load(WORD2VEC_PATH)
 
 def encode(question, w2vec):
     emb = []
@@ -250,7 +252,7 @@ def encode(question, w2vec):
         try:
             emb.append(w2vec[w.lower()])
         except:
-            emb.append(w2vec['unk'])
+            emb.append(w2vec['null'])
     return emb
 
 def init_glove():
@@ -375,8 +377,10 @@ class TreeKernel():
                 if node1_type == 'terminal' and node2_type == 'terminal':
                     w1 = query_tree['nodes'][node1]['name'].replace('-rel', '').strip()
                     w2 = question_tree['nodes'][node2]['name'].replace('-rel', '').strip()
+                    lemma1 = query_tree['nodes'][node1]['lemma']
+                    lemma2 = question_tree['nodes'][node2]['lemma']
 
-                    if w1 == w2:
+                    if (w1 == w2) or (lemma1 == lemma2):
                         if '-rel' not in query_tree['nodes'][node1]['name']:
                             query_tree['nodes'][node1]['name'] += '-rel'
                         if '-rel' not in question_tree['nodes'][node2]['name']:

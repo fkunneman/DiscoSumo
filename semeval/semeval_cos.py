@@ -1,20 +1,21 @@
 __author__='thiagocastroferreira'
 
+import _pickle as p
 import features
 import json
 import load
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
+import preprocessing
+import string
+punct = string.punctuation
 import numpy as np
 import os
 import utils
-
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 
 from sklearn.metrics.pairwise import cosine_similarity
-
-from stanfordcorenlp import StanfordCoreNLP
 
 import logging
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
@@ -28,33 +29,21 @@ GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-d
 DATA_PATH='data'
 
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
+CORPUS_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec_stop/corpus.pickle'
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 class SemevalCosine():
-    def __init__(self, trainset, devset, testset):
-        props={'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
-        corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
-
-        logging.info('Preparing development set...', extra=d)
+    def __init__(self):
         if not os.path.exists(DEV_PATH):
-            self.devset = utils.prepare_corpus(devset, corenlp=corenlp, props=props)
-            json.dump(self.devset, open(DEV_PATH, 'w'))
-        else:
-            self.devset = json.load(open(DEV_PATH))
+            preprocessing.run()
+        logging.info('Preparing development set...', extra=d)
+        self.devset = json.load(open(DEV_PATH))
 
         logging.info('Preparing trainset...', extra=d)
-        if not os.path.exists(TRAIN_PATH):
-            self.trainset = utils.prepare_corpus(trainset, corenlp=corenlp, props=props)
-            json.dump(self.trainset, open(TRAIN_PATH, 'w'))
-        else:
-            self.trainset = json.load(open(TRAIN_PATH))
+        self.trainset = json.load(open(TRAIN_PATH))
         self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
-        logging.info('Preparing test set...', extra=d)
-        self.testset = utils.prepare_corpus(testset, corenlp=corenlp, props=props)
-
-        corenlp.close()
 
         logging.info('Preparing word2vec...', extra=d)
         self.word2vec = features.init_word2vec()
@@ -64,28 +53,34 @@ class SemevalCosine():
 
 
     def train(self):
-        traindata = []
-        for qid in self.trainset:
-            query = self.trainset[qid]['tokens_full']
+        if not os.path.exists('data/tfidf.model'):
+            traindata = p.load(open(CORPUS_PATH, 'rb'))
+            for qid in self.trainset:
+                query = self.trainset[qid]['tokens']
 
-            duplicates = self.trainset[qid]['duplicates']
-            for duplicate in duplicates:
-                question = duplicate['rel_question']['tokens_full']
-                traindata.append(question)
+                duplicates = self.trainset[qid]['duplicates']
+                for duplicate in duplicates:
+                    question = duplicate['rel_question']['tokens']
+                    traindata.append(question)
 
-            traindata.append(query)
+                traindata.append(query)
 
-        self.dict = Dictionary(traindata)  # fit dictionary
-        corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
-        self.tfidf = TfidfModel(corpus)  # fit model
+            self.dict = Dictionary(traindata)  # fit dictionary
+            corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
+            self.tfidf = TfidfModel(corpus)  # fit model
+            self.dict.save('data/dict.model')
+            self.tfidf.save('data/tfidf.model')
+        else:
+            self.dict = Dictionary.load('data/dict.model')
+            self.tfidf = TfidfModel.load('data/tfidf.model')
 
 
-    def dot(self, q1, q2):
+    def dot(self, q1, q1tfidf, q2, q2tfidf):
         cos = 0.0
-        for i, w1 in enumerate(q1):
-            for j, w2 in enumerate(q2):
+        for i, w1 in enumerate(q1tfidf):
+            for j, w2 in enumerate(q2tfidf):
                 if w1[0] == w2[0]:
-                    if q1[i] not in stop and q2[j] not in stop:
+                    if q1[i] not in stop and q2[j] not in stop and q1[i] not in punct and q2[j] not in punct:
                         cos += (w1[1] * w2[1])
         return cos
 
@@ -96,21 +91,24 @@ class SemevalCosine():
         if type(q2) == str:
             q2 = q2.split()
 
-        q1 = self.tfidf[self.dict.doc2bow(q1)]
-        q2 = self.tfidf[self.dict.doc2bow(q2)]
-        q1q1 = np.sqrt(self.dot(q1, q1))
-        q2q2 = np.sqrt(self.dot(q2, q2))
-        return self.dot(q1, q2) / (q1q1 * q2q2)
+        q1_tfidf = self.tfidf[self.dict.doc2bow(q1)]
+        q2_tfidf = self.tfidf[self.dict.doc2bow(q2)]
+
+        q1q1 = np.sqrt(self.dot(q1, q1_tfidf, q1, q1_tfidf))
+        q2q2 = np.sqrt(self.dot(q2, q2_tfidf, q2, q2_tfidf))
+        return self.dot(q1, q1_tfidf, q2, q2_tfidf) / (q1q1 * q2q2)
 
 
-    def softdot(self, q1, q1emb, q2, q2emb):
+    def softdot(self, q1, q1tfidf, q1emb, q2, q2tfidf, q2emb):
         cos = 0.0
-        for i, w1 in enumerate(q1):
-            for j, w2 in enumerate(q2):
-                if q1[i] not in stop and q2[j] not in stop:
-                    m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])**2
-                    # m_ij = cosine_similarity([q1emb[i]], [q2emb[j]])[0][0]
-                    cos += (w1[1] * m_ij * w2[1])
+        for i, w1 in enumerate(q1tfidf):
+            for j, w2 in enumerate(q2tfidf):
+                if q1[i] not in stop and q2[j] not in stop and q1[i] not in punct and q2[j] not in punct:
+                    if w1[0] == w2[0]:
+                        cos += (w1[1] * w2[1])
+                    else:
+                        m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])**2
+                        cos += (w1[1] * m_ij * w2[1])
         return cos
 
 
@@ -120,11 +118,12 @@ class SemevalCosine():
         if type(q2) == str:
             q2 = q2.split()
 
-        q1 = self.tfidf[self.dict.doc2bow(q1)]
-        q2 = self.tfidf[self.dict.doc2bow(q2)]
-        q1q1 = np.sqrt(self.softdot(q1, q1emb, q1, q1emb))
-        q2q2 = np.sqrt(self.softdot(q2, q2emb, q2, q2emb))
-        sofcosine = self.softdot(q1, q1emb, q2, q2emb) / (q1q1 * q2q2)
+        q1_tfidf = self.tfidf[self.dict.doc2bow(q1)]
+        q2_tfidf = self.tfidf[self.dict.doc2bow(q2)]
+
+        q1q1 = np.sqrt(self.softdot(q1, q1_tfidf, q1emb, q1, q1_tfidf, q1emb))
+        q2q2 = np.sqrt(self.softdot(q2, q2_tfidf, q2emb, q2, q2_tfidf, q2emb))
+        sofcosine = self.softdot(q1, q1_tfidf, q1emb, q2, q2_tfidf, q2emb) / (q1q1 * q2q2)
         return sofcosine
 
 
@@ -137,7 +136,7 @@ class SemevalCosine():
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
             query = self.devset[q1id]
-            q1 = query['tokens_full']
+            q1 = query['tokens_proc']
             elmo_emb1 = self.develmo.get(str(self.devidx[q1id]))
             w2v_emb = features.encode(q1, self.word2vec)
             # q1emb = features.glove_encode(q1, self.glove, self.voc2id)
@@ -148,7 +147,7 @@ class SemevalCosine():
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
 
-                q2 = rel_question['tokens_full']
+                q2 = rel_question['tokens_proc']
                 elmo_emb2 = self.develmo.get(str(self.devidx[q2id]))
                 w2v_emb = features.encode(q2, self.word2vec)
                 # q2emb = features.glove_encode(q2, self.glove, self.voc2id)
@@ -181,7 +180,7 @@ if __name__ == '__main__':
         os.mkdir(DATA_PATH)
 
     # Softcosine
-    semeval = SemevalCosine(trainset, devset, [])
+    semeval = SemevalCosine()
     semeval.train()
 
     softranking, simranking = semeval.validate()

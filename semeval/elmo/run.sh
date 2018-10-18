@@ -1,6 +1,6 @@
 ELMO_PATH=/home/tcastrof/.local/lib/python3.6/site-packages/allennlp
 
-python3 preprocess.py
+python3 elmo.py
 
 echo "processing training set..."
 INPUT_PATH=train/sentences.txt
