@@ -220,7 +220,6 @@ class LinearSVM(SVM):
 
                 q2_elmo = self.trainelmo.get(str(self.trainidx[query_question['q2_id']]))
                 q2_w2v = features.encode(q2, self.word2vec)
-                print(len(q2_w2v), q2_elmo.shape)
                 q2_emb = [np.concatenate([q2_w2v[i], q2_elmo[i]]) for i in range(len(q2_w2v))]
 
                 # bm25
