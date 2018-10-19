@@ -124,9 +124,9 @@ def greedy_string_tiling(query, question, tokenize=False):
     # if py>3.0, nonlocal is better
     class markit:
         a=[0]
-        minlen=1
+        minlen=2
     markit.a=[0]*len(query)
-    markit.minlen=1
+    markit.minlen=2
 
     #output char index
     out=[]
