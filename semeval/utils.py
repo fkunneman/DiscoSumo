@@ -184,11 +184,11 @@ def prepare_traindata(indexset):
 
             rel_comments = duplicate['rel_comments']
             for rel_comment in rel_comments:
-                q2 = rel_comment['tokens_proc']
+                q3 = rel_comment['tokens_proc']
 
                 comments.append({
                     'id': rel_comment['id'],
-                    'tokens': q2,
+                    'tokens': q3,
                 })
 
             label = 0

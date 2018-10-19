@@ -29,7 +29,12 @@ def run():
         except:
             print('parsing error...')
             tokens = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', question)
-        return ' '.join(tokens)
+
+        tokens = ' '.join(tokens)
+        # treating empty documents to avoid error on allennlp
+        if tokens.strip() == '':
+            tokens = 'eos'
+        return tokens
 
     def process(procset):
         indexes, sentences = [], []
