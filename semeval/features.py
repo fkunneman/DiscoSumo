@@ -21,6 +21,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from gensim.summarization import bm25
 from gensim.corpora import Dictionary
 from gensim.models import Word2Vec
+from gst import match
 # from gensim.models import KeyedVectors
 # from gensim.test.utils import datapath
 
@@ -112,46 +113,12 @@ def containment_similarities(query, question, tokenize=False):
     return float(len(query & question)) / len(query)
 
 def greedy_string_tiling(query, question, tokenize=False):
+
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
         question = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', question)
-    query = query.split()
-    question = question.split()
-
-    if len(query) == 0 or len(question) == 0:
-        return 0
-
-    # if py>3.0, nonlocal is better
-    class markit:
-        a=[0]
-        minlen=2
-    markit.a=[0]*len(query)
-    markit.minlen=2
-
-    #output char index
-    out=[]
-
-    # To find the max length substr (index)
-    # apos is the position of a[0] in origin string
-    def maxsub(a,b,apos=0,lennow=0):
-        if (len(a) == 0 or len(b) == 0):
-            return []
-        if (a[0]==b[0] and markit.a[apos]!=1 ):
-            return [apos]+maxsub(a[1:],b[1:],apos+1,lennow=lennow+1)
-        elif (a[0]!=b[0] and lennow>0):
-            return []
-        return max(maxsub(a, b[1:],apos), maxsub(a[1:], b,apos+1), key=len)
-
-    while True:
-        findmax=maxsub(query,question,0,0)
-        if (len(findmax)<markit.minlen):
-            break
-        else:
-            for i in findmax:
-                markit.a[i]=1
-            out+=findmax
-    gst = [ query[i] for i in out ]
-    return len(gst) / len(query)
+        
+    return sum([x[2] for x in match(query, '', question, '', 2)]) / len(query)
 
 def dice(query, question, tokenize=False):
     if tokenize:
