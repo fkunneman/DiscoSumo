@@ -112,6 +112,15 @@ def containment_similarities(query, question, tokenize=False):
 
     return float(len(query & question)) / len(query)
 
+####################################
+### implementation from Aalto-LeTech
+###
+### before applying greedy string tiling:
+### git clone --depth 1 https://github.com/Aalto-LeTech/greedy-string-tiling.git
+### cd greedy-string-tiling
+### pip install . hypothesis
+###################################
+
 def greedy_string_tiling(query, question, tokenize=False):
 
     if tokenize:
