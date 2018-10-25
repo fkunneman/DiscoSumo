@@ -22,6 +22,7 @@ from gensim.summarization import bm25
 from gensim.corpora import Dictionary
 from gensim.models import Word2Vec
 from gst import match
+import lda
 # from gensim.models import KeyedVectors
 # from gensim.test.utils import datapath
 
@@ -142,10 +143,38 @@ def dice(query, question, tokenize=False):
     return distance.dice(query, question)
 
 def cosine(q1, q2, n=1):
-    vectorizer = CountVectorizer(ngram_range=(n,n), stop_words=None)
+    vectorizer = CountVectorizer(ngram_range=(n,n), stop_words='english')
     model = vectorizer.fit((q1,q2))
     vectors = vectorizer.transform([q1,q2])
     return cosine_similarity(vectors)[0,1]
+
+def init_lda(traindata, n_topics=50):
+
+    # set corpus
+    logging.info('Setting lda')
+    questions = []
+    qs = [] 
+    for row in traindata:
+        qid, q = row['q1_id'], row['q1']
+        if qid not in qs:
+            questions.append(' '.join(q))
+            qs.append(qid)
+        qid, q = row['q2_id'], row['q2']
+        if qid not in qs:
+            questions.append(' '.join(q))
+            qs.append(qid)
+
+    # vectorize corpus
+    vectorizer = CountVectorizer(ngram_range=(1,1), stop_words='english')
+    vectors = vectorizer.fit_transform(questions)
+
+    # train lda
+    print('Training model')
+    model = lda.LDA(n_topics=n_topics, random_state=0, n_iter=1500)
+    model.fit(vectors)
+    print('DONE.')
+
+    return model, vectorizer    
 
 def init_translation(traindata, vocabulary, alpha, sigma):
     logging.info('Load background probabilities', extra=d)
