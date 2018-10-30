@@ -17,12 +17,9 @@ import os
 import re
 from difflib import SequenceMatcher
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from gensim.summarization import bm25
 from gensim.corpora import Dictionary
 from gensim.models import Word2Vec
-# from gensim.models import KeyedVectors
-# from gensim.test.utils import datapath
 
 from translation import *
 
@@ -33,7 +30,7 @@ d = {'clientip': 'localhost', 'user': 'tcastrof'}
 logger = logging.getLogger('tcpserver')
 
 
-WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec_stop/word2vec.model'
+WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec/word2vec_stop.model'
 GLOVE_PATH='/home/tcastrof/workspace/glove/glove.6B.300d.txt'
 ELMO_PATH='elmo/'
 TRANSLATION_PATH='translation/model/lex.f2e'
@@ -62,6 +59,7 @@ def lcsub(query, question):
         sub = ''
     return (len(sub), sub)
 
+
 def lcs(query, question):
     if len(query) == 0 or len(question) == 0:
         return 0, ''
@@ -81,6 +79,7 @@ def lcs(query, question):
 
     return len(cs), cs
 
+
 def jaccard(query, question, tokenize=False):
     '''
     :param query:
@@ -99,6 +98,7 @@ def jaccard(query, question, tokenize=False):
 
     return float(len(query & question)) / len(query | question)
 
+
 def containment_similarities(query, question, tokenize=False):
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
@@ -110,6 +110,7 @@ def containment_similarities(query, question, tokenize=False):
         return 0
 
     return float(len(query & question)) / len(query)
+
 
 def greedy_string_tiling(query, question, tokenize=False):
     if tokenize:
@@ -153,6 +154,7 @@ def greedy_string_tiling(query, question, tokenize=False):
     gst = [ query[i] for i in out ]
     return len(gst) / len(query)
 
+
 def dice(query, question, tokenize=False):
     if tokenize:
         query = re.sub(r'([.,;:?!\'\(\)-])', r' \1 ', query)
@@ -165,11 +167,12 @@ def dice(query, question, tokenize=False):
 
     return distance.dice(query, question)
 
+
 def cosine(q1, q2, n=1):
     vectorizer = CountVectorizer(ngram_range=(n,n), stop_words=None)
-    model = vectorizer.fit((q1,q2))
     vectors = vectorizer.transform([q1,q2])
     return cosine_similarity(vectors)[0,1]
+
 
 def init_translation(traindata, vocabulary, alpha, sigma):
     logging.info('Load background probabilities', extra=d)
@@ -188,6 +191,7 @@ def init_translation(traindata, vocabulary, alpha, sigma):
     t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
     translation = TRLM([], w_C, t2w, len(vocabulary), alpha=alpha, sigma=sigma)  # translation-based language model
     return translation
+
 
 def init_bm25(traindata,devdata=False,testdata=False):
 
@@ -230,21 +234,26 @@ def init_bm25(traindata,devdata=False,testdata=False):
 
     return model, average_idf, dct, index_qid
 
-def init_elmo():
-    trainelmo = h5py.File(os.path.join(ELMO_PATH, 'train', 'elmovectors.hdf5'), 'r')
-    with open(os.path.join(ELMO_PATH, 'train', 'index.txt')) as f:
+
+def init_elmo(stop=True):
+    train_path = os.path.join(ELMO_PATH, 'train') if stop else os.path.join(ELMO_PATH, 'train_full')
+    trainelmo = h5py.File(os.path.join(train_path, 'elmovectors.hdf5'), 'r')
+    with open(os.path.join(train_path, 'index.txt')) as f:
         trainidx = f.read().split('\n')
         trainidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(trainidx)])
 
-    develmo = h5py.File(os.path.join(ELMO_PATH, 'dev', 'elmovectors.hdf5'), 'r')
-    with open(os.path.join(ELMO_PATH, 'dev', 'index.txt')) as f:
+    dev_path = os.path.join(ELMO_PATH, 'dev') if stop else os.path.join(ELMO_PATH, 'dev_full')
+    develmo = h5py.File(os.path.join(dev_path, 'elmovectors.hdf5'), 'r')
+    with open(os.path.join(dev_path, 'index.txt')) as f:
         devidx = f.read().split('\n')
         devidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(devidx)])
     return trainidx, trainelmo, devidx, develmo
 
+
 def init_word2vec():
     # return KeyedVectors.load_word2vec_format(datapath(WORD2VEC_PATH), binary=True)
     return Word2Vec.load(WORD2VEC_PATH)
+
 
 def encode(question, w2vec):
     emb = []
@@ -254,6 +263,7 @@ def encode(question, w2vec):
         except:
             emb.append(w2vec['null'])
     return emb
+
 
 def init_glove():
     tokens, embeddings = [], []
@@ -279,6 +289,7 @@ def init_glove():
 
     return np.array(embeddings), voc2id, id2voc
 
+
 def glove_encode(question, glovevec, voc2id):
     emb = []
     for w in question:
@@ -287,6 +298,7 @@ def glove_encode(question, glovevec, voc2id):
         except:
             emb.append(glovevec[voc2id['UNK']])
     return emb
+
 
 def frobenius_norm(query_emb, question_emb):
     def dycosine(query_vec, question_vec):
@@ -309,6 +321,7 @@ def frobenius_norm(query_emb, question_emb):
     dy.renew_cg()
     return np.sqrt(frobenius)
 
+
 class TreeKernel():
     def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True):
         self.alpha = alpha
@@ -317,19 +330,19 @@ class TreeKernel():
         self.smoothed = smoothed
 
 
-    def __call__(self, query_tree, question_tree, query_emb=[], question_emb=[]):
+    def __call__(self, q1_tree, q2_tree, q1_emb=[], q2_emb=[]):
         result = 0
-        self.query_emb = query_emb
-        self.question_emb = question_emb
+        self.q1_emb = q1_emb
+        self.q2_emb = q2_emb
 
-        for node1 in query_tree['nodes']:
-            node1_type = query_tree['nodes'][node1]['type']
-            edgelen1 = len(query_tree['edges'][node1])
-            for node2 in question_tree['nodes']:
-                node2_type = question_tree['nodes'][node2]['type']
+        for node1 in q1_tree['nodes']:
+            node1_type = q1_tree['nodes'][node1]['type']
+            edgelen1 = len(q1_tree['edges'][node1])
+            for node2 in q2_tree['nodes']:
+                node2_type = q2_tree['nodes'][node2]['type']
                 if 'terminal' not in [node1_type, node2_type]:
-                    edgelen2 = len(question_tree['edges'][node2])
-                    delta = (self.decay**(edgelen1+edgelen2)) * self.__delta__(query_tree, question_tree, node1, node2)
+                    edgelen2 = len(q2_tree['edges'][node2])
+                    delta = (self.decay**(edgelen1+edgelen2)) * self.__delta__(q1_tree, q2_tree, node1, node2)
                     result += delta
 
         return result
@@ -356,7 +369,7 @@ class TreeKernel():
 
                     idx1 = tree1['nodes'][child1]['idx']
                     idx2 = tree2['nodes'][child2]['idx']
-                    result = cosine_similarity([self.query_emb[idx1]], [self.question_emb[idx2]])[0][0]
+                    result = cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0]
             else:
                 result = 1
                 for i in range(len(tree1['edges'][root1])):
@@ -368,42 +381,46 @@ class TreeKernel():
         return result
 
 
-    def similar_terminals(self, query_tree, question_tree):
-        for node1 in query_tree['nodes']:
-            node1_type = query_tree['nodes'][node1]['type']
-            for node2 in question_tree['nodes']:
-                node2_type = question_tree['nodes'][node2]['type']
+    def similar_terminals(self, q1_tree, q2_tree):
+        for node1 in q1_tree['nodes']:
+            node1_type = q1_tree['nodes'][node1]['type']
+            for node2 in q2_tree['nodes']:
+                node2_type = q2_tree['nodes'][node2]['type']
 
                 if node1_type == 'terminal' and node2_type == 'terminal':
-                    w1 = query_tree['nodes'][node1]['name'].replace('-rel', '').strip()
-                    w2 = question_tree['nodes'][node2]['name'].replace('-rel', '').strip()
-                    lemma1 = query_tree['nodes'][node1]['lemma']
-                    lemma2 = question_tree['nodes'][node2]['lemma']
+                    w1 = q1_tree['nodes'][node1]['name'].replace('-rel', '').strip()
+                    w2 = q2_tree['nodes'][node2]['name'].replace('-rel', '').strip()
+                    lemma1 = q1_tree['nodes'][node1]['lemma']
+                    lemma2 = q2_tree['nodes'][node2]['lemma']
 
                     if (w1 == w2) or (lemma1 == lemma2):
-                        if '-rel' not in query_tree['nodes'][node1]['name']:
-                            query_tree['nodes'][node1]['name'] += '-rel'
-                        if '-rel' not in question_tree['nodes'][node2]['name']:
-                            question_tree['nodes'][node2]['name'] += '-rel'
+                        if '-rel' not in q1_tree['nodes'][node1]['name']:
+                            q1_tree['nodes'][node1]['name'] += '-rel'
+                        if '-rel' not in q2_tree['nodes'][node2]['name']:
+                            q2_tree['nodes'][node2]['name'] += '-rel'
 
                         # fathers
-                        prev_id1 = query_tree['nodes'][node1]['parent']
-                        if '-rel' not in query_tree['nodes'][prev_id1]['name']:
-                            query_tree['nodes'][prev_id1]['name'] += '-rel'
+                        prev_id1 = q1_tree['nodes'][node1]['parent']
+                        if prev_id1 in q1_tree['nodes']:
+                            if '-rel' not in q1_tree['nodes'][prev_id1]['name']:
+                                q1_tree['nodes'][prev_id1]['name'] += '-rel'
 
-                        prev_id2 = question_tree['nodes'][node2]['parent']
-                        if '-rel' not in question_tree['nodes'][prev_id2]['name']:
-                            question_tree['nodes'][prev_id2]['name'] += '-rel'
+                            prev_prev_id1 = q1_tree['nodes'][prev_id1]['parent']
+                            if prev_prev_id1 in q1_tree['nodes']:
+                                if '-rel' not in q1_tree['nodes'][prev_prev_id1]['name']:
+                                    q1_tree['nodes'][prev_prev_id1]['name'] += '-rel'
 
-                        # grandfathers
-                        prev_prev_id1 = query_tree['nodes'][prev_id1]['parent']
-                        if '-rel' not in query_tree['nodes'][prev_prev_id1]['name']:
-                            query_tree['nodes'][prev_prev_id1]['name'] += '-rel'
 
-                        prev_prev_id2 = question_tree['nodes'][prev_id2]['parent']
-                        if '-rel' not in question_tree['nodes'][prev_prev_id2]['name']:
-                            question_tree['nodes'][prev_prev_id2]['name'] += '-rel'
-        return query_tree, question_tree
+                        prev_id2 = q2_tree['nodes'][node2]['parent']
+                        if prev_id2 in q2_tree['nodes']:
+                            if '-rel' not in q2_tree['nodes'][prev_id2]['name']:
+                                q2_tree['nodes'][prev_id2]['name'] += '-rel'
+
+                            prev_prev_id2 = q2_tree['nodes'][prev_id2]['parent']
+                            if prev_prev_id2 in q2_tree['nodes']:
+                                if '-rel' not in q2_tree['nodes'][prev_prev_id2]['name']:
+                                    q2_tree['nodes'][prev_prev_id2]['name'] += '-rel'
+        return q1_tree, q2_tree
 
 
     def get_production(self, tree, root):

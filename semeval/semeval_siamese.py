@@ -69,8 +69,8 @@ class SemevalSiamese():
 
         self.translation = features.init_translation(traindata=self.traindata,
                                                      vocabulary=self.vocabulary,
-                                                     alpha=0.6,
-                                                     sigma=0.6)
+                                                     alpha=0.2,
+                                                     sigma=0.8)
 
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
 
@@ -97,7 +97,7 @@ class SemevalSiamese():
             self.init_lstm()
 
         if self.ERROR == 'entropy':
-            self.W = self.model.add_parameters((2, (self.HIDDEN_DIM*2)+self.FEATURE_DIM))
+            self.W = self.model.add_parameters((2, (self.HIDDEN_DIM*2)))
             self.bW = self.model.add_parameters((2))
 
 
@@ -327,8 +327,8 @@ class SemevalSiamese():
             else:
                 loss = dy.rectify(cosine-dy.scalarInput(self.m))
         else:
-            features = dy.inputTensor(self.__transform__(q1, q2))
-            x = dy.concatenate([query_vec, question_vec, features])
+            # features = dy.inputTensor(self.__transform__(q1, q2))
+            x = dy.concatenate([query_vec, question_vec])
             probs = dy.softmax(self.W * x + self.bW)
             loss = -dy.log(dy.pick(probs, label))
 
@@ -423,9 +423,9 @@ class SemevalSiamese():
                     pred_label = 'true'
                 else:
                     # FEATURES
-                    features = dy.inputTensor(self.__transform__(q1, q2))
+                    # features = dy.inputTensor(self.__transform__(q1, q2))
 
-                    x = dy.concatenate([query_vec, question_vec, features])
+                    x = dy.concatenate([query_vec, question_vec])
                     probs = dy.softmax(self.W * x + self.bW)
                     score = dy.pick(probs, 1).value()
                     if score > 0.5:
@@ -588,8 +588,8 @@ if __name__ == '__main__':
         'pretrained_input': True
     }
 
-    siamese = SemevalSiamese(properties, trainset, devset, [])
-    siamese.train()
+    # siamese = SemevalSiamese(properties, trainset, devset, [])
+    # siamese.train()
 
     # CONV
     properties = {
@@ -606,5 +606,5 @@ if __name__ == '__main__':
         'pretrained_input': True
     }
 
-    # siamese = SemevalSiamese(properties, trainset, devset, [])
-    # siamese.train()
+    siamese = SemevalSiamese(properties, trainset, devset, [])
+    siamese.train()

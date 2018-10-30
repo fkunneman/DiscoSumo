@@ -1,137 +1,125 @@
 __author__='thiagocastroferreira'
 
-import sys
-sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
-sys.path.append('../')
-import ev
-import load
-import nltk
-from nltk.corpus import stopwords
-stop = set(stopwords.words('english'))
+import logging
+FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
+logging.basicConfig(format=FORMAT)
+d = {'clientip': 'localhost', 'user': 'tcastrof'}
+logger = logging.getLogger('tcpserver')
+
+import features
 import os
-import re
+import utils
 from translation import *
-from gensim import corpora
-from multiprocessing import Pool
+from semeval_svm import SemevalModel
 
 TRANSLATION_PATH='translation/model/lex.f2e'
 EVALUATION_PATH='results'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
-def prepare_questions(trainset):
-    questions = {}
+DATA_PATH='data'
 
-    for qid in trainset:
-        question = trainset[qid]
-        q1 = question['subject'] + ' ' + question['body']
-        # tokenizing and removing punctuation / stopwords
-        q1 = re.sub(r'[^\w\s]',' ', q1).strip()
-        q1 = [w for w in nltk.word_tokenize(q1.lower()) if w not in stop]
-        questions[qid] = q1
+class SemevalTranslation(SemevalModel):
+    def __init__(self):
+        SemevalModel.__init__(self)
 
-        duplicates = question['duplicates']
-        for duplicate in duplicates:
-            rel_question = duplicate['rel_question']
-            rel_question_id = rel_question['id']
-            q2 = rel_question['subject']
-            if rel_question['body']:
-                q2 += ' ' + rel_question['body']
-            # tokenizing and removing punctuation / stopwords
-            q2 = re.sub(r'[^\w\s]',' ', q2).strip()
-            q2 = [w for w in nltk.word_tokenize(q2.lower()) if w not in stop]
-            questions[rel_question_id] = q2
-    vocabulary = corpora.Dictionary(questions.values())
-    return questions, vocabulary
+    def train(self):
+        pass
 
-def run(thread_id, questions, w_C, t2w, voclen, alpha, sigma):
-    def rank(ranking):
-        _ranking = []
-        for i, q in enumerate(sorted(ranking, key=lambda x: x[1], reverse=True)):
-            _ranking.append({'Answer_ID':q[0], 'SCORE':q[1], 'RANK':i+1, 'LABEL':'true'})
-        return _ranking
+    def validate(self):
+        logging.info('Validating', extra=d)
+        simplelm, simpletrm, simpletrlm = {}, {}, {}
+        lm, trm, trlm = {}, {}, {}
+        for j, q1id in enumerate(self.devset):
+            simplelm[q1id] = []
+            simpletrm[q1id] = []
+            simpletrlm[q1id] = []
+            lm[q1id] = []
+            trm[q1id] = []
+            trlm[q1id] = []
+            percentage = round(float(j+1) / len(self.devset), 2)
+            print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
-    print('Load language model')
-    trlm = TRLM([], w_C, t2w, voclen, alpha, sigma)  # translation-based language model
+            query = self.devset[q1id]
+            q1 = query['tokens_proc']
+            elmo_emb1 = self.develmo.get(str(self.devidx[q1id]))
+            w2v_emb = features.encode(q1, self.word2vec)
+            q1emb = [np.concatenate([w2v_emb[i], elmo_emb1[i]]) for i in range(len(w2v_emb))]
 
-    lmranking, trmranking, trlmranking = {}, {}, {}
-    for i, query_id in enumerate(questions):
-        percentage = str(round((float(i+1) / len(questions)) * 100, 2)) + '%'
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
 
+                q2 = rel_question['tokens_proc']
+                elmo_emb2 = self.develmo.get(str(self.devidx[q2id]))
+                w2v_emb = features.encode(q2, self.word2vec)
+                q2emb = [np.concatenate([w2v_emb[i], elmo_emb2[i]]) for i in range(len(w2v_emb))]
 
-        question = questions[query_id]
-        query = question['subject'] + ' ' + question['body']
-        # tokenizing and removing punctuation / stopwords
-        query = re.sub(r'[^\w\s]',' ', query).strip()
-        query = [w for w in nltk.word_tokenize(query.lower()) if w not in stop]
+                slmprob, strmprob, strlmprob, _ = self.translation.score(q1, q2)
+                lmprob, trmprob, trlmprob, _ = self.translation.score_embeddings(q1, q1emb, q2, q2emb)
+                real_label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    real_label = 1
+                simplelm[q1id].append((real_label, slmprob, q2id))
+                simpletrm[q1id].append((real_label, strmprob, q2id))
+                simpletrlm[q1id].append((real_label, strlmprob, q2id))
+                lm[q1id].append((real_label, lmprob, q2id))
+                trm[q1id].append((real_label, trmprob, q2id))
+                trlm[q1id].append((real_label, trlmprob, q2id))
 
-        lmranking[query_id] = []
-        trmranking[query_id] = []
-        trlmranking[query_id] = []
+        with open('data/translationranking.txt', 'w') as f:
+            for q1id in trlm:
+                for row in trlm[q1id]:
+                    label = 'false'
+                    if row[0] == 1:
+                        label = 'true'
+                    f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
 
-        duplicates = question['duplicates']
-        for duplicate in duplicates:
-            rel_question = duplicate['rel_question']
-            rel_question_id = rel_question['id']
-            rel_question_text = rel_question['subject']
-            if rel_question['body']:
-                rel_question_text += ' ' + rel_question['body']
-            # tokenizing and removing punctuation / stopwords
-            rel_question_text = re.sub(r'[^\w\s]',' ', rel_question_text).strip()
-            rel_question_text = [w for w in nltk.word_tokenize(rel_question_text.lower()) if w not in stop]
-
-            lmprob, trmprob, trlmprob, proctime = trlm.score(query, rel_question_text)
-            lmranking[query_id].append((rel_question_id, lmprob))
-            trmranking[query_id].append((rel_question_id, trmprob))
-            trlmranking[query_id].append((rel_question_id, trlmprob))
-
-        lmranking[query_id] = rank(lmranking[query_id])
-        trmranking[query_id] = rank(trmranking[query_id])
-        trlmranking[query_id] = rank(trlmranking[query_id])
-
-        # print('Thread ID:', thread_id, 'Query Number: ', i, 'Query ID: ', query_id, 'Percentage:', percentage, sep='\t')
-    return lmranking, trmranking, trlmranking
+        logging.info('Finishing to validate.', extra=d)
+        return simplelm, simpletrm, simpletrlm, lm, trm, trlm
 
 if __name__ == '__main__':
-    print('Load corpus')
-    trainset, devset = load.run()
-    print('Preparing training questions and vocabulary')
-    train_questions, vocabulary = prepare_questions(trainset)
-    print('\nLoad background probabilities')
-    w_C = compute_w_C(train_questions, vocabulary)  # background lm
-    print('Load translation probabilities')
-    t2w = translation_prob(TRANSLATION_PATH)  # translation probabilities
+    if not os.path.exists(DATA_PATH):
+        os.mkdir(DATA_PATH)
 
-    if not os.path.exists(EVALUATION_PATH):
-        os.mkdir(EVALUATION_PATH)
+    # Softcosine
+    semeval = SemevalTranslation()
 
-    THREADS = 25
-    pool = Pool(processes=THREADS)
-    processes = []
+    simplelm, simpletrm, simpletrlm, lm, trm, trlm = semeval.validate()
 
-    alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-    sigmas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-    thread_id = 0
-    for alpha in alphas:
-        for sigma in sigmas:
-            thread_id += 1
-            process = pool.apply_async(run, [thread_id, devset, w_C, t2w, len(vocabulary), alpha, sigma])
-            processes.append((process, sigma, alpha))
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, simplelm)
+    print('Evaluation simplelm')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
 
-    for row in processes:
-        process, sigma, alpha = row
-        lmranking, trmranking, trlmranking = process.get()
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, simpletrm)
+    print('Evaluation simpletrm')
+    print('MAP model: ', map_model)
+    print(10 * '-')
 
-        PRED_PATH = os.path.join(EVALUATION_PATH, 'lm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
-        load.save(lmranking, PRED_PATH)
-        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
-        print('lm_alpha-' + str(alpha) + '_sigma-' + str(sigma), 'MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, simpletrlm)
+    print('Evaluation simpletrlm')
+    print('MAP model: ', map_model)
+    print(10 * '-')
 
-        PRED_PATH = os.path.join(EVALUATION_PATH, 'trm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
-        load.save(trmranking, PRED_PATH)
-        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
-        print('trm_alpha-' + str(alpha) + '_sigma-' + str(sigma), 'MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, lm)
+    print('Evaluation lm')
+    print('MAP model: ', map_model)
+    print(10 * '-')
 
-        PRED_PATH = os.path.join(EVALUATION_PATH, 'trlm_alpha-' + str(alpha) + '_sigma-' + str(sigma) + '.pred')
-        load.save(trlmranking, PRED_PATH)
-        map_model, map_baseline = ev.eval_rerankerV2(GOLD_PATH, PRED_PATH)
-        print('trlm_alpha-' + str(alpha) + '_sigma-' + str(sigma), 'MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), sep='\t', end='\n')
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, trm)
+    print('Evaluation trm')
+    print('MAP model: ', map_model)
+    print(10 * '-')
+
+    devgold = utils.prepare_gold(GOLD_PATH)
+    map_baseline, map_model = utils.evaluate(devgold, trlm)
+    print('Evaluation trlm')
+    print('MAP model: ', map_model)
+    print(10 * '-')

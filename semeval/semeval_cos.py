@@ -23,14 +23,15 @@ logging.basicConfig(format=FORMAT)
 d = {'clientip': 'localhost', 'user': 'tcastrof'}
 logger = logging.getLogger('tcpserver')
 
-STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
-GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+GOLD_ANSWER_PATH= '/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev-subtaskA.xml.subtaskA.relevancy'
+GOLD_QUESTION_PATH= '/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
-DATA_PATH='data'
+DATA_QUESTION_PATH= 'data'
+DATA_ANSWER_PATH= 'data_answer'
 
-TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
-CORPUS_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec_stop/corpus.pickle'
-DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
+TRAIN_PATH=os.path.join(DATA_QUESTION_PATH, 'trainset.data')
+CORPUS_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec/corpus_stop.pickle'
+DEV_PATH=os.path.join(DATA_QUESTION_PATH, 'devset.data')
 
 class SemevalCosine():
     def __init__(self):
@@ -41,38 +42,21 @@ class SemevalCosine():
 
         logging.info('Preparing trainset...', extra=d)
         self.trainset = json.load(open(TRAIN_PATH))
-        self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
-        info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
-        logging.info(info)
 
         logging.info('Preparing word2vec...', extra=d)
         self.word2vec = features.init_word2vec()
         # self.glove, self.voc2id, self.id2voc = features.init_glove()
         logging.info('Preparing elmo...', extra=d)
         self.trainidx, self.trainelmo, self.devidx, self.develmo = features.init_elmo()
+        self.tfidf = {}
+        self.dict = Dictionary()
 
 
     def train(self):
-        if not os.path.exists('data/tfidf.model'):
-            traindata = p.load(open(CORPUS_PATH, 'rb'))
-            for qid in self.trainset:
-                query = self.trainset[qid]['tokens']
+        raise NotImplementedError("Please Implement this method")
 
-                duplicates = self.trainset[qid]['duplicates']
-                for duplicate in duplicates:
-                    question = duplicate['rel_question']['tokens']
-                    traindata.append(question)
-
-                traindata.append(query)
-
-            self.dict = Dictionary(traindata)  # fit dictionary
-            corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
-            self.tfidf = TfidfModel(corpus)  # fit model
-            self.dict.save('data/dict.model')
-            self.tfidf.save('data/tfidf.model')
-        else:
-            self.dict = Dictionary.load('data/dict.model')
-            self.tfidf = TfidfModel.load('data/tfidf.model')
+    def validate(self):
+        raise NotImplementedError("Please Implement this method")
 
 
     def dot(self, q1, q1tfidf, q2, q2tfidf):
@@ -126,6 +110,39 @@ class SemevalCosine():
         sofcosine = self.softdot(q1, q1_tfidf, q1emb, q2, q2_tfidf, q2emb) / (q1q1 * q2q2)
         return sofcosine
 
+class SemevalQuestionCosine(SemevalCosine):
+    def __init__(self):
+        SemevalCosine.__init__(self)
+        self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_traindata(self.trainset)
+        info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
+        logging.info(info)
+
+    def train(self):
+        if not os.path.exists(os.path.join(DATA_QUESTION_PATH,'tfidf.model')):
+            traindata = p.load(open(CORPUS_PATH, 'rb'))
+            for qid in self.trainset:
+                query = self.trainset[qid]['tokens']
+
+                duplicates = self.trainset[qid]['duplicates']
+                for duplicate in duplicates:
+                    question = duplicate['rel_question']['tokens']
+                    traindata.append(question)
+
+                    rel_comments = duplicate['rel_comments']
+                    for rel_comment in rel_comments:
+                        q2 = rel_comment['tokens']
+                        traindata.append(q2)
+
+                traindata.append(query)
+
+            self.dict = Dictionary(traindata)  # fit dictionary
+            corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
+            self.tfidf = TfidfModel(corpus)  # fit model
+            self.dict.save(os.path.join(DATA_QUESTION_PATH, 'dict.model'))
+            self.tfidf.save(os.path.join(DATA_QUESTION_PATH, 'tfidf.model'))
+        else:
+            self.dict = Dictionary.load(os.path.join(DATA_QUESTION_PATH, 'dict.model'))
+            self.tfidf = TfidfModel.load(os.path.join(DATA_QUESTION_PATH, 'tfidf.model'))
 
     def validate(self):
         logging.info('Validating', extra=d)
@@ -161,7 +178,90 @@ class SemevalCosine():
                 simranking[q1id].append((real_label, simple_score, q2id))
                 softranking[q1id].append((real_label, score, q2id))
 
-        with open('data/softranking.txt', 'w') as f:
+        with open(os.path.join(DATA_QUESTION_PATH, 'softranking.txt'), 'w') as f:
+            for q1id in softranking:
+                for row in softranking[q1id]:
+                    label = 'false'
+                    if row[0] == 1:
+                        label = 'true'
+                    f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
+
+        logging.info('Finishing to validate.', extra=d)
+        return softranking, simranking
+
+
+class SemevalAnswerCosine(SemevalCosine):
+    def __init__(self):
+        SemevalCosine.__init__(self)
+        self.traindata, self.voc2id, self.id2voc, self.vocabulary = utils.prepare_answer_traindata(self.trainset)
+        info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
+        logging.info(info)
+
+    def train(self):
+        if not os.path.exists(os.path.join(DATA_ANSWER_PATH,'tfidf.model')):
+            traindata = p.load(open(CORPUS_PATH, 'rb'))
+            for qid in self.trainset:
+                duplicates = self.trainset[qid]['duplicates']
+                for duplicate in duplicates:
+                    question = duplicate['rel_question']['tokens']
+                    traindata.append(question)
+
+                    rel_comments = duplicate['rel_comments']
+                    for rel_comment in rel_comments:
+                        q2 = rel_comment['tokens']
+                        traindata.append(q2)
+
+            self.dict = Dictionary(traindata)  # fit dictionary
+            corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
+            self.tfidf = TfidfModel(corpus)  # fit model
+            self.dict.save(os.path.join(DATA_ANSWER_PATH, 'dict.model'))
+            self.tfidf.save(os.path.join(DATA_ANSWER_PATH, 'tfidf.model'))
+        else:
+            self.dict = Dictionary.load(os.path.join(DATA_ANSWER_PATH, 'dict.model'))
+            self.tfidf = TfidfModel.load(os.path.join(DATA_ANSWER_PATH, 'tfidf.model'))
+
+    def validate(self):
+        logging.info('Validating', extra=d)
+        softranking, simranking = {}, {}
+        for j, qid in enumerate(self.devset):
+            percentage = round(float(j+1) / len(self.devset), 2)
+            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+
+            query = self.devset[qid]
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q1id = rel_question['id']
+                softranking[q1id], simranking[q1id] = [], []
+
+                q1 = rel_question['tokens_proc']
+                elmo_emb1 = self.develmo.get(str(self.devidx[q1id]))
+                w2v_emb = features.encode(q1, self.word2vec)
+                # q1emb = features.glove_encode(q1, self.glove, self.voc2id)
+                q1emb = [np.concatenate([w2v_emb[i], elmo_emb1[i]]) for i in range(len(w2v_emb))]
+
+                rel_comments = duplicate['rel_comments']
+                for rel_comment in rel_comments:
+                    q2id = rel_comment['id']
+                    q2 = rel_comment['tokens_proc']
+                    if len(q2) == 0:
+                        simple_score = 0
+                        score = 0
+                    else:
+                        elmo_emb2 = self.develmo.get(str(self.devidx[q2id]))
+                        w2v_emb = features.encode(q2, self.word2vec)
+                        # q2emb = features.glove_encode(q2, self.glove, self.voc2id)
+                        q2emb = [np.concatenate([w2v_emb[i], elmo_emb2[i]]) for i in range(len(w2v_emb))]
+
+                        simple_score = self.simple_score(q1, q2)
+                        score = self.score(q1, q1emb, q2, q2emb)
+                    real_label = 1
+                    if rel_comment['relevance2relquestion'] != 'Good':
+                        real_label = 0
+                    simranking[q1id].append((real_label, simple_score, q2id))
+                    softranking[q1id].append((real_label, score, q2id))
+
+        with open(os.path.join(DATA_ANSWER_PATH, 'softranking.txt'), 'w') as f:
             for q1id in softranking:
                 for row in softranking[q1id]:
                     label = 'false'
@@ -176,22 +276,41 @@ if __name__ == '__main__':
     logging.info('Load corpus', extra=d)
     trainset, devset = load.run()
 
-    if not os.path.exists(DATA_PATH):
-        os.mkdir(DATA_PATH)
+    if not os.path.exists(DATA_QUESTION_PATH):
+        os.mkdir(DATA_QUESTION_PATH)
 
-    # Softcosine
-    semeval = SemevalCosine()
+    # Answer Softcosine
+    # semeval = SemevalAnswerCosine()
+    # semeval.train()
+    #
+    # softranking, simranking = semeval.validate()
+    # devgold = utils.prepare_gold(GOLD_ANSWER_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, softranking)
+    # print('Evaluation Soft-Cosine')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print(10 * '-')
+    #
+    # devgold = utils.prepare_gold(GOLD_ANSWER_PATH)
+    # map_baseline, map_model = utils.evaluate(devgold, simranking)
+    # print('Evaluation Cosine')
+    # print('MAP baseline: ', map_baseline)
+    # print('MAP model: ', map_model)
+    # print(10 * '-')
+
+    # Question Softcosine
+    semeval = SemevalQuestionCosine()
     semeval.train()
 
     softranking, simranking = semeval.validate()
-    devgold = utils.prepare_gold(GOLD_PATH)
+    devgold = utils.prepare_gold(GOLD_QUESTION_PATH)
     map_baseline, map_model = utils.evaluate(devgold, softranking)
     print('Evaluation Soft-Cosine')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
 
-    devgold = utils.prepare_gold(GOLD_PATH)
+    devgold = utils.prepare_gold(GOLD_QUESTION_PATH)
     map_baseline, map_model = utils.evaluate(devgold, simranking)
     print('Evaluation Cosine')
     print('MAP baseline: ', map_baseline)
