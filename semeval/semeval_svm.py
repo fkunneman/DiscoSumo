@@ -190,6 +190,52 @@ class BM25(SemevalModel):
                 logging.info('Finishing bm25 validation.')
         return ranking    
 
+
+class LDA(SemevalModel):
+    def __init__(self):
+        SemevalModel.__init__(self)
+
+    def train(self):
+        logging.info('Setting LDA model', extra=d)
+        self.lda_model, self.lda_vectorizer = features.init_lda(traindata=self.traindata,n_topics=50)
+
+    def validate(self):
+        logging.info('Validating LDA.', extra=d)
+        ranking = {}
+        for i, q1id in enumerate(self.devset):
+            ranking[q1id] = []
+            percentage = round(float(i+1) / len(self.devset), 2)
+            print('Progress: ', percentage, i+1, sep='\t', end='\r')
+
+            query = self.devset[q1id]
+            q1 = ' '.join(query['tokens'])
+            q1_vector = self.lda_vectorizer.transform([q1]).toarray()
+            q1_topicvector = []
+            nonzero = np.count_nonzero(q1_vector)
+            for mc in self.lda_model.components_:
+                q1_topicvector.append(np.sum(q1_vector * mc) / nonzero)
+            q1_topicvector_array = np.array(q1_topicvector)
+                
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2 = ' '.join(rel_question['tokens'])
+                rel_question_vector = self.lda_vectorizer.transform([q2]).toarray()
+                q2_topicvector = []
+                nonzero = np.count_nonzero(q2_vector)
+                for mc in self.lda_model.components_:
+                    q2_topicvector.append(np.sum(q2_vector * mc) / nonzero)
+                q2score = np.sum(q1_topicvector_array * np.array(q2_topicvector))
+
+                real_label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    real_label = 1
+                ranking[q1id].append((real_label, q2score, q2id))
+
+                logging.info('Finishing lda validation.')
+        return ranking    
+
     
 class LinearSVM(SemevalModel):
     def __init__(self):
