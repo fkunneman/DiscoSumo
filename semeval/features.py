@@ -20,7 +20,6 @@ from sklearn.feature_extraction.text import CountVectorizer
 from gensim.summarization import bm25
 from gensim.corpora import Dictionary
 from gensim.models import Word2Vec
-from gst import match
 import lda
 # from gensim.models import KeyedVectors
 # from gensim.test.utils import datapath
@@ -227,18 +226,19 @@ def init_bm25(traindata,devdata=False,testdata=False):
     if testdata:
         questions, index_qid, index = add_data(testdata, questions, index_qid, index)
             
-    dct = Dictionary(questions)  # initialize a Dictionary
-    corpus = [dct.doc2bow(text) for text in questions]
+    # dct = Dictionary(questions)  # initialize a Dictionary
+    # corpus = [dct.doc2bow(text) for text in questions]
 
     # set bm25 model
     logging.info('Initializing bm25 model', extra=d)
-    model = bm25.BM25(corpus)
+    model = bm25.BM25(questions)
 
     # get average idf
     logging.info('Calculating average idf')
     average_idf = sum(map(lambda k: float(model.idf[k]), model.idf.keys())) / len(model.idf.keys())
 
-    return model, average_idf, dct, index_qid
+    # return model, average_idf, dct, index_qid
+    return model, average_idf, index_qid
 
 
 def init_elmo(stop=True):

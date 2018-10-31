@@ -34,7 +34,7 @@ STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
 DATA_PATH='data'
-FEATURE_PATH=os.path.join(DATA_PATH, 'trainfeatures_full.pickle')
+FEATURE_PATH=os.path.join(DATA_PATH, 'trainfeatures.pickle')
 KERNEL_PATH=os.path.join(DATA_PATH, 'trainkernel.pickle')
 
 LINEAR_MODEL_PATH=os.path.join(DATA_PATH, 'linear.model')
@@ -162,7 +162,7 @@ class BM25(SemevalModel):
 
     def train(self):
         logging.info('Setting BM25 model', extra=d)
-        self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
+        self.bm25_model, self.avg_idf, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
 
     def validate(self):
         logging.info('Validating bm25.', extra=d)
@@ -174,7 +174,7 @@ class BM25(SemevalModel):
 
             query = self.devset[q1id]
             q1 = query['tokens']
-            scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
+            scores = self.bm25_model.get_scores(q1, self.avg_idf)
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
@@ -279,7 +279,7 @@ class LinearSVM(SemevalModel):
     def train(self):
         logging.info('Training svm.', extra=d)
         treekernel = features.TreeKernel(alpha=0, decay=1, ignore_leaves=True, smoothed=False)
-        self.bm25_model, self.avg_idf, self.bm25_dct, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
+        self.bm25_model, self.avg_idf, self.bm25_qid_index = features.init_bm25(traindata=self.traindata, devdata=self.devdata, testdata=False)
 
         if not os.path.exists(FEATURE_PATH):
             X, y = [], []
@@ -306,8 +306,8 @@ class LinearSVM(SemevalModel):
                 # bm25
                 q1id = query_question['q1_id']
                 q2id = query_question['q2_id']
-                scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
-                x.append(scores[self.bm25_qid_index[q2id]])
+                bm25_score = self.bm25_model.get_score(q1, self.bm25_qid_index[q2id], self.avg_idf)
+                x.append(bm25_score)
 
                 # cosine
                 q1_lemma = query_question['q1_lemmas']
@@ -403,7 +403,6 @@ class LinearSVM(SemevalModel):
 
             query = self.devset[q1id]
             q1 = query['tokens_proc']
-            scores = self.bm25_model.get_scores(self.bm25_dct.doc2bow(q1), self.avg_idf)
             q1_lemma = query['lemmas']
             q1_pos = query['pos']
             q1_token2lemma = dict(zip(query['tokens'], query['lemmas']))
@@ -430,7 +429,8 @@ class LinearSVM(SemevalModel):
                 X.append(trlmprob)
 
                 # bm25
-                # X.append(scores[self.bm25_qid_index[q2id]])
+                bm25_score = self.bm25_model.get_score(q1, self.bm25_qid_index[q2id], self.avg_idf)
+                X.append(bm25_score)
 
                 # cosine
                 # q2_lemma = rel_question['lemmas']
@@ -707,38 +707,38 @@ if __name__ == '__main__':
         os.mkdir(DATA_PATH)
 
     # Linear SVM
-    linear = LinearSVM()
-    linear.train()
+    # linear = LinearSVM()
+    # linear.train()
     # # BM25
-    # bm25 = BM25()
-    # bm25.train()
+    bm25 = BM25()
+    bm25.train()
     # # Tree SVM
     # semeval = TreeSVM()
     # semeval.train()
     # p.dump(semeval.memoization, open('data/treememoization.pickle', 'wb'))
 
     # Linear performance
-    linear_ranking, y_real, y_pred = linear.validate()
-    devgold = utils.prepare_gold(GOLD_PATH)
-    map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Linear')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    # # BM25 performance
+    # linear_ranking, y_real, y_pred = linear.validate()
     # devgold = utils.prepare_gold(GOLD_PATH)
-    # bm25_ranking = bm25.validate()
-    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
-    #
-    # print('Evaluation BM25')
+    # map_baseline, map_model = utils.evaluate(devgold, copy.copy(linear_ranking))
+    # f1score = f1_score(y_real, y_pred)
+    # accuracy = accuracy_score(y_real, y_pred)
+    # print('Evaluation Linear')
     # print('MAP baseline: ', map_baseline)
     # print('MAP model: ', map_model)
+    # print('Accuracy: ', accuracy)
+    # print('F-Score: ', f1score)
     # print(10 * '-')
+
+    # # BM25 performance
+    devgold = utils.prepare_gold(GOLD_PATH)
+    bm25_ranking = bm25.validate()
+    map_baseline, map_model = utils.evaluate(devgold, copy.copy(bm25_ranking))
+
+    print('Evaluation BM25')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
 
     # Tree performance
     # tree_ranking, y_real, y_pred = semeval.validate()
