@@ -30,19 +30,24 @@ NEW_ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed_proc.json'
 
 class GoeieVraag():
     def __init__(self):
+        self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
+        print('Parsing questions and answers...')
         if not os.path.exists(NEW_QUESTIONS):
             self.parse()
         else:
             self.questions = json.load(open(NEW_QUESTIONS))
             self.answers = json.load(open(NEW_ANSWERS))
 
-        self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
+        print('Filter seed questions...')
         self.seeds = self.filter(self.questions.values())
         # bm25
+        print('Initializing BM25...')
         self.init_bm25([question[1] for question in self.seeds])
         # word2vec
+        print('Initializing Word2Vec...')
         self.init_word2vec()
         # softcosine
+        print('Initializing Softcosine...')
         self.init_sofcos()
 
 
@@ -72,26 +77,26 @@ class GoeieVraag():
         for i, question in enumerate(self.questions):
             if i % 1000 == 0:
                 percentage = round(float(i+1) / len(self.questions), 2)
-                print('Question Progress: ', percentage)
+                print('Question Progress: ', percentage, end='\r')
             text = question['questiontext']
             text = list(map(lambda token: str(token).lower(), self.nlp(text)))
 
             question['tokens'] = text
             question['tokens_proc'] = [w for w in text if w not in stopwords and w not in punctuation]
         self.questions = dict([(question['id'], question) for question in self.questions])
-
+        print('\n')
         self.answers = json.load(open(ANSWERS))
         for i, answer in enumerate(self.answers):
             if i % 1000 == 0:
                 percentage = round(float(i+1) / len(self.answers), 2)
-                print('Answer Progress: ', percentage)
+                print('Answer Progress: ', percentage, end='\r')
             text = answer['answertext']
             text = list(map(lambda token: str(token).lower(), self.nlp(text)))
 
             answer['tokens'] = text
             answer['tokens_proc'] = [w for w in text if w not in stopwords and w not in punctuation]
         self.answers = dict([(answer['id'], answer) for answer in self.answers])
-
+        print('\n')
         json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
         json.dump(self.answers, open(NEW_ANSWERS, 'w'))
         return self.questions, self.answers
@@ -195,4 +200,6 @@ class GoeieVraag():
         return questions
 
 if __name__ == '__main__':
-    pass
+    model = GoeieVraag()
+    result = model('wat is kaas?')
+    print(result)
