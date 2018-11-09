@@ -193,8 +193,8 @@ class GoeieVraag():
 
 
     def rerank(self, query, questions, n=10):
-        for question in questions:
-            question[2] = self.softcos(query, question[1])
+        for i, question in enumerate(questions):
+            questions[i] = (question[0], question[1], self.softcos(query, question[1]))
 
         questions = sorted(questions, key=lambda x: x[2], reverse=True)[:n]
         return questions
