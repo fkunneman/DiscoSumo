@@ -6,7 +6,7 @@ sys.path.append('../')
 import copy
 from semeval import Semeval
 from gensim.corpora import Dictionary
-from naacl.models.translation import TRLM, compute_w_C
+from models.translation import TRLM, compute_w_C
 
 DATA_PATH='data'
 TRANSLATION_PATH='alignments/model/lex.f2e'

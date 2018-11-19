@@ -6,7 +6,7 @@ sys.path.append('../')
 import copy
 import os
 from semeval import Semeval
-from naacl.models.cosine import Cosine, SoftCosine
+from models.cosine import Cosine, SoftCosine
 
 DATA_PATH='data'
 

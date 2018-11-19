@@ -1,14 +1,55 @@
 __author__='thiagocastroferreira'
 
+import sys
+sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
+import ev, metrics
 import os
 
+from operator import itemgetter
 from semeval_bm25 import SemevalBM25
 from semeval_translation import SemevalTranslation
 from semeval_cosine import SemevalCosine, SemevalSoftCosine
 
+GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 EVALUATION_PATH='evaluation'
 
+def prepare_gold(path):
+    ir = ev.read_res_file_aid(path, 'trec')
+    return ir
+
+
+def evaluate(ranking):
+    gold = ev.read_res_file_aid(GOLD_PATH, 'trec')
+    for qid in gold:
+        gold_sorted = sorted(gold[qid], key = itemgetter(2), reverse = True)
+        pred_sorted = ranking[qid]
+        pred_sorted = sorted(pred_sorted, key = itemgetter(2), reverse = True)
+
+        gold[qid], ranking[qid] = [], []
+        for i, row in enumerate(gold_sorted):
+            relevant, gold_score, aid = row
+            gold[qid].append((relevant, gold_score, aid))
+
+            pred_score = pred_sorted[i][1]
+            ranking[qid].append((relevant, pred_score, aid))
+
+    for qid in gold:
+        # Sort by IR score.
+        gold_sorted = sorted(gold[qid], key = itemgetter(1), reverse = True)
+
+        # Sort by SVM prediction score.
+        pred_sorted = ranking[qid]
+        pred_sorted = sorted(pred_sorted, key = itemgetter(1), reverse = True)
+
+        gold[qid] = [rel for rel, score, aid in gold_sorted]
+        ranking[qid] = [rel for rel, score, aid in pred_sorted]
+
+    map_gold = metrics.map(gold, 10)
+    map_pred = metrics.map(ranking, 10)
+    return map_gold, map_pred
+
 if __name__ == '__main__':
+    ###############################################################################
     # bm25
     bm25 = SemevalBM25()
     ranking = bm25.validate()
@@ -16,6 +57,12 @@ if __name__ == '__main__':
     path = os.path.join(EVALUATION_PATH, 'bm25.ranking')
     bm25.save(ranking, path)
 
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation BM25')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
     # align translation
     translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='alignments')
     ranking = translation.validate()
@@ -23,6 +70,12 @@ if __name__ == '__main__':
     path = os.path.join(EVALUATION_PATH, 'translation.align.ranking')
     translation.save(ranking, path)
 
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Align Translation')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
     # word2vec translation
     translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='word2vec')
     ranking = translation.validate()
@@ -30,13 +83,25 @@ if __name__ == '__main__':
     path = os.path.join(EVALUATION_PATH, 'translation.word2vec.ranking')
     translation.save(ranking, path)
 
-    # align translation
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Word2Vec Translation')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
+    # wordvec+elmo translation
     translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='word2vec+elmo')
     ranking = translation.validate()
 
     path = os.path.join(EVALUATION_PATH, 'translation.word2vec_elmo.ranking')
     translation.save(ranking, path)
 
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Word2Vec+ElMo Translation')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
     # cosine
     cosine = SemevalCosine()
     ranking = cosine.validate()
@@ -44,23 +109,47 @@ if __name__ == '__main__':
     path = os.path.join(EVALUATION_PATH, 'cosine.ranking')
     cosine.save(ranking, path)
 
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Cosine')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
     # align cosine
     aligncosine = SemevalSoftCosine(vector='aligments')
     ranking = aligncosine.validate()
 
     path = os.path.join(EVALUATION_PATH, 'softcosine.align.ranking')
-    cosine.save(ranking, path)
+    aligncosine.save(ranking, path)
 
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Align Cosine')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
     # word2vec cosine
     softcosine = SemevalSoftCosine(vector='word2vec')
     ranking = softcosine.validate()
 
     path = os.path.join(EVALUATION_PATH, 'softcosine.word2vec.ranking')
-    cosine.save(ranking, path)
+    softcosine.save(ranking, path)
 
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Word2Vec SoftCosine')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
+    ###############################################################################
     # word2vec + elmo cosine
     softcosine = SemevalSoftCosine(vector='word2vec+elmo')
     ranking = softcosine.validate()
 
     path = os.path.join(EVALUATION_PATH, 'softcosine.word2vec_elmo.ranking')
-    cosine.save(ranking, path)
+    softcosine.save(ranking, path)
+
+    map_baseline, map_model = evaluate(ranking)
+    print('Evaluation Word2Vec+ELMo SoftCosine')
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print(10 * '-')
