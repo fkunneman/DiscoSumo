@@ -13,6 +13,8 @@ from semeval_bm25 import SemevalBM25
 from semeval_cosine import SemevalCosine, SemevalSoftCosine
 from semeval_translation import SemevalTranslation
 
+from sklearn.preprocessing import MinMaxScaler
+
 DATA_PATH='data'
 FEATURES_PATH = os.path.join(DATA_PATH, 'trainfeatures.pickle')
 
@@ -130,6 +132,10 @@ class SemevalSVM(Semeval):
             X = np.array([x[0] for x in f])
             y = list(map(lambda x: x[1], f))
 
+        self.scaler = MinMaxScaler(feature_range=(-1, 1))
+        self.scaler.fit(X)
+        X = self.scaler.transform(X)
+
         self.model = self.svm.train_svm(
             trainvectors=X,
             labels=y,
@@ -140,7 +146,7 @@ class SemevalSVM(Semeval):
         )
 
 
-    def validate(self, vector='word2vec'):
+    def validate(self):
         ranking = {}
         y_real, y_pred = [], []
         for j, q1id in enumerate(self.devset):
@@ -235,8 +241,8 @@ class SemevalSVM(Semeval):
                         if 'softcosine' in self.comment_features:
                             x.append(0)
 
-                score = self.model.decision_function([x])[0]
-                pred_label = self.model.predict([x])[0]
+                x = self.scaler.transform([x])
+                score, pred_label = self.model.score(x)
                 y_pred.append(pred_label)
 
                 real_label = 0

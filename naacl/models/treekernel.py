@@ -52,7 +52,8 @@ class TreeKernel():
 
                     idx1 = q1_tree['nodes'][child1]['idx']
                     idx2 = q2_tree['nodes'][child2]['idx']
-                    result = cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0]
+                    # result = cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0]
+                    result = max(0, cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0])**2
             else:
                 result = 1
                 for i in range(len(q1_tree['edges'][q1_root])):
@@ -130,6 +131,7 @@ class TreeKernel():
             return True
         else:
             return False
+
 
     # utilities
     def print_tree(self, root, tree, stree=''):

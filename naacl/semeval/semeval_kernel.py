@@ -125,8 +125,7 @@ class SemevalTreeKernel(Semeval):
                     k = kq1c1 + kq2c2
                     X.append(k)
 
-                score = self.model.decision_function([X])[0]
-                pred_label = self.model.predict([X])[0]
+                score, pred_label = self.model.score(X)
                 y_pred.append(pred_label)
 
                 real_label = 0
