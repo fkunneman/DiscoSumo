@@ -18,6 +18,8 @@ class TreeKernel():
         q1_tree = self.binarize(self.parse_tree(q1_tree, q1_token2lemma))
         q2_tree = self.binarize(self.parse_tree(q2_tree, q2_token2lemma))
 
+
+        q1_tree, q2_tree = self.similar_terminals(q1_tree, q2_tree)
         for node1 in q1_tree['nodes']:
             node1_type = q1_tree['nodes'][node1]['type']
             edgelen1 = len(q1_tree['edges'][node1])

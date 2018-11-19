@@ -1,7 +1,7 @@
 # Main script for results of NAACL 2019 paper
 
-PROJECT_PATH=/home/tcastrof/Questions/DiscoSumo/naacl
-SEMEVAL_PATH=/home/tcastrof/Questions/DiscoSumo/naacl/semeval
+PROJECT_PATH=/home/tcastrof/Question/DiscoSumo/naacl
+SEMEVAL_PATH=/home/tcastrof/Question/DiscoSumo/naacl/semeval
 
 # SEMEVAL
 echo "preprocessing corpus..."

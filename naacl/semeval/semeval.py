@@ -15,17 +15,18 @@ stop = set(stopwords.words('english'))
 import os
 import preprocessing
 import word2vec.word2vec as word2vec
-import alignments.alignments as alignments
 
 from gensim import corpora
 
-ADDITIONAL_PATH= '/home/tcastrof/Question/DiscoSumo/semeval/word2vec/corpus.pickle'
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
-WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/semeval/word2vec/word2vec.model'
-ELMO_PATH='elmo/'
+
 ALIGNMENTS_PATH='alignments/model/lex.f2e'
-DATA_PATH='data'
+WORD2VEC_PATH='word2vec/word2vec.model'
+ELMO_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/elmo/'
+
+ADDITIONAL_PATH= 'word2vec/corpus.pickle'
+DATA_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
@@ -48,11 +49,31 @@ class Semeval():
         self.trainidx, self.trainelmo, self.devidx, self.develmo = elmo.init_elmo(True, ELMO_PATH)
         self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
 
-        self.alignments = alignments.init_alignments(ALIGNMENTS_PATH)
+        self.alignments = self.init_alignments(ALIGNMENTS_PATH)
 
         # additional data
         self.additional = p.load(open(ADDITIONAL_PATH, 'rb'))
 
+
+    def init_alignments(self, path):
+        with open(path) as f:
+            doc = list(map(lambda x: x.split(), f.read().split('\n')))
+
+        alignments = {}
+        for row in doc[:-1]:
+            t = row[0]
+            if t[0] not in alignments:
+                alignments[t[0]] = {}
+            if t not in alignments[t[0]]:
+                alignments[t[0]][t] = {}
+
+            w = row[1]
+            if w[0] not in alignments[t[0]][t]:
+                alignments[t[0]][t][w[0]] = {}
+
+            prob = float(row[2])
+            alignments[t[0]][t][w[0]][w] = prob
+        return alignments
 
     def encode(self, qid, q, elmoidx, elmovec, encoding):
         def w2v():

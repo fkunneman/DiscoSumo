@@ -1,33 +1,17 @@
 __author__='thiagocastroferreira'
 
-import sys
-sys.path.append('../')
+import json
+import os
 
-from semeval import Semeval
+DATA_PATH='../data'
+TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
+DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
-def init_alignments(path):
-    with open(path) as f:
-        doc = list(map(lambda x: x.split(), f.read().split('\n')))
-
-    alignments = {}
-    for row in doc[:-1]:
-        t = row[0]
-        if t[0] not in alignments:
-            alignments[t[0]] = {}
-        if t not in alignments[t[0]]:
-            alignments[t[0]][t] = {}
-
-        w = row[1]
-        if w[0] not in alignments[t[0]][t]:
-            alignments[t[0]][t][w[0]] = {}
-
-        prob = float(row[2])
-        alignments[t[0]][t][w[0]][w] = prob
-    return alignments
-
-class SemevalAlignments(Semeval):
+class SemevalAlignments():
     def __init__(self):
-        Semeval.__init__(self)
+        self.devset = json.load(open(DEV_PATH))
+
+        self.trainset = json.load(open(TRAIN_PATH))
         self.prepare()
 
     def prepare(self):
@@ -35,13 +19,13 @@ class SemevalAlignments(Semeval):
 
         for i, q1id in enumerate(self.trainset):
             query = self.trainset[q1id]
-            q1 = query['tokens']
+            q1 = ' '.join(query['tokens'])
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = rel_question['tokens']
+                q2 = ' '.join(rel_question['tokens'])
 
                 corpus.append({
                     'source': q1,
@@ -57,6 +41,8 @@ class SemevalAlignments(Semeval):
                     q3 = comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
+
+                    q3 = ' '.join(q3)
                     corpus.append({
                         'source': q1,
                         'target': q3
