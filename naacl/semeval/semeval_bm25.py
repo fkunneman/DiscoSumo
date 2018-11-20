@@ -53,6 +53,10 @@ class SemevalBM25(Semeval):
                     corpus[q3id] = q3
         self.model = BM25(corpus)
 
+        del self.additional
+        del self.trainset
+        del self.traindata
+
 
     def validate(self):
         ranking = {}

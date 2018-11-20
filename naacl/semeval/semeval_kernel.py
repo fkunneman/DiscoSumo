@@ -19,13 +19,14 @@ KERNEL_PATH = os.path.join(DATA_PATH, 'trainkernel.pickle')
 
 class SemevalTreeKernel(Semeval):
     def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, vector='word2vec', kernel_path=KERNEL_PATH):
-        Semeval.__init__(self)
+        Semeval.__init__(self, vector)
         self.path = kernel_path
         self.memoization = {}
-        self.vector = vector
         self.svm = Model()
         self.treekernel = TreeKernel(alpha, decay, ignore_leaves, smoothed)
         self.train()
+
+        del self.additional
 
 
     def memoize(self, q1id, q1, q1_emb, q1_token2lemma, q2id, q2, q2_emb, q2_token2lemma):
@@ -53,7 +54,7 @@ class SemevalTreeKernel(Semeval):
             X, y = [], []
             for i, q_pair in enumerate(self.traindata):
                 percentage = round(float(i + 1) / len(self.traindata), 2)
-                print('Path: ', self.path,  'Progress: ', percentage, i + 1, sep='\t')
+                print('Path: ', self.path,  'Progress: ', percentage, i + 1, sep=10 * ' ')
                 x = []
                 q1id = q_pair['q1_id']
                 q1 = q_pair['q1_tree']
@@ -104,7 +105,7 @@ class SemevalTreeKernel(Semeval):
         for j, q1id in enumerate(self.devset):
             ranking[q1id] = []
             percentage = round(float(j+1) / len(self.devset), 2)
-            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+            print('Progress: ', percentage, j+1, sep=10 * ' ', end='\r')
 
             query = self.devset[q1id]
             q1_token2lemma = dict(zip(query['tokens'], query['lemmas']))
@@ -157,16 +158,16 @@ def run(thread_id, smoothed, vector, path):
     SemevalTreeKernel(smoothed=smoothed, vector=vector, kernel_path=path)
 
 if __name__ == '__main__':
-    pool = Pool(processes=10)
+    pool = Pool(processes=5)
     processes = []
     path = os.path.join(DATA_PATH, 'kernel.pickle')
     processes.append(pool.apply_async(run, [1, False, 'word2vec', path]))
 
-    path = os.path.join(DATA_PATH, 'kernel.wordvec.pickle')
-    processes.append(pool.apply_async(run, [2, True, 'word2vec', path]))
-
-    path = os.path.join(DATA_PATH, 'kernel.wordvec+elmo.pickle')
+    path = os.path.join(DATA_PATH, 'kernel.word2vec+elmo.pickle')
     processes.append(pool.apply_async(run, [3, True, 'word2vec+elmo', path]))
+
+    path = os.path.join(DATA_PATH, 'kernel.word2vec.pickle')
+    processes.append(pool.apply_async(run, [2, True, 'word2vec', path]))
 
     pool.close()
     pool.join()

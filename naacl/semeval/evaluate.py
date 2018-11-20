@@ -64,6 +64,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del bm25
     ###############################################################################
     # align translation
     translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='alignments')
@@ -77,6 +79,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del translation
     ###############################################################################
     # word2vec translation
     translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='word2vec')
@@ -90,6 +94,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del translation
     ###############################################################################
     # wordvec+elmo translation
     translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='word2vec+elmo')
@@ -103,6 +109,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del translation
     ###############################################################################
     # cosine
     cosine = SemevalCosine()
@@ -116,6 +124,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del cosine
     ###############################################################################
     # align cosine
     aligncosine = SemevalSoftCosine(vector='aligments')
@@ -129,6 +139,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del aligncosine
     ###############################################################################
     # word2vec cosine
     softcosine = SemevalSoftCosine(vector='word2vec')
@@ -142,6 +154,8 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del softcosine
     ###############################################################################
     # word2vec + elmo cosine
     softcosine = SemevalSoftCosine(vector='word2vec+elmo')
@@ -155,3 +169,5 @@ if __name__ == '__main__':
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
     print(10 * '-')
+
+    del softcosine

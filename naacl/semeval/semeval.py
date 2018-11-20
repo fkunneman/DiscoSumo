@@ -30,10 +30,11 @@ TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 class Semeval():
-    def __init__(self):
+    def __init__(self, vector=''):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
+        self.vector = vector
         logging.info('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
         self.devdata, self.voc2id, self.id2voc, self.vocabulary = self.format_data(self.devset, parts=('dev'))
@@ -44,10 +45,19 @@ class Semeval():
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
 
-        self.word2vec = word2vec.init_word2vec(WORD2VEC_PATH)
-        self.fasttext = fasttext.init_fasttext(FASTTEXT_PATH)
-        self.trainidx, self.trainelmo, self.devidx, self.develmo = elmo.init_elmo(True, ELMO_PATH)
-        self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
+        self.word2vec = None
+        if 'word2vec' in self.vector:
+            self.word2vec = word2vec.init_word2vec(WORD2VEC_PATH)
+
+        self.fasttext = None
+        if 'fasttext' in self.vector:
+            self.fasttext = fasttext.init_fasttext(FASTTEXT_PATH)
+
+        self.trainidx = self.trainelmo = self.devidx = self.develmo = None
+        self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
+        if 'elmo' in self.vector:
+            self.trainidx, self.trainelmo, self.devidx, self.develmo = elmo.init_elmo(True, ELMO_PATH)
+            self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
 
         self.alignments = self.init_alignments(ALIGNMENTS_PATH)
 

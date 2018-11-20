@@ -13,8 +13,7 @@ TRANSLATION_PATH='alignments/model/lex.f2e'
 
 class SemevalTranslation(Semeval):
     def __init__(self, alpha, sigma, vector='word2vec'):
-        Semeval.__init__(self)
-        self.vector = vector
+        Semeval.__init__(self, vector)
         self.alpha = alpha
         self.sigma = sigma
         self.train()
@@ -40,6 +39,10 @@ class SemevalTranslation(Semeval):
         vocabulary = Dictionary(questions)
         w_C = compute_w_C(questions, vocabulary)  # background lm
         self.model = TRLM([], w_C, self.alignments, len(vocabulary), alpha=self.alpha, sigma=self.sigma)
+
+        del self.additional
+        del self.trainset
+        del self.traindata
 
 
     def validate(self):

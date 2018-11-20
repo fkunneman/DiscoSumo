@@ -38,6 +38,10 @@ class SemevalCosine(Semeval):
         else:
             self.model.load(DATA_PATH)
 
+        del self.additional
+        del self.trainset
+        del self.traindata
+
 
     def validate(self):
         ranking = {}
@@ -66,8 +70,7 @@ class SemevalCosine(Semeval):
 
 class SemevalSoftCosine(Semeval):
     def __init__(self, vector='word2vec'):
-        Semeval.__init__(self)
-        self.vector = vector
+        Semeval.__init__(self, vector)
         self.train()
 
     def train(self):
@@ -92,6 +95,10 @@ class SemevalSoftCosine(Semeval):
             self.model.init(corpus, DATA_PATH)
         else:
             self.model.load(DATA_PATH)
+
+        del self.additional
+        del self.trainset
+        del self.traindata
 
 
     def validate(self):
