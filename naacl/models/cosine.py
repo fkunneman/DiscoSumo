@@ -91,23 +91,26 @@ class SoftCosine(Cos):
 
 
     def score(self, q1, q2, t2w):
-        alignments = []
-        for i, w in enumerate(q1):
-            alignments[i] = []
-            w = w.lower()
+        def get_alignment(c1, c2):
+            alignments = []
+            for i, w in enumerate(c1):
+                alignments_i = []
+                w = w.lower()
 
-            for j, t in enumerate(q2):
-                t = t.lower()
-                try:
-                    w_t = t2w[t[0]][t][w[0]][w]
-                except:
-                    w_t = 0.0
-                alignments[i].append(w_t)
+                for j, t in enumerate(c2):
+                    t = t.lower()
+                    try:
+                        w_t = t2w[t[0]][t][w[0]][w]
+                    except:
+                        w_t = 0.0
+                    alignments_i.append(w_t)
+                alignments.append(alignments_i)
+            return alignments
 
         q1tfidf = self.tfidf[self.dict.doc2bow(q1)]
         q2tfidf = self.tfidf[self.dict.doc2bow(q2)]
 
-        q1q1 = np.sqrt(self.aligndot(q1tfidf, q1tfidf, alignments))
-        q2q2 = np.sqrt(self.aligndot(q2tfidf, q2tfidf, alignments))
-        aligncosine = self.aligndot(q1tfidf, q2tfidf, alignments) / (q1q1 * q2q2)
+        q1q1 = np.sqrt(self.aligndot(q1tfidf, q1tfidf, get_alignment(q1, q1)))
+        q2q2 = np.sqrt(self.aligndot(q2tfidf, q2tfidf, get_alignment(q2, q2)))
+        aligncosine = self.aligndot(q1tfidf, q2tfidf, get_alignment(q1, q2)) / (q1q1 * q2q2)
         return aligncosine

@@ -54,7 +54,7 @@ class Semeval():
             self.fasttext = fasttext.init_fasttext(FASTTEXT_PATH)
 
         self.trainidx = self.trainelmo = self.devidx = self.develmo = None
-        self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
+        self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = None
         if 'elmo' in self.vector:
             self.trainidx, self.trainelmo, self.devidx, self.develmo = elmo.init_elmo(True, ELMO_PATH)
             self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
@@ -107,17 +107,17 @@ class Semeval():
         def elmo():
             return elmovec.get(str(elmoidx[qid]))
 
-        if encoding == 'word2vec':
+        if self.vector == 'word2vec':
             return w2v()
-        elif encoding == 'fasttext':
+        elif self.vector == 'fasttext':
             return fasttext()
-        elif encoding == 'elmo':
+        elif self.vector == 'elmo':
             return elmo()
-        elif encoding == 'fasttext+elmo':
+        elif self.vector == 'fasttext+elmo':
             w2vemb = fasttext()
             elmoemb = elmo()
             return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]
-        elif encoding == 'word2vec+elmo':
+        elif self.vector == 'word2vec+elmo':
             w2vemb = w2v()
             elmoemb = elmo()
             return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]

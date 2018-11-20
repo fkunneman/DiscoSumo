@@ -38,7 +38,7 @@ class SemevalTranslation(Semeval):
                     questions.append(q3)
 
         path = os.path.join(DATA_PATH, 'transdict.model')
-        if not path:
+        if not os.path.exists(path):
             vocabulary = Dictionary(questions)
             vocabulary.save(path)
         else:

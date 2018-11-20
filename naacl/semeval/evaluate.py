@@ -9,8 +9,14 @@ from operator import itemgetter
 from semeval_bm25 import SemevalBM25
 from semeval_translation import SemevalTranslation
 from semeval_cosine import SemevalCosine, SemevalSoftCosine
+from semeval_svm import SemevalSVM
+
+from sklearn.metrics import f1_score, accuracy_score
 
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+FEATURE_PATH='feature'
+if not os.path.exists(FEATURE_PATH):
+    os.mkdir(FEATURE_PATH)
 EVALUATION_PATH='evaluation'
 if not os.path.exists(EVALUATION_PATH):
     os.mkdir(EVALUATION_PATH)
@@ -51,6 +57,69 @@ def evaluate(ranking):
     return map_gold, map_pred
 
 if __name__ == '__main__':
+    ###############################################################################
+    # bm25
+    feature_path = os.path.join(FEATURE_PATH, 'bm25.features')
+    svm = SemevalSVM(features='bm25,', comment_features='bm25,', vector='word2vec', path=feature_path)
+    ranking, y_real, y_pred, parameter_settings = svm.validate()
+
+    path = os.path.join(EVALUATION_PATH, 'bm25.comments.ranking')
+    svm.save(ranking, path)
+
+    map_baseline, map_model = evaluate(ranking)
+    f1score = f1_score(y_real, y_pred)
+    accuracy = accuracy_score(y_real, y_pred)
+    print('Evaluation BM25 + Comments')
+    print('Parameters:', parameter_settings)
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print('Accuracy: ', accuracy)
+    print('F-Score: ', f1score)
+    print(10 * '-')
+
+    del svm
+    ###############################################################################
+    # word2vec translation
+    feature_path = os.path.join(FEATURE_PATH, 'translation.word2vec.features')
+    svm = SemevalSVM(features='translation,', comment_features='translation,', vector='word2vec', path=feature_path)
+    ranking, y_real, y_pred, parameter_settings = svm.validate()
+
+    path = os.path.join(EVALUATION_PATH, 'translation.word2vec.comments.ranking')
+    svm.save(ranking, path)
+
+    map_baseline, map_model = evaluate(ranking)
+    f1score = f1_score(y_real, y_pred)
+    accuracy = accuracy_score(y_real, y_pred)
+    print('Evaluation Translation Word2Vec + Comments')
+    print('Parameters:', parameter_settings)
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print('Accuracy: ', accuracy)
+    print('F-Score: ', f1score)
+    print(10 * '-')
+
+    del svm
+    ###############################################################################
+    # word2vec softcosine
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.word2vec_elmo.features')
+    svm = SemevalSVM(features='softcosine,', comment_features='softcosine,', vector='word2vec+elmo', path=feature_path)
+    ranking, y_real, y_pred, parameter_settings = svm.validate()
+
+    path = os.path.join(EVALUATION_PATH, 'softcosine.word2vec_elmo.comments.ranking')
+    svm.save(ranking, path)
+
+    map_baseline, map_model = evaluate(ranking)
+    f1score = f1_score(y_real, y_pred)
+    accuracy = accuracy_score(y_real, y_pred)
+    print('Evaluation Translation Word2Vec + Comments')
+    print('Parameters:', parameter_settings)
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print('Accuracy: ', accuracy)
+    print('F-Score: ', f1score)
+    print(10 * '-')
+
+    del svm
     ###############################################################################
     # bm25
     bm25 = SemevalBM25()
@@ -128,7 +197,7 @@ if __name__ == '__main__':
     del cosine
     ###############################################################################
     # align cosine
-    aligncosine = SemevalSoftCosine(vector='aligments')
+    aligncosine = SemevalSoftCosine(vector='alignments')
     ranking = aligncosine.validate()
 
     path = os.path.join(EVALUATION_PATH, 'softcosine.align.ranking')

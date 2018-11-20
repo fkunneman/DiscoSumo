@@ -26,10 +26,10 @@ class SemevalSVM(Semeval):
         self.comment_features = comment_features.split(',')
         self.svm = Model()
 
-        self.bm25 = SemevalBM25()
-        self.cosine = SemevalCosine()
-        self.softcosine = SemevalSoftCosine(vector)
-        self.translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector=self.vector)
+        self.bm25 = SemevalBM25() if 'bm25' in self.features+self.comment_features else None
+        self.cosine = SemevalCosine() if 'cosine' in self.features+self.comment_features else None
+        self.softcosine = SemevalSoftCosine(vector) if 'softcosine' in self.features+self.comment_features else None
+        self.translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector=self.vector) if 'translation' in self.features+self.comment_features else None
 
         self.train()
 
@@ -135,7 +135,7 @@ class SemevalSVM(Semeval):
         self.scaler.fit(X)
         X = self.scaler.transform(X)
 
-        self.model = self.svm.train_svm(
+        self.svm.train_svm(
             trainvectors=X,
             labels=y,
             c='search',
@@ -240,7 +240,7 @@ class SemevalSVM(Semeval):
                             x.append(0)
 
                 x = self.scaler.transform([x])
-                score, pred_label = self.model.score(x)
+                score, pred_label = self.svm.score(x)
                 y_pred.append(pred_label)
 
                 real_label = 0
@@ -249,6 +249,6 @@ class SemevalSVM(Semeval):
                 y_real.append(real_label)
                 ranking[q1id].append((real_label, score, q2id))
 
-                parameter_settings = self.model.return_parameter_settings(clf='svm')
+        parameter_settings = self.svm.return_parameter_settings(clf='svm')
                 
         return ranking, y_real, y_pred, parameter_settings
