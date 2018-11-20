@@ -1,6 +1,7 @@
 __author__='thiagocastroferreira'
 
 import numpy as np
+import os
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 
@@ -19,13 +20,13 @@ class Cos():
         self.dict = Dictionary(traindata)  # fit dictionary
         corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
         self.tfidf = TfidfModel(corpus)  # fit model
-        self.dict.save(path)
-        self.tfidf.save(path)
+        self.dict.save(os.path.join(path,'dict.model'))
+        self.tfidf.save(os.path.join(path,'tfidf.model'))
 
 
     def load(self, path):
-        self.dict = Dictionary.load(path)
-        self.tfidf = TfidfModel.load(path)
+        self.dict = Dictionary.load(os.path.join(path,'dict.model'))
+        self.tfidf = TfidfModel.load(os.path.join(path,'tfidf.model'))
 
 
 class Cosine(Cos):
@@ -108,5 +109,5 @@ class SoftCosine(Cos):
 
         q1q1 = np.sqrt(self.aligndot(q1tfidf, q1tfidf, alignments))
         q2q2 = np.sqrt(self.aligndot(q2tfidf, q2tfidf, alignments))
-        aligncosine = self.softdot(q1tfidf, q2tfidf, alignments) / (q1q1 * q2q2)
+        aligncosine = self.aligndot(q1tfidf, q2tfidf, alignments) / (q1q1 * q2q2)
         return aligncosine

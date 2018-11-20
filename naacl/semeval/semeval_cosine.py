@@ -34,9 +34,9 @@ class SemevalCosine(Semeval):
                         corpus.append(q3)
 
                 corpus.append(q1)
-            self.model.init(corpus, path)
+            self.model.init(corpus, DATA_PATH)
         else:
-            self.model.load(path)
+            self.model.load(DATA_PATH)
 
 
     def validate(self):
@@ -89,9 +89,9 @@ class SemevalSoftCosine(Semeval):
                         corpus.append(q3)
 
                 corpus.append(q1)
-            self.model.init(corpus, path)
+            self.model.init(corpus, DATA_PATH)
         else:
-            self.model.load(path)
+            self.model.load(DATA_PATH)
 
 
     def validate(self):

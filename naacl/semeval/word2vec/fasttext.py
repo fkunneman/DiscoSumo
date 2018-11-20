@@ -13,7 +13,7 @@ logging.basicConfig(format=FORMAT)
 
 import os
 import time
-from gensim.models import Word2Vec
+from gensim.models import FastText
 from multiprocessing import Pool
 
 from stanfordcorenlp import StanfordCoreNLP
@@ -98,12 +98,12 @@ def train():
         document = p.load(open(fname, 'rb'))
 
     logging.info('Training...')
-    fname = 'word2vec.model'
-    model = Word2Vec(document, size=300, window=10, min_count=1, workers=10)
+    fname = 'fasttext.model'
+    model = FastText(document, size=300, window=10, min_count=1, workers=10, iter=5)
     model.save(fname)
 
-def init_word2vec(path):
-    return Word2Vec.load(path)
+def init_fasttext(path):
+    return FastText.load(path)
 
 
 def encode(question, w2vec):

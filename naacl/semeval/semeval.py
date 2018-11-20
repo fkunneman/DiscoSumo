@@ -15,11 +15,13 @@ stop = set(stopwords.words('english'))
 import os
 import preprocessing
 import word2vec.word2vec as word2vec
+import word2vec.fasttext as fasttext
 
 from gensim import corpora
 
 ALIGNMENTS_PATH='alignments/model/lex.f2e'
 WORD2VEC_PATH='word2vec/word2vec.model'
+FASTTEXT_PATH='word2vec/fasttext.model'
 ELMO_PATH='elmo/'
 
 ADDITIONAL_PATH= 'word2vec/corpus.pickle'
@@ -43,6 +45,7 @@ class Semeval():
         logging.info(info)
 
         self.word2vec = word2vec.init_word2vec(WORD2VEC_PATH)
+        self.fasttext = fasttext.init_fasttext(FASTTEXT_PATH)
         self.trainidx, self.trainelmo, self.devidx, self.develmo = elmo.init_elmo(True, ELMO_PATH)
         self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
 
@@ -82,17 +85,33 @@ class Semeval():
                     emb.append(300 * [0])
             return emb
 
+        def fasttext():
+            emb = []
+            for w in q:
+                try:
+                    emb.append(self.fasttext[w.lower()])
+                except:
+                    emb.append(300 * [0])
+            return emb
+
         def elmo():
             return elmovec.get(str(elmoidx[qid]))
 
         if encoding == 'word2vec':
             return w2v()
+        elif encoding == 'fasttext':
+            return fasttext()
         elif encoding == 'elmo':
             return elmo()
+        elif encoding == 'fasttext+elmo':
+            w2vemb = w2v()
+            elmoemb = elmo()
+            return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]
         else:
             w2vemb = w2v()
             elmoemb = elmo()
             return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]
+
 
     # utilities
     def format_data(self, indexset, parts):

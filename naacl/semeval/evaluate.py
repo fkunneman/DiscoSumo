@@ -12,6 +12,8 @@ from semeval_cosine import SemevalCosine, SemevalSoftCosine
 
 GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 EVALUATION_PATH='evaluation'
+if not os.path.exists(EVALUATION_PATH):
+    os.mkdir(EVALUATION_PATH)
 
 def prepare_gold(path):
     ir = ev.read_res_file_aid(path, 'trec')
