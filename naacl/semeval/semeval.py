@@ -117,10 +117,11 @@ class Semeval():
             w2vemb = fasttext()
             elmoemb = elmo()
             return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]
-        else:
+        elif encoding == 'word2vec+elmo':
             w2vemb = w2v()
             elmoemb = elmo()
             return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]
+        return 0
 
 
     # utilities

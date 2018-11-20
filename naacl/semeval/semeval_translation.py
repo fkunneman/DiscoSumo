@@ -4,6 +4,7 @@ import sys
 sys.path.append('../')
 
 import copy
+import os
 from semeval import Semeval
 from gensim.corpora import Dictionary
 from models.translation import TRLM, compute_w_C
@@ -36,7 +37,12 @@ class SemevalTranslation(Semeval):
                     q3 = rel_comment['tokens_proc']
                     questions.append(q3)
 
-        vocabulary = Dictionary(questions)
+        path = os.path.join(DATA_PATH, 'transdict.model')
+        if not path:
+            vocabulary = Dictionary(questions)
+            vocabulary.save(path)
+        else:
+            vocabulary = Dictionary.load(path)
         w_C = compute_w_C(questions, vocabulary)  # background lm
         self.model = TRLM([], w_C, self.alignments, len(vocabulary), alpha=self.alpha, sigma=self.sigma)
 
