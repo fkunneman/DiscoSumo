@@ -7,7 +7,7 @@ import _pickle as p
 import os
 import numpy as np
 
-from naacl.models.svm import Model
+from models.svm import Model
 from semeval import Semeval
 from semeval_bm25 import SemevalBM25
 from semeval_cosine import SemevalCosine, SemevalSoftCosine

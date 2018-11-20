@@ -18,12 +18,9 @@ import word2vec.word2vec as word2vec
 
 from gensim import corpora
 
-STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
-GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
-
 ALIGNMENTS_PATH='alignments/model/lex.f2e'
 WORD2VEC_PATH='word2vec/word2vec.model'
-ELMO_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/elmo/'
+ELMO_PATH='elmo/'
 
 ADDITIONAL_PATH= 'word2vec/corpus.pickle'
 DATA_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/data'

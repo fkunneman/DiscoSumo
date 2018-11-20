@@ -4,7 +4,7 @@ import sys
 sys.path.append('../')
 
 from semeval import Semeval
-from naacl.models.bm25 import BM25
+from models.bm25 import BM25
 
 class SemevalBM25(Semeval):
     def __init__(self):
