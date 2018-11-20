@@ -145,7 +145,6 @@ class SemevalSVM(Semeval):
             jobs=4
         )
 
-
     def validate(self):
         ranking = {}
         y_real, y_pred = [], []
@@ -250,4 +249,7 @@ class SemevalSVM(Semeval):
                     real_label = 1
                 y_real.append(real_label)
                 ranking[q1id].append((real_label, score, q2id))
-        return ranking, y_real, y_pred
+
+                parameter_settings = self.model.return_parameter_settings(clf='svm')
+                
+        return ranking, y_real, y_pred, parameter_settings

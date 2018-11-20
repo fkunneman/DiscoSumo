@@ -75,3 +75,13 @@ class Model():
         score = self.model.decision_function([X])[0]
         pred_label = self.model.predict([X])[0]
         return score, pred_label
+
+    def return_parameter_settings(self, clf='svm'):
+        parameter_settings = []
+        if clf == 'svm':
+            params = ['C','kernel','gamma','degree']
+        elif clf == 'regression':
+            params = ['C', 'penalty', 'tol']
+        for param in params:
+            parameter_settings.append([param,str(self.model.get_params()[param])])
+        return '\n'.join([': '.join(x) for x in parameter_settings])
