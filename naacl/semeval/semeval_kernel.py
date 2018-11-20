@@ -18,10 +18,9 @@ if not os.path.exists(DATA_PATH):
 KERNEL_PATH = os.path.join(DATA_PATH, 'trainkernel.pickle')
 
 class SemevalTreeKernel(Semeval):
-    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, vector='word2vec', kernel_path=KERNEL_PATH, threads=10):
+    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, vector='word2vec', kernel_path=KERNEL_PATH):
         Semeval.__init__(self)
         self.path = kernel_path
-        self.threads = threads
         self.memoization = {}
         self.vector = vector
         self.svm = Model()
@@ -51,23 +50,44 @@ class SemevalTreeKernel(Semeval):
 
     def train(self):
         if not os.path.exists(self.path):
-            n = int(len(self.traindata) / self.threads)
-            chunks = [self.traindata[i:i+n] for i in range(0, len(self.traindata), n)]
-
-            pool = Pool(processes=len(chunks))
-
-            processes = []
-            for i, chunk in enumerate(chunks):
-                processes.append(pool.apply_async(self.kernel, [i+1, chunk]))
-
             X, y = [], []
-            for process in processes:
-                X_, y_ = process.get()
-                X.extend(X_)
-                y.extend(y_)
+            for i, q_pair in enumerate(self.traindata):
+                percentage = round(float(i + 1) / len(self.traindata), 2)
+                print('Path: ', self.path,  'Progress: ', percentage, i + 1, sep='\t')
+                x = []
+                q1id = q_pair['q1_id']
+                q1 = q_pair['q1_tree']
+                q1_emb = self.encode(q1id, q1, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                q1_token2lemma = dict(zip(q_pair['q1_full'], q_pair['q1_lemmas']))
+                kq1 = self.memoize(q1id, q1, q1_emb, q1_token2lemma, q1id, q1, q1_emb, q1_token2lemma)
 
-            pool.join()
-            pool.close()
+                q2id = q_pair['q2_id']
+                q2 = q_pair['q2_tree']
+                q2_emb = self.encode(q2id, q2, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                q2_token2lemma = dict(zip(q_pair['q2_full'], q_pair['q2_lemmas']))
+                kq2 = self.memoize(q2id, q2, q2_emb, q2_token2lemma, q2id, q2, q2_emb, q2_token2lemma)
+
+                for j, c in enumerate(self.traindata):
+                    c1id = c['q1_id'],
+                    c1 = c['q1_tree']
+                    c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                    c1_token2lemma = dict(zip(c['q1_full'], c['q1_lemmas']))
+                    kc1 = self.memoize(c1id, c1, c1_emb, c1_token2lemma, c1id, c1, c1_emb, c1_token2lemma)
+
+                    c2id = c['q2_id']
+                    c2 = c['q2_tree']
+                    c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                    c2_token2lemma = dict(zip(c['q2_full'], c['q2_lemmas']))
+                    kc2 = self.memoize(c2id, c2, c2_emb, c2_token2lemma, c2id, c2, c2_emb, c2_token2lemma)
+
+                    kq1c1 = float(self.memoize(q1id, q1, q1_emb, q1_token2lemma, c1id, c1, c1_emb, c1_token2lemma)) / np.sqrt(kq1 * kc1)  # normalized
+                    kq2c2 = float(self.memoize(q2id, q2, q2_emb, q2_token2lemma, c2id, c2, c2_emb, c2_token2lemma)) / np.sqrt(kq2 * kc2)  # normalized
+
+                    k = kq1c1 + kq2c2
+                    x.append(k)
+                X.append(x)
+                y.append(q_pair['label'])
+
             p.dump(list(zip(X, y)), open(self.path, 'wb'))
             X = np.array(X)
         else:
@@ -75,14 +95,7 @@ class SemevalTreeKernel(Semeval):
             X = np.array([x[0] for x in f])
             y = list(map(lambda x: x[1], f))
 
-        self.model = self.model.train_svm(
-            trainvectors=X,
-            labels=y,
-            c='search',
-            kernel='precomputed',
-            gamma='search',
-            jobs=4
-        )
+        self.model = self.svm.train_svm(trainvectors=X, labels=y, c='search', kernel='precomputed', gamma='search', jobs=4)
 
 
     def validate(self):
@@ -139,57 +152,21 @@ class SemevalTreeKernel(Semeval):
         return ranking, y_real, y_pred
 
 
-    def kernel(self, thread_id, pairdata):
-        X, y = [], []
-        for i, q_pair in enumerate(pairdata):
-            if i % 100 == 0:
-                percentage = round(float(i + 1) / len(pairdata), 2)
-                print('Thread id: ', thread_id, 'Progress: ', percentage, i + 1, sep='\t')
-            x = []
-            q1id = q_pair['q1_id']
-            q1 = q_pair['q1_tree']
-            q1_emb = self.encode(q1id, q1, self.fulltrainidx, self.fulltrainelmo, self.vector)
-            q1_token2lemma = dict(zip(q_pair['q1_full'], q_pair['q1_lemmas']))
-            kq1 = self.memoize(q1id, q1, q1_emb, q1_token2lemma, q1id, q1, q1_emb, q1_token2lemma)
-
-            q2id = q_pair['q2_id']
-            q2 = q_pair['q2_tree']
-            q2_emb = self.encode(q2id, q2, self.fulltrainidx, self.fulltrainelmo, self.vector)
-            q2_token2lemma = dict(zip(q_pair['q2_full'], q_pair['q2_lemmas']))
-            kq2 = self.memoize(q2id, q2, q2_emb, q2_token2lemma, q2id, q2, q2_emb, q2_token2lemma)
-
-            for j, c in enumerate(self.traindata):
-                c1id = c['q1_id'],
-                c1 = c['q1_tree']
-                c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo, self.vector)
-                c1_token2lemma = dict(zip(c['q1_full'], c['q1_lemmas']))
-                kc1 = self.memoize(c1id, c1, c1_emb, c1_token2lemma, c1id, c1, c1_emb, c1_token2lemma)
-
-                c2id = c['q2_id']
-                c2 = c['q2_tree']
-                c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo, self.vector)
-                c2_token2lemma = dict(zip(c['q2_full'], c['q2_lemmas']))
-                kc2 = self.memoize(c2id, c2, c2_emb, c2_token2lemma, c2id, c2, c2_emb, c2_token2lemma)
-
-                kq1c1 = float(self.memoize(q1id, q1, q1_emb, q1_token2lemma, c1id, c1, c1_emb, c1_token2lemma)) / np.sqrt(kq1 * kc1)  # normalized
-                kq2c2 = float(self.memoize(q2id, q2, q2_emb, q2_token2lemma, c2id, c2, c2_emb, c2_token2lemma)) / np.sqrt(kq2 * kc2)  # normalized
-
-                k = kq1c1 + kq2c2
-                x.append(k)
-            X.append(x)
-            y.append(q_pair['label'])
-        return X, y
-
+def run(thread_id, smoothed, vector, path):
+    print('Thread_id: ', thread_id)
+    SemevalTreeKernel(smoothed=smoothed, vector=vector, kernel_path=path)
 
 if __name__ == '__main__':
+    pool = Pool(processes=10)
+    processes = []
     path = os.path.join(DATA_PATH, 'kernel.pickle')
-    kernel = SemevalTreeKernel(smoothed=False, vector='word2vec', kernel_path=path, threads=15)
-    kernel.train()
+    processes.append(pool.apply_async(run, [1, False, 'word2vec', path]))
 
-    path = os.path.join(DATA_PATH, 'kernel.word2vec.pickle')
-    kernel = SemevalTreeKernel(smoothed=True, vector='word2vec', kernel_path=path, threads=15)
-    kernel.train()
+    path = os.path.join(DATA_PATH, 'kernel.wordvec.pickle')
+    processes.append(pool.apply_async(run, [2, True, 'word2vec', path]))
 
-    path = os.path.join(DATA_PATH, 'kernel.word2vec_elmo.pickle')
-    kernel = SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', kernel_path=path, threads=15)
-    kernel.train()
+    path = os.path.join(DATA_PATH, 'kernel.wordvec+elmo.pickle')
+    processes.append(pool.apply_async(run, [3, True, 'word2vec+elmo', path]))
+
+    pool.close()
+    pool.join()

@@ -1,5 +1,6 @@
 __author__='thiagocastroferreira'
 
+import copy
 from sklearn.metrics.pairwise import cosine_similarity
 
 class TreeKernel():

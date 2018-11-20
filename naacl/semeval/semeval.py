@@ -104,7 +104,7 @@ class Semeval():
         elif encoding == 'elmo':
             return elmo()
         elif encoding == 'fasttext+elmo':
-            w2vemb = w2v()
+            w2vemb = fasttext()
             elmoemb = elmo()
             return [np.concatenate([w2vemb[i], elmoemb[i]]) for i in range(len(w2vemb))]
         else:
