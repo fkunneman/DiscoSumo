@@ -15,6 +15,7 @@ python3 preprocessing.py
 #echo "train wordvec vectors"
 #cd $SEMEVAL_PATH/word2vec
 #python3 word2vec.py
+#python3 fasttext.py
 
 #echo "train elmo vectors"
 #cd $SEMEVAL_PATH/elmo

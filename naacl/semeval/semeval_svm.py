@@ -30,7 +30,7 @@ class SemevalSVM(Semeval):
         self.bm25 = SemevalBM25(stop=stop) if 'bm25' in self.features+self.comment_features else None
         self.cosine = SemevalCosine(stop=stop) if 'cosine' in self.features+self.comment_features else None
         self.softcosine = SemevalSoftCosine(stop=stop, vector=vector) if 'softcosine' in self.features+self.comment_features else None
-        self.translation = SemevalTranslation(alpha=0.7, sigma=0.3, stop=stop, vector=self.vector) if 'translation' in self.features+self.comment_features else None
+        self.translation = SemevalTranslation(alpha=alpha, sigma=sigma, stop=stop, vector=self.vector) if 'translation' in self.features+self.comment_features else None
 
         self.train()
 
@@ -223,7 +223,10 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         score = self.softcosine.model.score(q1, q2, self.alignments)
                     else:
-                        q2_emb = self.encode(q2id, q2, self.devidx, self.develmo)
+                        if self.stop:
+                            q2_emb = self.encode(q2id, q2, self.devidx, self.develmo)
+                        else:
+                            q2_emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
                         score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
                     x.append(score)
 
