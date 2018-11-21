@@ -61,7 +61,7 @@ def run(model, evaluation_path):
     result = model.validate()
 
     print('Evaluation: ', evaluation_path)
-    if len(result) > 1:
+    if len(evaluation_path.split('.')) == 5:
         ranking, y_real, y_pred, parameter_settings = result
         map_baseline, map_model = evaluate(ranking)
         f1score = f1_score(y_real, y_pred)

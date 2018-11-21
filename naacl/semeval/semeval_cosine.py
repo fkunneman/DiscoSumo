@@ -110,7 +110,10 @@ class SemevalSoftCosine(Semeval):
 
             query = self.devset[q1id]
             q1 = query['tokens_proc'] if self.stop else query['tokens']
-            q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
+            if self.stop:
+                q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
+            else:
+                q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
@@ -122,7 +125,10 @@ class SemevalSoftCosine(Semeval):
                 if self.vector == 'alignments':
                     score = self.model.score(q1, q2, self.alignments)
                 else:
-                    q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
+                    if self.stop:
+                        q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
+                    else:
+                        q2emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
                     score = self.model(q1, q1emb, q2, q2emb)
                 real_label = 0
                 if rel_question['relevance'] != 'Irrelevant':

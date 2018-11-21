@@ -60,7 +60,10 @@ class SemevalTranslation(Semeval):
 
             query = self.devset[q1id]
             q1 = query['tokens_proc'] if self.stop else query['tokens']
-            q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
+            if self.stop:
+                q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
+            else:
+                q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
@@ -68,7 +71,10 @@ class SemevalTranslation(Semeval):
                 q2id = rel_question['id']
 
                 q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
-                q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
+                if self.stop:
+                    q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
+                else:
+                    q2emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
 
 
                 if self.vector == 'alignments':
