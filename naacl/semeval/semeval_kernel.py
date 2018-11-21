@@ -96,7 +96,7 @@ class SemevalTreeKernel(Semeval):
             X = np.array([x[0] for x in f])
             y = list(map(lambda x: x[1], f))
 
-        self.model = self.svm.train_svm(trainvectors=X, labels=y, c='search', kernel='precomputed', gamma='search', jobs=4)
+        self.svm.train_svm(trainvectors=X, labels=y, c='search', kernel='precomputed', gamma='search', jobs=4)
 
 
     def validate(self):
@@ -142,7 +142,7 @@ class SemevalTreeKernel(Semeval):
                     k = kq1c1 + kq2c2
                     X.append(k)
 
-                score, pred_label = self.model.score(X)
+                score, pred_label = self.svm.score(X)
                 y_pred.append(pred_label)
 
                 real_label = 0
@@ -150,7 +150,9 @@ class SemevalTreeKernel(Semeval):
                     real_label = 1
                 y_real.append(real_label)
                 ranking[q1id].append((real_label, score, q2id))
-        return ranking, y_real, y_pred
+
+        parameter_settings = self.svm.return_parameter_settings(clf='svm')
+        return ranking, y_real, y_pred, parameter_settings
 
 
 def run(thread_id, smoothed, vector, path):

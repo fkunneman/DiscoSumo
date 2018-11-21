@@ -39,12 +39,12 @@ class SemevalTranslation(Semeval):
 
         path = os.path.join(DATA_PATH, 'transdict.model')
         if not os.path.exists(path):
-            vocabulary = Dictionary(questions)
-            vocabulary.save(path)
+            self.vocabulary = Dictionary(questions)
+            self.vocabulary.save(path)
         else:
-            vocabulary = Dictionary.load(path)
-        w_C = compute_w_C(questions, vocabulary)  # background lm
-        self.model = TRLM([], w_C, self.alignments, len(vocabulary), alpha=self.alpha, sigma=self.sigma)
+            self.vocabulary = Dictionary.load(path)
+        self.w_C = compute_w_C(questions, self.vocabulary)  # background lm
+        self.model = TRLM([], self.w_C, self.alignments, len(self.vocabulary), alpha=self.alpha, sigma=self.sigma)
 
         del self.additional
         del self.trainset
