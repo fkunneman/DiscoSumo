@@ -8,14 +8,14 @@ echo "preprocessing corpus..."
 cd $SEMEVAL_PATH
 python3 preprocessing.py
 
-#echo "train alignments with GIZA"
-#cd $SEMEVAL_PATH/alignments
-#sh run.sh
+echo "train alignments with GIZA"
+cd $SEMEVAL_PATH/alignments
+sh run.sh
 
-#echo "train wordvec vectors"
-#cd $SEMEVAL_PATH/word2vec
-#python3 word2vec.py
-#python3 fasttext.py
+echo "train wordvec vectors"
+cd $SEMEVAL_PATH/word2vec
+python3 word2vec.py
+python3 fasttext.py
 
 #echo "train elmo vectors"
 #cd $SEMEVAL_PATH/elmo

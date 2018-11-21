@@ -42,9 +42,10 @@ class TRLM():
         return w_C
 
     def __call__(self, q1, q1_emb, q2, q2_emb):
+        lmprob, trmprob, trlmprob = 0.0, 0.0, 0.0
+        if len(q1) == 0 or len(q2) == 0: return lmprob, trmprob, trlmprob, 0
         Q = pd.Series(q2)
         Q_count = Q.count()
-        lmprob, trmprob, trlmprob = 0.0, 0.0, 0.0
 
         start = time.time()
         t_Qs = []
@@ -74,9 +75,10 @@ class TRLM():
 
 
     def score(self, q1, q2):
+        lmprob, trmprob, trlmprob = 0.0, 0.0, 0.0
+        if len(q1) == 0 or len(q2) == 0: return lmprob, trmprob, trlmprob, 0
         Q = pd.Series(q2)
         Q_count = Q.count()
-        lmprob, trmprob, trlmprob = 0.0, 0.0, 0.0
 
         start = time.time()
         t_Qs = []

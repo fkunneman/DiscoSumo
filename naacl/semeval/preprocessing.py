@@ -23,12 +23,13 @@ WRITE_DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 def parse(question, corenlp, props):
     tokens, lemmas, pos = [], [], []
+    out = None
     try:
         out = corenlp.annotate(question, properties=props)
-        out = json.loads(out)
+        parsed = json.loads(out)
 
         trees = '(SENTENCES '
-        for snt in out['sentences']:
+        for snt in parsed['sentences']:
             tokens.extend(map(lambda x: x['originalText'], snt['tokens']))
             lemmas.extend(map(lambda x: x['lemma'], snt['tokens']))
             pos.extend(map(lambda x: x['pos'], snt['tokens']))
@@ -37,7 +38,16 @@ def parse(question, corenlp, props):
         trees += ')'
     except:
         print('parsing error...')
-        tokens, trees = '', '()'
+        print(out)
+        props_ = {'annotators': 'tokenize,ssplit','pipelineLanguage':'en','outputFormat':'json'}
+        out = corenlp.annotate(question, properties=props_)
+        parsed = json.loads(out)
+
+        tokens = []
+        for snt in parsed['sentences']:
+            words = [w for w in map(lambda x: x['originalText'].lower(), snt['tokens'])]
+            tokens.extend(words)
+        trees = '()'
     return ' '.join(tokens), trees, ' '.join(lemmas), pos
 
 def preprocess(indexset, corenlp, props):
@@ -104,7 +114,7 @@ def preprocess(indexset, corenlp, props):
 
 def run():
     props={'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
-    corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
+    corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27', memory='8g')
 
     logging.info('Load corpus')
     trainset, devset = load.run()

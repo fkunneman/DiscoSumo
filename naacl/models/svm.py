@@ -1,7 +1,7 @@
 __author__='thiagocastroferreira'
 
 from sklearn import svm
-from sklearn.grid_search import RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 
