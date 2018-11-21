@@ -94,4 +94,4 @@ class Model():
             params = []
         for param in params:
             parameter_settings.append([param,str(self.model.get_params()[param])])
-        return '\n'.join([': '.join(x) for x in parameter_settings])
+        return ','.join([': '.join(x) for x in parameter_settings])

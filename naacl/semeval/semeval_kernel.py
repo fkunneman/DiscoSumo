@@ -58,26 +58,26 @@ class SemevalTreeKernel(Semeval):
                 x = []
                 q1id = q_pair['q1_id']
                 q1 = q_pair['q1_tree']
-                q1_emb = self.encode(q1id, q1, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                q1_emb = self.encode(q1id, q1, self.fulltrainidx, self.fulltrainelmo)
                 q1_token2lemma = dict(zip(q_pair['q1_full'], q_pair['q1_lemmas']))
                 kq1 = self.memoize(q1id, q1, q1_emb, q1_token2lemma, q1id, q1, q1_emb, q1_token2lemma)
 
                 q2id = q_pair['q2_id']
                 q2 = q_pair['q2_tree']
-                q2_emb = self.encode(q2id, q2, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                q2_emb = self.encode(q2id, q2, self.fulltrainidx, self.fulltrainelmo)
                 q2_token2lemma = dict(zip(q_pair['q2_full'], q_pair['q2_lemmas']))
                 kq2 = self.memoize(q2id, q2, q2_emb, q2_token2lemma, q2id, q2, q2_emb, q2_token2lemma)
 
                 for j, c in enumerate(self.traindata):
                     c1id = c['q1_id'],
                     c1 = c['q1_tree']
-                    c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                    c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo)
                     c1_token2lemma = dict(zip(c['q1_full'], c['q1_lemmas']))
                     kc1 = self.memoize(c1id, c1, c1_emb, c1_token2lemma, c1id, c1, c1_emb, c1_token2lemma)
 
                     c2id = c['q2_id']
                     c2 = c['q2_tree']
-                    c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                    c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo)
                     c2_token2lemma = dict(zip(c['q2_full'], c['q2_lemmas']))
                     kc2 = self.memoize(c2id, c2, c2_emb, c2_token2lemma, c2id, c2, c2_emb, c2_token2lemma)
 
@@ -110,7 +110,7 @@ class SemevalTreeKernel(Semeval):
             query = self.devset[q1id]
             q1_token2lemma = dict(zip(query['tokens'], query['lemmas']))
             q1 = query['tree']
-            q1_emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo, self.vector)
+            q1_emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
             kq1 = self.memoize(q1id, q1, q1_emb, q1_token2lemma, q1id, q1, q1_emb, q1_token2lemma)
 
             duplicates = query['duplicates']
@@ -119,20 +119,20 @@ class SemevalTreeKernel(Semeval):
                 q2id = rel_question['id']
                 q2_token2lemma = dict(zip(rel_question['tokens'], rel_question['lemmas']))
                 q2 = rel_question['tree']
-                q2_emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo, self.vector)
+                q2_emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
                 kq2 = self.memoize(q2id, q2, q2_emb, q2_token2lemma, q2id, q2, q2_emb, q2_token2lemma)
 
                 X = []
                 for j, c in enumerate(self.traindata):
                     c1id = c['q1_id'],
                     c1 = c['q1_tree']
-                    c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                    c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo)
                     c1_token2lemma = dict(zip(c['q1_full'], c['q1_lemmas']))
                     kc1 = self.memoize(c1id, c1, c1_emb, c1_token2lemma, c1id, c1, c1_emb, c1_token2lemma)
 
                     c2id = c['q2_id']
                     c2 = c['q2_tree']
-                    c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo, self.vector)
+                    c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo)
                     c2_token2lemma = dict(zip(c['q2_full'], c['q2_lemmas']))
                     kc2 = self.memoize(c2id, c2, c2_emb, c2_token2lemma, c2id, c2, c2_emb, c2_token2lemma)
 

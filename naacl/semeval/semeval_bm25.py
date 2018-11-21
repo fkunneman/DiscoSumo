@@ -7,8 +7,8 @@ from semeval import Semeval
 from models.bm25 import BM25
 
 class SemevalBM25(Semeval):
-    def __init__(self):
-        Semeval.__init__(self)
+    def __init__(self, stop=True):
+        Semeval.__init__(self, stop=stop)
         self.train()
 
     def train(self):
@@ -66,7 +66,7 @@ class SemevalBM25(Semeval):
             print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
 
             query = self.devset[q1id]
-            q1 = query['tokens_proc']
+            q1 = query['tokens_proc'] if self.stop else query['tokens']
 
             duplicates = query['duplicates']
             for duplicate in duplicates:

@@ -19,18 +19,18 @@ DATA_PATH='data'
 FEATURES_PATH = os.path.join(DATA_PATH, 'trainfeatures.pickle')
 
 class SemevalSVM(Semeval):
-    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', vector='word2vec', path=FEATURES_PATH):
-        Semeval.__init__(self, vector)
+    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH):
+        Semeval.__init__(self, stop=stop, vector=vector)
         self.path = path
         self.features = features.split(',')
         self.comment_features = comment_features.split(',')
         self.svm = Model()
 
         self.model = model
-        self.bm25 = SemevalBM25() if 'bm25' in self.features+self.comment_features else None
-        self.cosine = SemevalCosine() if 'cosine' in self.features+self.comment_features else None
-        self.softcosine = SemevalSoftCosine(vector) if 'softcosine' in self.features+self.comment_features else None
-        self.translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector=self.vector) if 'translation' in self.features+self.comment_features else None
+        self.bm25 = SemevalBM25(stop=stop) if 'bm25' in self.features+self.comment_features else None
+        self.cosine = SemevalCosine(stop=stop) if 'cosine' in self.features+self.comment_features else None
+        self.softcosine = SemevalSoftCosine(stop=stop, vector=vector) if 'softcosine' in self.features+self.comment_features else None
+        self.translation = SemevalTranslation(alpha=0.7, sigma=0.3, stop=stop, vector=self.vector) if 'translation' in self.features+self.comment_features else None
 
         self.train()
 
@@ -46,7 +46,7 @@ class SemevalSVM(Semeval):
                 q1, q2 = query_question['q1'], query_question['q2']
                 x = []
 
-                q1_emb = self.encode(q1id, q1, self.trainidx, self.trainelmo, self.vector)
+                q1_emb = self.encode(q1id, q1, self.trainidx, self.trainelmo)
 
                 # bm25
                 if 'bm25' in self.features:
@@ -58,7 +58,7 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q2)
                     else:
-                        q2_emb = self.encode(q2id, q2, self.trainidx, self.trainelmo, self.vector)
+                        q2_emb = self.encode(q2id, q2, self.trainidx, self.trainelmo)
                         lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
                     x.append(trlmprob)
 
@@ -72,7 +72,7 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         score = self.softcosine.model.score(q1, q2, self.alignments)
                     else:
-                        q2_emb = self.encode(q2id, q2, self.trainidx, self.trainelmo, self.vector)
+                        q2_emb = self.encode(q2id, q2, self.trainidx, self.trainelmo)
                         score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
                     x.append(score)
 
@@ -99,7 +99,7 @@ class SemevalSVM(Semeval):
                             if self.vector == 'alignments':
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q3)
                             else:
-                                q3_emb = self.encode(q3id, q3, self.trainidx, self.trainelmo, self.vector)
+                                q3_emb = self.encode(q3id, q3, self.trainidx, self.trainelmo)
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q3, q3_emb)
                             x.append(trlmprob)
                         else:
@@ -127,7 +127,7 @@ class SemevalSVM(Semeval):
                             if self.vector == 'alignments':
                                 score = self.softcosine.model.score(q1, q2, self.alignments)
                             else:
-                                q3_emb = self.encode(q3id, q3, self.trainidx, self.trainelmo, self.vector)
+                                q3_emb = self.encode(q3id, q3, self.trainidx, self.trainelmo)
                                 score = self.softcosine.model(q1, q1_emb, q3, q3_emb)
                             x.append(score)
                         else:
@@ -146,15 +146,16 @@ class SemevalSVM(Semeval):
         self.scaler.fit(X)
         X = self.scaler.transform(X)
 
-        self.svm.train_svm(
-            trainvectors=X,
-            labels=y,
-            c='search',
-            kernel='search',
-            gamma='search',
-            jobs=4,
-            gridsearch='brutal'
-        )
+        if self.model == 'svm':
+            self.svm.train_svm(
+                trainvectors=X,
+                labels=y,
+                c='search',
+                kernel='search',
+                gamma='search',
+                jobs=4,
+                gridsearch='brutal'
+            )
         else:
             self.svm.train_regression(trainvectors=X, labels=y, c='search', penalty='search', tol='search', gridsearch='brutal')
 
@@ -167,14 +168,14 @@ class SemevalSVM(Semeval):
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
             query = self.devset[q1id]
-            q1 = query['tokens_proc']
-            q1_emb = self.encode(q1id, q1, self.devidx, self.develmo, self.vector)
+            q1 = query['tokens_proc'] if self.stop else query['tokens']
+            q1_emb = self.encode(q1id, q1, self.devidx, self.develmo)
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = rel_question['tokens_proc']
+                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
 
                 x = []
                 # bm25
@@ -187,7 +188,7 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q2)
                     else:
-                        q2_emb = self.encode(q2id, q2, self.devidx, self.develmo, self.vector)
+                        q2_emb = self.encode(q2id, q2, self.devidx, self.develmo)
                         lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
                     x.append(trlmprob)
 
@@ -201,7 +202,7 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         score = self.softcosine.model.score(q1, q2, self.alignments)
                     else:
-                        q2_emb = self.encode(q2id, q2, self.devidx, self.develmo, self.vector)
+                        q2_emb = self.encode(q2id, q2, self.devidx, self.develmo)
                         score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
                     x.append(score)
 
@@ -210,7 +211,7 @@ class SemevalSVM(Semeval):
                 if 'bm25' in self.comment_features:
                     for rel_comment in rel_comments:
                         q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc']
+                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
 
                         if len(q3) > 0:
                             score = self.bm25.model(q1, q3id)
@@ -222,13 +223,13 @@ class SemevalSVM(Semeval):
                 if 'translation' in self.comment_features:
                     for rel_comment in rel_comments:
                         q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc']
+                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
 
                         if len(q3) > 0:
                             if self.vector == 'alignments':
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q3)
                             else:
-                                q3_emb = self.encode(q3id, q3, self.devidx, self.develmo, self.vector)
+                                q3_emb = self.encode(q3id, q3, self.devidx, self.develmo)
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q3, q3_emb)
                             x.append(trlmprob)
                         else:
@@ -238,7 +239,7 @@ class SemevalSVM(Semeval):
                 if 'cosine' in self.comment_features:
                     for rel_comment in rel_comments:
                         q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc']
+                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
 
                         if len(q3) > 0:
                             score = self.cosine.model(q1, q3)
@@ -250,13 +251,13 @@ class SemevalSVM(Semeval):
                 if 'softcosine' in self.comment_features:
                     for rel_comment in rel_comments:
                         q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc']
+                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
 
                         if len(q3) > 0:
                             if self.vector == 'alignments':
                                 score = self.softcosine.model.score(q1, q2, self.alignments)
                             else:
-                                q3_emb = self.encode(q3id, q3, self.devidx, self.develmo, self.vector)
+                                q3_emb = self.encode(q3id, q3, self.devidx, self.develmo)
                                 score = self.softcosine.model(q1, q1_emb, q3, q3_emb)
                             x.append(score)
                         else:

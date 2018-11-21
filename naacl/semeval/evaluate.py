@@ -56,250 +56,108 @@ def evaluate(ranking):
     map_pred = metrics.map(ranking, 10)
     return map_gold, map_pred
 
+
+def run(model, evaluation_path):
+    result = model.validate()
+
+    print('Evaluation: ', evaluation_path)
+    if len(result) > 1:
+        ranking, y_real, y_pred, parameter_settings = result
+        map_baseline, map_model = evaluate(ranking)
+        f1score = f1_score(y_real, y_pred)
+        accuracy = accuracy_score(y_real, y_pred)
+        print('Parameters:', parameter_settings)
+        print('MAP baseline: ', map_baseline)
+        print('MAP model: ', map_model)
+        print('Accuracy: ', accuracy)
+        print('F-Score: ', f1score)
+        model.save(ranking=ranking, path=path, parameter_settings=parameter_settings)
+    else:
+        map_baseline, map_model = evaluate(result)
+        print('MAP baseline: ', map_baseline)
+        print('MAP model: ', map_model)
+        print(10 * '-')
+        model.save(ranking=result, path=path, parameter_settings='')
+
+
 if __name__ == '__main__':
-    ###############################################################################
-    # bm25
-    feature_path = os.path.join(FEATURE_PATH, 'bm25.features')
-    svm = SemevalSVM(model='svm', features='bm25,', comment_features='bm25,', vector='word2vec', path=feature_path)
-    ranking, y_real, y_pred, parameter_settings = svm.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'svm.bm25.ranking')
-    svm.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation BM25 + Comments')
-    print('Parameters:', parameter_settings)
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    del svm
-    ###############################################################################
-    # bm25
-    feature_path = os.path.join(FEATURE_PATH, 'bm25.features')
-    svm = SemevalSVM(model='regression', features='bm25,', comment_features='bm25,', vector='word2vec', path=feature_path)
-    ranking, y_real, y_pred, parameter_settings = svm.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'regression.bm25.ranking')
-    svm.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation BM25 + Comments')
-    print('Parameters:', parameter_settings)
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    del svm
-    ###############################################################################
-    # svm word2vec translation
-    feature_path = os.path.join(FEATURE_PATH, 'translation.word2vec.features')
-    svm = SemevalSVM(features='translation,', comment_features='translation,', vector='word2vec', path=feature_path)
-    ranking, y_real, y_pred, parameter_settings = svm.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'svm.translation.word2vec.ranking')
-    svm.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Translation Word2Vec + Comments')
-    print('Parameters:', parameter_settings)
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    del svm
-    ###############################################################################
-    # regression word2vec translation
-    feature_path = os.path.join(FEATURE_PATH, 'translation.word2vec.features')
-    svm = SemevalSVM(model='regression', features='translation,', comment_features='translation,', vector='word2vec', path=feature_path)
-    ranking, y_real, y_pred, parameter_settings = svm.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'regression.translation.word2vec.ranking')
-    svm.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Translation Word2Vec + Comments')
-    print('Parameters:', parameter_settings)
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    del svm
-    ###############################################################################
-    # svm word2vec+elmo softcosine
-    feature_path = os.path.join(FEATURE_PATH, 'softcosine.word2vec_elmo.features')
-    svm = SemevalSVM(features='softcosine,', comment_features='softcosine,', vector='word2vec+elmo', path=feature_path)
-    ranking, y_real, y_pred, parameter_settings = svm.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'svm.softcosine.word2vec_elmo.ranking')
-    svm.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Translation Word2Vec + Comments')
-    print('Parameters:', parameter_settings)
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    del svm
-    ###############################################################################
-    # regression word2vec elmo softcosine
-    feature_path = os.path.join(FEATURE_PATH, 'softcosine.word2vec_elmo.features')
-    svm = SemevalSVM(features='softcosine,', comment_features='softcosine,', vector='word2vec+elmo', path=feature_path)
-    ranking, y_real, y_pred, parameter_settings = svm.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'regression.softcosine.word2vec_elmo.ranking')
-    svm.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    f1score = f1_score(y_real, y_pred)
-    accuracy = accuracy_score(y_real, y_pred)
-    print('Evaluation Translation Word2Vec + Comments')
-    print('Parameters:', parameter_settings)
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print('Accuracy: ', accuracy)
-    print('F-Score: ', f1score)
-    print(10 * '-')
-
-    del svm
-    ###############################################################################
-    # bm25
-    bm25 = SemevalBM25()
-    ranking = bm25.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'bm25.ranking')
-    bm25.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation BM25')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-    del bm25
-    ###############################################################################
-    # align translation
-    translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='alignments')
-    ranking = translation.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'translation.align.ranking')
-    translation.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Align Translation')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-    del translation
-    ###############################################################################
-    # word2vec translation
-    translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='word2vec')
-    ranking = translation.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'translation.word2vec.ranking')
-    translation.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Word2Vec Translation')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-    del translation
-    ###############################################################################
-    # wordvec+elmo translation
-    translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector='word2vec+elmo')
-    ranking = translation.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'translation.word2vec_elmo.ranking')
-    translation.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Word2Vec+ElMo Translation')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-    del translation
-    ###############################################################################
-    # cosine
-    cosine = SemevalCosine()
-    ranking = cosine.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'cosine.ranking')
-    cosine.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Cosine')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-    del cosine
-    ###############################################################################
-    # align cosine
-    aligncosine = SemevalSoftCosine(vector='alignments')
-    ranking = aligncosine.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'softcosine.align.ranking')
-    aligncosine.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Align Cosine')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
-    del aligncosine
-    ###############################################################################
-    # word2vec cosine
-    softcosine = SemevalSoftCosine(vector='word2vec')
-    ranking = softcosine.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'softcosine.word2vec.ranking')
-    softcosine.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Word2Vec SoftCosine')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
+    # softcosine / stop / word2vec+elmo
+    softcosine = SemevalSoftCosine(stop=True, vector='word2vec+elmo')
+    path = os.path.join(EVALUATION_PATH, 'softcosine.stop.word2vec_elmo.ranking')
+    run(softcosine, path)
     del softcosine
     ###############################################################################
-    # word2vec + elmo cosine
-    softcosine = SemevalSoftCosine(vector='word2vec+elmo')
-    ranking = softcosine.validate()
-
-    path = os.path.join(EVALUATION_PATH, 'softcosine.word2vec_elmo.ranking')
-    softcosine.save(ranking, path)
-
-    map_baseline, map_model = evaluate(ranking)
-    print('Evaluation Word2Vec+ELMo SoftCosine')
-    print('MAP baseline: ', map_baseline)
-    print('MAP model: ', map_model)
-    print(10 * '-')
-
+    # softcosine / nonstop / word2vec+elmo
+    softcosine = SemevalSoftCosine(stop=False, vector='word2vec+elmo')
+    path = os.path.join(EVALUATION_PATH, 'softcosine.nonstop.word2vec_elmo.ranking')
+    run(softcosine, path)
     del softcosine
+    ###############################################################################
+    # softcosine / stop / fasttext+elmo
+    softcosine = SemevalSoftCosine(stop=True, vector='fasttext+elmo')
+    path = os.path.join(EVALUATION_PATH, 'softcosine.stop.fasttext_elmo.ranking')
+    run(softcosine, path)
+    del softcosine
+    ###############################################################################
+    # softcosine / nonstop / fasttext+elmo
+    softcosine = SemevalSoftCosine(stop=False, vector='fasttext+elmo')
+    path = os.path.join(EVALUATION_PATH, 'softcosine.nonstop.fasttext_elmo.ranking')
+    run(softcosine, path)
+    del softcosine
+    ###############################################################################
+    # regression / softcosine / stop / word2vec+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec_elmo.features')
+    svm = SemevalSVM(model='regression', features='softcosine,', comment_features='softcosine,', stop=True, vector='word2vec+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'regression.softcosine.stop.word2vec_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # regression / softcosine / nonstop / word2vec+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.nonstop.word2vec_elmo.features')
+    svm = SemevalSVM(model='regression', features='softcosine,', comment_features='softcosine,', stop=False, vector='word2vec+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'regression.softcosine.nonstop.word2vec_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # svm / softcosine / stop / word2vec+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec_elmo.features')
+    svm = SemevalSVM(model='svm', features='softcosine,', comment_features='softcosine,', stop=True, vector='word2vec+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'svm.softcosine.stop.word2vec_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # svm / softcosine / nonstop / word2vec+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.nonstop.word2vec_elmo.features')
+    svm = SemevalSVM(model='svm', features='softcosine,', comment_features='softcosine,', stop=False, vector='word2vec+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'svm.softcosine.nonstop.word2vec_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # regression / softcosine / stop / fasttext+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.fasttext_elmo.features')
+    svm = SemevalSVM(model='regression', features='softcosine,', comment_features='softcosine,', stop=True, vector='fasttext+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'regression.softcosine.stop.fasttext_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # regression / softcosine / nonstop / fasttext+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.nonstop.fasttext_elmo.features')
+    svm = SemevalSVM(model='regression', features='softcosine,', comment_features='softcosine,', stop=False, vector='fasttext+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'regression.softcosine.nonstop.fasttext_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # svm / softcosine / stop / fasttext+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.fasttext_elmo.features')
+    svm = SemevalSVM(model='svm', features='softcosine,', comment_features='softcosine,', stop=True, vector='fasttext+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'svm.softcosine.stop.fasttext_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################
+    # svm / softcosine / nonstop / fasttext+elmo
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.nonstop.fasttext_elmo.features')
+    svm = SemevalSVM(model='svm', features='softcosine,', comment_features='softcosine,', stop=False, vector='fasttext+elmo', path=feature_path)
+    path = os.path.join(EVALUATION_PATH, 'svm.softcosine.nonstop.fasttext_elmo.ranking')
+    run(svm, path)
+    del svm
+    ###############################################################################

@@ -30,10 +30,11 @@ TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
 class Semeval():
-    def __init__(self, vector=''):
+    def __init__(self, stop=True, vector=''):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
+        self.stop = stop
         self.vector = vector
         logging.info('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
@@ -85,7 +86,7 @@ class Semeval():
             alignments[t[0]][t][w[0]][w] = prob
         return alignments
 
-    def encode(self, qid, q, elmoidx, elmovec, encoding):
+    def encode(self, qid, q, elmoidx, elmovec):
         def w2v():
             emb = []
             for w in q:
@@ -140,7 +141,7 @@ class Semeval():
                 q1_pos = question['pos']
                 q1_lemmas = question['lemmas_proc']
                 q1_full = question['tokens']
-                q1 = question['tokens_proc']
+                q1 = question['tokens_proc'] if stop else question['tokens']
 
                 vocquestions.append(q1)
                 vocabulary.extend(q1)
@@ -153,7 +154,7 @@ class Semeval():
                     q2_pos = rel_question['pos']
                     q2_lemmas = rel_question['lemmas_proc']
                     q2_full = rel_question['tokens']
-                    q2 = rel_question['tokens_proc']
+                    q2 = rel_question['tokens_proc'] if stop else rel_question['tokens']
                     vocquestions.append(q2)
                     vocabulary.extend(q2)
 
@@ -162,7 +163,7 @@ class Semeval():
 
                     rel_comments = duplicate['rel_comments']
                     for rel_comment in rel_comments:
-                        q3 = rel_comment['tokens_proc']
+                        q3 = rel_comment['tokens_proc'] if stop else rel_comment['tokens']
                         vocquestions.append(q3)
                         vocabulary.extend(q3)
 
@@ -207,8 +208,10 @@ class Semeval():
         return procset, voc2id, id2voc, vocabulary
 
 
-    def save(self, ranking, path):
+    def save(self, ranking, path, parameter_settings=''):
         with open(path, 'w') as f:
+            f.write(parameter_settings)
+            f.write('\n')
             for q1id in ranking:
                 for row in ranking[q1id]:
                     label = 'false'

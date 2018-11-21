@@ -13,8 +13,8 @@ DATA_PATH='data'
 TRANSLATION_PATH='alignments/model/lex.f2e'
 
 class SemevalTranslation(Semeval):
-    def __init__(self, alpha, sigma, vector='word2vec'):
-        Semeval.__init__(self, vector)
+    def __init__(self, alpha, sigma, stop=True, vector='word2vec'):
+        Semeval.__init__(self, stop=stop, vector=vector)
         self.alpha = alpha
         self.sigma = sigma
         self.train()
@@ -59,16 +59,16 @@ class SemevalTranslation(Semeval):
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
             query = self.devset[q1id]
-            q1 = query['tokens_proc']
-            q1emb = self.encode(q1id, q1, self.devidx, self.develmo, self.vector)
+            q1 = query['tokens_proc'] if self.stop else query['tokens']
+            q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
 
-                q2 = rel_question['tokens_proc']
-                q2emb = self.encode(q2id, q2, self.devidx, self.develmo, self.vector)
+                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
+                q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
 
 
                 if self.vector == 'alignments':

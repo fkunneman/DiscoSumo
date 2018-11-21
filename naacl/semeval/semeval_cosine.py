@@ -11,8 +11,8 @@ from models.cosine import Cosine, SoftCosine
 DATA_PATH='data'
 
 class SemevalCosine(Semeval):
-    def __init__(self):
-        Semeval.__init__(self)
+    def __init__(self, stop=True):
+        Semeval.__init__(self, stop=stop)
         self.train()
 
     def train(self):
@@ -69,8 +69,8 @@ class SemevalCosine(Semeval):
 
 
 class SemevalSoftCosine(Semeval):
-    def __init__(self, vector='word2vec'):
-        Semeval.__init__(self, vector)
+    def __init__(self, stop=True, vector='word2vec'):
+        Semeval.__init__(self, stop=stop, vector=vector)
         self.train()
 
     def train(self):
@@ -109,20 +109,20 @@ class SemevalSoftCosine(Semeval):
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
             query = self.devset[q1id]
-            q1 = query['tokens_proc']
-            q1emb = self.encode(q1id, q1, self.devidx, self.develmo, self.vector)
+            q1 = query['tokens_proc'] if self.stop else query['tokens']
+            q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
 
-                q2 = rel_question['tokens_proc']
+                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
 
                 if self.vector == 'alignments':
                     score = self.model.score(q1, q2, self.alignments)
                 else:
-                    q2emb = self.encode(q2id, q2, self.devidx, self.develmo, self.vector)
+                    q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
                     score = self.model(q1, q1emb, q2, q2emb)
                 real_label = 0
                 if rel_question['relevance'] != 'Irrelevant':
