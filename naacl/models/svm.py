@@ -2,16 +2,17 @@ __author__='thiagocastroferreira'
 
 from sklearn import svm
 from sklearn.grid_search import RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
 
 class Model():
     # Machine Learning
-    def train_svm(self, trainvectors, labels, c='1.0', kernel='linear', gamma='0.1', degree='1', class_weight='balanced', iterations=10, jobs=1):
+    def train_svm(self, trainvectors, labels, c='1.0', kernel='linear', gamma='0.1', degree='1', class_weight='balanced', iterations=10, jobs=1, gridsearch='random'):
         parameters = ['C', 'kernel', 'gamma', 'degree']
         if len(class_weight.split(':')) > 1: # dictionary
             class_weight = dict([label_weight.split(':') for label_weight in class_weight.split()])
         c_values = [0.001, 0.005, 0.01, 0.5, 1, 5, 10, 50, 100, 500, 1000] if c == 'search' else [float(x) for x in c.split()]
-        kernel_values = ['linear', 'poly'] if kernel == 'search' else [k for  k in kernel.split()]
+        kernel_values = ['linear', 'rbf', 'poly'] if kernel == 'search' else [k for  k in kernel.split()]
         gamma_values = [0.0005, 0.002, 0.008, 0.032, 0.128, 0.512, 1.024, 2.048] if gamma == 'search' else [float(x) for x in gamma.split()]
         degree_values = [1, 2] if degree == 'search' else [int(x) for x in degree.split()]
         grid_values = [c_values, kernel_values, gamma_values, degree_values]
@@ -25,9 +26,13 @@ class Model():
                 param_grid[parameter] = grid_values[i]
             model = svm.SVC(probability=True)
 
-            paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+            if gridsearch == 'random':
+                paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+            elif gridsearch == 'brutal':
+                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)
             paramsearch.fit(trainvectors, labels)
             settings = paramsearch.best_params_
+                
         # train an SVC classifier with the settings that led to the best performance
         self.model = svm.SVC(
             probability = True,
@@ -42,7 +47,7 @@ class Model():
         self.model.fit(trainvectors, labels)
 
 
-    def train_regression(self, trainvectors, labels, c='1.0', penalty='l1', tol='1e-4', solver='saga', iterations=10, jobs=1):
+    def train_regression(self, trainvectors, labels, c='1.0', penalty='l1', tol='1e-4', solver='saga', iterations=10, jobs=1, gridsearch='random'):
         parameters = ['C', 'penalty', 'tol']
         c_values = [0.001, 0.005, 0.01, 0.5, 1, 5, 10, 50, 100, 500, 1000] if c == 'search' else [float(x) for x in c.split()]
         penalty_values = ['l1', 'l2'] if penalty == 'search' else [k for  k in penalty.split()]
@@ -58,7 +63,10 @@ class Model():
                 param_grid[parameter] = grid_values[i]
             model = LogisticRegression(solver=solver)
 
-            paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+            if gridsearch == 'random':
+                paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+            elif gridsearch == 'brutal':
+                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)                
             paramsearch.fit(trainvectors, labels)
             settings = paramsearch.best_params_
         # train an SVC classifier with the settings that led to the best performance

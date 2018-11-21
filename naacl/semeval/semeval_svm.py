@@ -141,7 +141,8 @@ class SemevalSVM(Semeval):
             c='search',
             kernel='search',
             gamma='search',
-            jobs=4
+            jobs=4,
+            gridsearch='brutal'
         )
 
     def validate(self):
