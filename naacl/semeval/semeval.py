@@ -208,7 +208,7 @@ class Semeval():
         return procset, voc2id, id2voc, vocabulary
 
 
-    def save(self, ranking, path, parameter_settings=''):
+    def save(self, ranking, path, parameter_settings):
         with open(path, 'w') as f:
             f.write(parameter_settings)
             f.write('\n')

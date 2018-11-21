@@ -23,18 +23,18 @@ class SemevalTranslation(Semeval):
         questions = copy.copy(self.additional)
         for i, q1id in enumerate(self.trainset):
             question = self.trainset[q1id]
-            q1 = question['tokens_proc']
+            q1 = question['tokens']
             questions.append(q1)
 
             duplicates = question['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
-                q2 = rel_question['tokens_proc']
+                q2 = rel_question['tokens']
                 questions.append(q2)
 
                 rel_comments = duplicate['rel_comments']
                 for rel_comment in rel_comments:
-                    q3 = rel_comment['tokens_proc']
+                    q3 = rel_comment['tokens']
                     questions.append(q3)
 
         path = os.path.join(DATA_PATH, 'transdict.model')

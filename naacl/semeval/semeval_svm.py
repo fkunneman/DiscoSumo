@@ -19,7 +19,7 @@ DATA_PATH='data'
 FEATURES_PATH = os.path.join(DATA_PATH, 'trainfeatures.pickle')
 
 class SemevalSVM(Semeval):
-    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH):
+    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.7, sigma=0.3):
         Semeval.__init__(self, stop=stop, vector=vector)
         self.path = path
         self.features = features.split(',')
