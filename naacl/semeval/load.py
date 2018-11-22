@@ -8,6 +8,8 @@ DATASET_PATH='/home/tcastrof/Question/semeval/dataset'
 TRAIN_PATH=os.path.join(DATASET_PATH, 'train', 'SemEval2016-Task3-CQA-QL-train-part1.xml')
 TRAIN_PATH_PART2=os.path.join(DATASET_PATH, 'train', 'SemEval2016-Task3-CQA-QL-train-part2.xml')
 DEV_PATH=os.path.join(DATASET_PATH, 'dev', 'SemEval2016-Task3-CQA-QL-dev.xml')
+TEST2016_PATH=os.path.join(DATASET_PATH, 'test2016', 'English', 'SemEval2016-Task3-CQA-QL-test.xml')
+TEST2017_PATH=os.path.join(DATASET_PATH, 'test2017', 'English', 'SemEval2017-task3-English-test.xml')
 
 def load(path, set_='train'):
     tree = ET.parse(path)
@@ -67,7 +69,9 @@ def load(path, set_='train'):
 def run():
     trainset, devset = load(TRAIN_PATH, set_='train1'), load(DEV_PATH, set_='dev')
     trainset.update(load(TRAIN_PATH_PART2, set_='train2'))
-    return trainset, devset
+
+    testset2016, testset2017 = load(TEST2016_PATH, set_='test2016'), load(TEST2017_PATH, set_='test2017')
+    return trainset, devset, testset2016, testset2017
 
 def rank(ranking):
     _ranking = []

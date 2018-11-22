@@ -28,6 +28,8 @@ ADDITIONAL_PATH= 'word2vec/corpus.pickle'
 DATA_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
+TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
+TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 class Semeval():
     def __init__(self, stop=True, vector=''):
@@ -36,9 +38,15 @@ class Semeval():
 
         self.stop = stop
         self.vector = vector
+
+        logging.info('Preparing test set 2016...')
+        self.testset2016 = json.load(open(TEST2016_PATH))
+
+        logging.info('Preparing test set 2017...')
+        self.testset2017 = json.load(open(TEST2017_PATH))
+
         logging.info('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
-        self.devdata, self.voc2id, self.id2voc, self.vocabulary = self.format_data(self.devset, parts=('dev'))
 
         logging.info('Preparing trainset...')
         self.trainset = json.load(open(TRAIN_PATH))
@@ -54,11 +62,11 @@ class Semeval():
         if 'fasttext' in self.vector:
             self.fasttext = fasttext.init_fasttext(FASTTEXT_PATH)
 
-        self.trainidx = self.trainelmo = self.devidx = self.develmo = None
-        self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = None
+        self.trainidx = self.trainelmo = self.devidx = self.develmo = self.test2016idx = self.test2016elmo = self.test2017idx = self.test2017elmo = None
+        self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = self.fulltest2016idx = self.fulltest2016elmo = self.fulltest2017idx = self.fulltest2017elmo = None
         if 'elmo' in self.vector:
-            self.trainidx, self.trainelmo, self.devidx, self.develmo = elmo.init_elmo(True, ELMO_PATH)
-            self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo = elmo.init_elmo(False, ELMO_PATH)
+            self.trainidx, self.trainelmo, self.devidx, self.develmo, self.test2016idx, self.test2016elmo, self.test2017idx, self.test2017elmo = elmo.init_elmo(True, ELMO_PATH)
+            self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo, self.fulltest2016idx, self.fulltest2016elmo, self.fulltest2017idx, self.fulltest2017elmo = elmo.init_elmo(False, ELMO_PATH)
 
         self.alignments = self.init_alignments(ALIGNMENTS_PATH)
 
@@ -85,6 +93,7 @@ class Semeval():
             prob = float(row[2])
             alignments[t[0]][t][w[0]][w] = prob
         return alignments
+
 
     def encode(self, qid, q, elmoidx, elmovec):
         def w2v():
@@ -218,4 +227,3 @@ class Semeval():
                     if row[0] == 1:
                         label = 'true'
                     f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
-

@@ -20,6 +20,8 @@ GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-d
 DATA_PATH='data'
 WRITE_TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 WRITE_DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
+WRITE_TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
+WRITE_TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 def parse(question, corenlp, props):
     tokens, lemmas, pos = [], [], []
@@ -117,7 +119,15 @@ def run():
     corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27', memory='8g')
 
     logging.info('Load corpus')
-    trainset, devset = load.run()
+    trainset, devset, testset2016, testset2017 = load.run()
+
+    logging.info('Preparing test set 2016...')
+    devset = preprocess(testset2016, corenlp=corenlp, props=props)
+    json.dump(devset, open(WRITE_TEST2016_PATH, 'w'))
+
+    logging.info('Preparing test set 2017...')
+    devset = preprocess(testset2017, corenlp=corenlp, props=props)
+    json.dump(devset, open(WRITE_TEST2017_PATH, 'w'))
 
     logging.info('Preparing development set...')
     devset = preprocess(devset, corenlp=corenlp, props=props)

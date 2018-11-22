@@ -13,8 +13,10 @@ STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-
 DATA_PATH='../data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
+TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
+TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
-def run(stop, write_train, write_dev):
+def run(stop, write_train, write_dev, write_test2016, write_test2017):
     def parse(question):
         try:
             out = corenlp.annotate(question, properties=props)
@@ -64,6 +66,7 @@ def run(stop, write_train, write_dev):
 
     # trainset, devset = load.run()
 
+    # TRAINSET
     trainset = json.load(open(TRAIN_PATH))
     trainidx, trainsnt = process(trainset)
 
@@ -76,6 +79,7 @@ def run(stop, write_train, write_dev):
     with open(os.path.join(write_train, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in trainidx]))
 
+    # DEVSET
     devset = json.load(open(DEV_PATH))
     devidx, devsnt = process(devset)
 
@@ -87,6 +91,32 @@ def run(stop, write_train, write_dev):
 
     with open(os.path.join(write_dev, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in devidx]))
+
+    # TESTSET 2016
+    testset2016 = json.load(open(TEST2016_PATH))
+    test2016idx, test2016snt = process(testset2016)
+
+    if not os.path.exists(write_test2016):
+        os.mkdir(write_test2016)
+
+    with open(os.path.join(write_test2016, 'sentences.txt'), 'w') as f:
+        f.write('\n'.join(test2016snt))
+
+    with open(os.path.join(write_test2016, 'index.txt'), 'w') as f:
+        f.write('\n'.join([str(x) for x in test2016idx]))
+
+    # TESTSET 2017
+    testset2017 = json.load(open(TEST2017_PATH))
+    test2017idx, test2017snt = process(testset2017)
+
+    if not os.path.exists(write_test2017):
+        os.mkdir(write_test2017)
+
+    with open(os.path.join(write_test2017, 'sentences.txt'), 'w') as f:
+        f.write('\n'.join(test2017snt))
+
+    with open(os.path.join(write_test2017, 'index.txt'), 'w') as f:
+        f.write('\n'.join([str(x) for x in test2017idx]))
 
     corenlp.close()
 
@@ -102,13 +132,30 @@ def init_elmo(stop, path):
     with open(os.path.join(dev_path, 'index.txt')) as f:
         devidx = f.read().split('\n')
         devidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(devidx)])
-    return trainidx, trainelmo, devidx, develmo
+
+    test2016_path = os.path.join(path, 'test2016') if stop else os.path.join(path, 'test2016_full')
+    test2016elmo = h5py.File(os.path.join(test2016_path, 'elmovectors.hdf5'), 'r')
+    with open(os.path.join(test2016_path, 'index.txt')) as f:
+        test2016idx = f.read().split('\n')
+        test2016idx = dict([(qid.split(',')[0], i) for i, qid in enumerate(test2016idx)])
+
+    test2017_path = os.path.join(path, 'test2017') if stop else os.path.join(path, 'test2017_full')
+    test2017elmo = h5py.File(os.path.join(test2017_path, 'elmovectors.hdf5'), 'r')
+    with open(os.path.join(test2017_path, 'index.txt')) as f:
+        test2017idx = f.read().split('\n')
+        test2017idx = dict([(qid.split(',')[0], i) for i, qid in enumerate(test2017idx)])
+
+    return trainidx, trainelmo, devidx, develmo, test2016idx, test2016elmo, test2017idx, test2017elmo
 
 if __name__ == '__main__':
     WRITE_TRAIN_ELMO='train'
     WRITE_DEV_ELMO='dev'
-    run(True, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO)
+    WRITE_TEST2016_ELMO='test2016'
+    WRITE_TEST2017_ELMO='test2017'
+    run(True, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO, WRITE_TEST2016_ELMO, WRITE_TEST2017_ELMO)
 
     WRITE_TRAIN_ELMO='train_full'
     WRITE_DEV_ELMO='dev_full'
-    run(False, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO)
+    WRITE_TEST2016_ELMO='test2016_full'
+    WRITE_TEST2017_ELMO='test2017_full'
+    run(False, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO, WRITE_TEST2016_ELMO, WRITE_TEST2017_ELMO)

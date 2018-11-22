@@ -79,3 +79,26 @@ class SemevalBM25(Semeval):
                     real_label = 1
                 ranking[q1id].append((real_label, q2score, q2id))
         return ranking
+
+    def test(self, testset):
+        self.testset = testset
+        ranking = {}
+        for i, q1id in enumerate(self.testset):
+            ranking[q1id] = []
+            percentage = round(float(i + 1) / len(self.testset), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
+
+            query = self.testset[q1id]
+            q1 = query['tokens_proc'] if self.stop else query['tokens']
+
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2score = self.model(q1, q2id)
+
+                real_label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    real_label = 1
+                ranking[q1id].append((real_label, q2score, q2id))
+        return ranking

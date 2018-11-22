@@ -21,5 +21,5 @@ python3 fasttext.py
 #cd $SEMEVAL_PATH/elmo
 #sh run.sh
 
-cd $SEMEVAL_PATH
-python3 evaluate.py
+#cd $SEMEVAL_PATH
+#python3 evaluate.py
