@@ -148,14 +148,14 @@ def init_elmo(stop, path):
     return trainidx, trainelmo, devidx, develmo, test2016idx, test2016elmo, test2017idx, test2017elmo
 
 if __name__ == '__main__':
-    WRITE_TRAIN_ELMO='train'
-    WRITE_DEV_ELMO='dev'
-    WRITE_TEST2016_ELMO='test2016'
-    WRITE_TEST2017_ELMO='test2017'
+    WRITE_TRAIN_ELMO='/roaming/tcastrof/elmo/train'
+    WRITE_DEV_ELMO='/roaming/tcastrof/elmo/dev'
+    WRITE_TEST2016_ELMO='/roaming/tcastrof/elmo/test2016'
+    WRITE_TEST2017_ELMO='/roaming/tcastrof/elmo/test2017'
     run(True, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO, WRITE_TEST2016_ELMO, WRITE_TEST2017_ELMO)
 
-    WRITE_TRAIN_ELMO='train_full'
-    WRITE_DEV_ELMO='dev_full'
-    WRITE_TEST2016_ELMO='test2016_full'
-    WRITE_TEST2017_ELMO='test2017_full'
+    WRITE_TRAIN_ELMO='/roaming/tcastrof/elmo/train_full'
+    WRITE_DEV_ELMO='/roaming/tcastrof/elmo/dev_full'
+    WRITE_TEST2016_ELMO='/roaming/tcastrof/elmo/test2016_full'
+    WRITE_TEST2017_ELMO='/roaming/tcastrof/elmo/test2017_full'
     run(False, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO, WRITE_TEST2016_ELMO, WRITE_TEST2017_ELMO)

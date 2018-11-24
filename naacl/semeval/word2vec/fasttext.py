@@ -19,8 +19,8 @@ from multiprocessing import Pool
 from stanfordcorenlp import StanfordCoreNLP
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
-QATAR_PATH='/home/tcastrof/Question/semeval/dataset/unannotated/dump_QL_all_question_subject_body.txt.gz'
-COMMENT_QATAR_PATH='/home/tcastrof/Question/semeval/dataset/unannotated/dump_QL_all_comment_subject_body.txt.gz'
+QATAR_PATH='/roaming/tcastrof/semeval/dataset/unannotated/dump_QL_all_question_subject_body.txt.gz'
+COMMENT_QATAR_PATH='/roaming/tcastrof/semeval/dataset/unannotated/dump_QL_all_comment_subject_body.txt.gz'
 
 def load():
     with gzip.open(QATAR_PATH, 'rb') as f:
@@ -98,7 +98,10 @@ def train():
         document = p.load(open(fname, 'rb'))
 
     logging.info('Training...')
-    fname = 'fasttext.model'
+    path = '/roaming/tcastrof/semeval/word2vec'
+    if not os.path.exists(path):
+        os.mkdir(path)
+    fname = os.path.join(path, 'fasttext.model')
     model = FastText(document, size=300, window=10, min_count=1, workers=10, iter=5)
     model.save(fname)
 

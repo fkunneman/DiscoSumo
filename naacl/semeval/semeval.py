@@ -19,12 +19,12 @@ import word2vec.fasttext as fasttext
 
 from gensim import corpora
 
-ALIGNMENTS_PATH='alignments/model/lex.f2e'
-WORD2VEC_PATH='word2vec/word2vec.model'
-FASTTEXT_PATH='word2vec/fasttext.model'
-ELMO_PATH='elmo/'
+ALIGNMENTS_PATH='/roaming/tcastrof/semeval/alignments/model/lex.f2e'
+WORD2VEC_PATH='/roaming/tcastrof/semeval/word2vec/word2vec.model'
+FASTTEXT_PATH='/roaming/tcastrof/semeval/word2vec/fasttext.model'
+ELMO_PATH='/roaming/tcastrof/semeval/elmo/'
 
-ADDITIONAL_PATH= 'word2vec/corpus.pickle'
+ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec/corpus.pickle'
 DATA_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')

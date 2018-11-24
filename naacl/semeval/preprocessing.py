@@ -15,7 +15,6 @@ import re
 from stanfordcorenlp import StanfordCoreNLP
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
-GOLD_PATH='/home/tcastrof/Question/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 
 DATA_PATH='data'
 WRITE_TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
@@ -122,12 +121,12 @@ def run():
     trainset, devset, testset2016, testset2017 = load.run()
 
     logging.info('Preparing test set 2016...')
-    devset = preprocess(testset2016, corenlp=corenlp, props=props)
-    json.dump(devset, open(WRITE_TEST2016_PATH, 'w'))
+    testset2016 = preprocess(testset2016, corenlp=corenlp, props=props)
+    json.dump(testset2016, open(WRITE_TEST2016_PATH, 'w'))
 
     logging.info('Preparing test set 2017...')
-    devset = preprocess(testset2017, corenlp=corenlp, props=props)
-    json.dump(devset, open(WRITE_TEST2017_PATH, 'w'))
+    testset2017 = preprocess(testset2017, corenlp=corenlp, props=props)
+    json.dump(testset2017, open(WRITE_TEST2017_PATH, 'w'))
 
     logging.info('Preparing development set...')
     devset = preprocess(devset, corenlp=corenlp, props=props)
@@ -142,7 +141,6 @@ def run():
 if __name__ == '__main__':
     if not os.path.exists(DATA_PATH):
         os.mkdir(DATA_PATH)
-        run()
 
     if not os.path.exists(WRITE_DEV_PATH):
         run()
