@@ -51,6 +51,12 @@ class SemevalTranslation(Semeval):
         del self.traindata
 
 
+    def set_parameters(self, alpha, sigma):
+        self.alpha = alpha
+        self.sigma = sigma
+        self.model = TRLM([], self.w_C, self.alignments, len(self.vocabulary), alpha=self.alpha, sigma=self.sigma)
+
+
     def validate(self):
         ranking = {}
         for j, q1id in enumerate(self.devset):
