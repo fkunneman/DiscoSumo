@@ -159,6 +159,8 @@ class SemevalTreeKernel(Semeval):
                     real_label = 1
                 y_real.append(real_label)
                 ranking[q1id].append((real_label, score, q2id))
+        parameter_settings = self.svm.return_parameter_settings(clf='svm')
+        return ranking, y_real, y_pred, parameter_settings
 
     def test(self, testset, elmoidx, elmovec):
         self.testset = testset

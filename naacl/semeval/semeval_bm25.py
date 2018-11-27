@@ -51,6 +51,44 @@ class SemevalBM25(Semeval):
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
+
+        for i, q1id in enumerate(self.testset2016):
+            query = self.testset2016[q1id]
+            q1 = query['tokens']
+            corpus[q1id] = q1
+
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2 = rel_question['tokens']
+                corpus[q2id] = q2
+
+                for comment in duplicate['rel_comments']:
+                    q3id = comment['id']
+                    q3 = comment['tokens']
+                    if len(q3) == 0:
+                        q3 = ['eos']
+                    corpus[q3id] = q3
+
+        for i, q1id in enumerate(self.testset2017):
+            query = self.testset2017[q1id]
+            q1 = query['tokens']
+            corpus[q1id] = q1
+
+            duplicates = query['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                q2 = rel_question['tokens']
+                corpus[q2id] = q2
+
+                for comment in duplicate['rel_comments']:
+                    q3id = comment['id']
+                    q3 = comment['tokens']
+                    if len(q3) == 0:
+                        q3 = ['eos']
+                    corpus[q3id] = q3
         self.model = BM25(corpus)
 
         del self.additional

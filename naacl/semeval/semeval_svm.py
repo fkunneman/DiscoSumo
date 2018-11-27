@@ -19,7 +19,7 @@ DATA_PATH='data'
 FEATURES_PATH = os.path.join(DATA_PATH, 'trainfeatures.pickle')
 
 class SemevalSVM(Semeval):
-    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.7, sigma=0.3):
+    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.1, sigma=0.9):
         Semeval.__init__(self, stop=stop, vector=vector)
         self.path = path
         self.features = features.split(',')
@@ -37,7 +37,7 @@ class SemevalSVM(Semeval):
 
     def train(self):
         if not os.path.exists(self.path):
-            X, y = [], []
+            self.X, self.y = [], []
             for i, query_question in enumerate(self.traindata):
                 percentage = round(float(i + 1) / len(self.traindata), 2)
                 print('Preparing traindata: ', percentage, i + 1, sep='\t', end = '\r')
@@ -139,23 +139,23 @@ class SemevalSVM(Semeval):
                         else:
                             x.append(0)
 
-                X.append(x)
-                y.append(query_question['label'])
+                self.X.append(x)
+                self.y.append(query_question['label'])
 
-            p.dump(list(zip(X, y)), open(self.path, 'wb'))
+            p.dump(list(zip(self.X, self.y)), open(self.path, 'wb'))
         else:
             f = p.load(open(self.path, 'rb'))
-            X = np.array([x[0] for x in f])
-            y = list(map(lambda x: x[1], f))
+            self.X = np.array([x[0] for x in f])
+            self.y = list(map(lambda x: x[1], f))
 
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
-        self.scaler.fit(X)
-        X = self.scaler.transform(X)
+        self.scaler.fit(self.X)
+        self.X = self.scaler.transform(self.X)
 
         if self.model == 'svm':
             self.svm.train_svm(
-                trainvectors=X,
-                labels=y,
+                trainvectors=self.X,
+                labels=self.y,
                 c='search',
                 kernel='search',
                 gamma='search',
@@ -163,7 +163,7 @@ class SemevalSVM(Semeval):
                 gridsearch='brutal'
             )
         else:
-            self.svm.train_regression(trainvectors=X, labels=y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
+            self.svm.train_regression(trainvectors=self.X, labels=self.y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
 
     def validate(self):
         ranking = {}

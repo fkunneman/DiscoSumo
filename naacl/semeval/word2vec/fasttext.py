@@ -67,7 +67,10 @@ def parse(thread_id, document, port):
     return doc
 
 def train():
-    fname = 'corpus.pickle'
+    path = '/roaming/tcastrof/semeval/word2vec'
+    if not os.path.exists(path):
+        os.mkdir(path)
+    fname = os.path.join(path, 'corpus.pickle')
     if not os.path.exists(fname):
         questions, comments = load()
         documents = questions + comments
@@ -98,9 +101,6 @@ def train():
         document = p.load(open(fname, 'rb'))
 
     logging.info('Training...')
-    path = '/roaming/tcastrof/semeval/word2vec'
-    if not os.path.exists(path):
-        os.mkdir(path)
     fname = os.path.join(path, 'fasttext.model')
     model = FastText(document, size=300, window=10, min_count=1, workers=10, iter=5)
     model.save(fname)

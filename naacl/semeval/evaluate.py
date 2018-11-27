@@ -12,10 +12,14 @@ from semeval_bm25 import SemevalBM25
 from semeval_translation import SemevalTranslation
 from semeval_cosine import SemevalCosine, SemevalSoftCosine
 from semeval_svm import SemevalSVM
+from semeval_kernel import SemevalTreeKernel
 
 from sklearn.metrics import f1_score, accuracy_score
 
-GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+DEV_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+TEST2016_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-test2016.xml.subtaskB.relevancy'
+TEST2017_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-test2017.xml.subtaskB.relevancy'
+
 FEATURE_PATH='feature'
 if not os.path.exists(FEATURE_PATH):
     os.mkdir(FEATURE_PATH)
@@ -41,8 +45,7 @@ def prepare_gold(path):
     return ir
 
 
-def evaluate(ranking):
-    gold = ev.read_res_file_aid(GOLD_PATH, 'trec')
+def evaluate(ranking, gold):
     for qid in gold:
         gold_sorted = sorted(gold[qid], key = itemgetter(2), reverse = True)
         pred_sorted = ranking[qid]
@@ -72,15 +75,16 @@ def evaluate(ranking):
     return map_gold, map_pred
 
 
-def run_svm(model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.7, sigma=0.3):
-    model = SemevalSVM(model=model_, features=metric, comment_features=metric, stop=stop, vector=vector, path=feature_path, sigma=sigma, alpha=alpha)
+def run_kernel(smoothed, vector, tree, evaluation_path, kernel_path):
+    model = SemevalTreeKernel(smoothed=smoothed, vector=vector, tree=tree, kernel_path=kernel_path)
+
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
-    result_test2016 = model.test(model.testset2016, model.test2016elmo, model.test2016idx, model.fulltest2016elmo, model.fulltest2016idx)
+    result_test2016 = model.test(model.testset2016, model.fulltest2016idx, model.fulltest2016elmo)
     test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
 
-    result_test2017 = model.test(model.testset2017, model.test2017elmo, model.test2017idx, model.fulltest2017elmo, model.fulltest2017idx)
+    result_test2017 = model.test(model.testset2017, model.fulltest2017idx, model.fulltest2017elmo)
     test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
 
     ranking, y_real, y_pred, parameter_settings = result_test2016
@@ -92,7 +96,7 @@ def run_svm(model_, metric, stop, vector, evaluation_path, feature_path, alpha=0
     ranking, y_real, y_pred, parameter_settings = result_dev
     model.save(ranking=ranking, path=dev_path, parameter_settings=parameter_settings)
 
-    map_baseline, map_model = evaluate(copy.copy(ranking))
+    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
     f1score = f1_score(y_real, y_pred)
     accuracy = accuracy_score(y_real, y_pred)
     print('Evaluation: ', evaluation_path)
@@ -101,6 +105,38 @@ def run_svm(model_, metric, stop, vector, evaluation_path, feature_path, alpha=0
     print('MAP model: ', map_model)
     print('Accuracy: ', accuracy)
     print('F-Score: ', f1score)
+
+
+def run_svm(model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.7, sigma=0.3):
+    model = SemevalSVM(model=model_, features=metric, comment_features=metric, stop=stop, vector=vector, path=feature_path, sigma=sigma, alpha=alpha)
+    result_dev = model.validate()
+    dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
+
+    result_test2016 = model.test(model.testset2016, model.test2016idx, model.test2016elmo, model.fulltest2016idx, model.fulltest2016elmo)
+    test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
+
+    result_test2017 = model.test(model.testset2017, model.test2017idx, model.test2017elmo, model.fulltest2017idx, model.fulltest2017elmo)
+    test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
+
+    ranking, y_real, y_pred, parameter_settings = result_test2016
+    model.save(ranking=ranking, path=test2016_path, parameter_settings=parameter_settings)
+
+    ranking, y_real, y_pred, parameter_settings = result_test2017
+    model.save(ranking=ranking, path=test2017_path, parameter_settings=parameter_settings)
+
+    ranking, y_real, y_pred, parameter_settings = result_dev
+    model.save(ranking=ranking, path=dev_path, parameter_settings=parameter_settings)
+
+    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
+    f1score = f1_score(y_real, y_pred)
+    accuracy = accuracy_score(y_real, y_pred)
+    print('Evaluation: ', evaluation_path)
+    print('Parameters:', parameter_settings)
+    print('MAP baseline: ', map_baseline)
+    print('MAP model: ', map_model)
+    print('Accuracy: ', accuracy)
+    print('F-Score: ', f1score)
+
 
 def run_bm25(stop, evaluation_path):
     model = SemevalBM25(stop=stop)
@@ -118,7 +154,7 @@ def run_bm25(stop, evaluation_path):
     model.save(ranking=result_test2017, path=test2017_path, parameter_settings='')
 
     model.save(ranking=result_dev, path=dev_path, parameter_settings='')
-    map_baseline, map_model = evaluate(copy.copy(result_dev))
+    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
 
     print('Evaluation: ', evaluation_path)
     print('MAP baseline: ', map_baseline)
@@ -132,12 +168,14 @@ def run_translation(stop, vector, evaluation_path):
 
     alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
+    translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector=vector, stop=stop)
     for alpha in alphas:
         sigma = abs(1-alpha)
-        translation = SemevalTranslation(alpha=alpha, sigma=sigma, vector=vector, stop=stop)
+        translation.alpha = alpha
+        translation.sigma = sigma
         ranking = translation.validate()
 
-        map_baseline, map_model = evaluate(copy.copy(ranking))
+        map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
         if map_model > best['map']:
             best['map'] = map_model
             best['ranking'] = ranking
@@ -151,15 +189,16 @@ def run_translation(stop, vector, evaluation_path):
     print('MAP model: ', best['map'])
     print(10 * '-')
 
-    translation = SemevalTranslation(alpha=best['alpha'], sigma=best['sigma'], vector=vector, stop=stop)
+    translation.alpha = best['alpha']
+    translation.sigma = best['sigma']
     # test2016
     path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
-    ranking = translation.test(translation.testset2016, translation.test2016elmo, translation.test2016idx, translation.fulltest2016elmo, translation.fulltest2016idx)
+    ranking = translation.test(translation.testset2016, translation.test2016idx, translation.test2016elmo, translation.fulltest2016idx, translation.fulltest2016elmo)
     translation.save(ranking=ranking, path=path, parameter_settings=best['parameter_settings'])
 
     # test2017
     path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
-    ranking = translation.test(translation.testset2017, translation.test2017elmo, translation.test2017idx, translation.fulltest2017elmo, translation.fulltest2017idx)
+    ranking = translation.test(translation.testset2017, translation.test2017idx, translation.test2017elmo, translation.fulltest2017idx, translation.fulltest2017elmo)
     translation.save(ranking=ranking, path=path, parameter_settings=best['parameter_settings'])
 
 
@@ -168,10 +207,10 @@ def run_softcosine(stop, vector, evaluation_path):
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
-    result_test2016 = model.test(model.testset2016, model.test2016elmo, model.test2016idx, model.fulltest2016elmo, model.fulltest2016idx)
+    result_test2016 = model.test(model.testset2016, model.test2016idx, model.test2016elmo, model.fulltest2016idx, model.fulltest2016elmo)
     test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
 
-    result_test2017 = model.test(model.testset2017, model.test2017elmo, model.test2017idx, model.fulltest2017elmo, model.fulltest2017idx)
+    result_test2017 = model.test(model.testset2017, model.test2017idx, model.test2017elmo, model.fulltest2017idx, model.fulltest2017elmo)
     test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
 
     model.save(ranking=result_test2016, path=test2016_path, parameter_settings='')
@@ -179,7 +218,7 @@ def run_softcosine(stop, vector, evaluation_path):
     model.save(ranking=result_test2017, path=test2017_path, parameter_settings='')
 
     model.save(ranking=result_dev, path=dev_path, parameter_settings='')
-    map_baseline, map_model = evaluate(copy.copy(result_dev))
+    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
 
     print('Evaluation: ', evaluation_path)
     print('MAP baseline: ', map_baseline)
@@ -188,87 +227,122 @@ def run_softcosine(stop, vector, evaluation_path):
 
 
 if __name__ == '__main__':
-    # THREADS = 4
-    # pool = Pool(processes=THREADS)
-    #
-    #
-    # # BM25
-    # # stop, evaluation_path
-    # # BM25 / stop
-    # path = 'bm25.stop.ranking'
-    # pool.apply_async(run_bm25, [True, path])
-    # ###############################################################################
-    # # BM25 / nonstop
-    # path = 'bm25.nonstop.ranking'
-    # pool.apply_async(run_bm25, [False, path])
-    # ###############################################################################
-    #
-    # # TRANSLATION
-    # # stop, vector, evaluation_path
-    # # translation / stop / word2vec
-    # path = 'translation.stop.word2vec.ranking'
-    # pool.apply_async(run_translation, [True, 'word2vec', path])
-    # ###############################################################################
-    # # translation / stop / fasttext
-    # path = 'translation.stop.fasttext.ranking'
-    # pool.apply_async(run_translation, [True, 'fasttext', path])
-    # ###############################################################################
-    # # translation / stop / word2vec+elmo
-    # path = 'translation.stop.word2vec_elmo.ranking'
-    # pool.apply_async(run_translation, [True, 'word2vec+elmo', path])
-    # ###############################################################################
-    # # translation / stop / fasttext+elmo
-    # path = 'translation.stop.fasttext_elmo.ranking'
-    # pool.apply_async(run_translation, [True, 'fasttext+elmo', path])
-    # ###############################################################################
-    #
-    # # SOFTCOSINE
-    # # stop, vector, evaluation_path
-    # # softcosine / stop / word2vec+elmo
-    # path = 'softcosine.stop.word2vec_elmo.ranking'
-    # pool.apply_async(run_softcosine, [True, 'word2vec+elmo', path])
-    # ###############################################################################
-    # # softcosine / nonstop / word2vec+elmo
-    # path = 'softcosine.nonstop.word2vec_elmo.ranking'
-    # pool.apply_async(run_softcosine, [False, 'word2vec+elmo', path])
-    # ###############################################################################
-    # # softcosine / stop / fasttext+elmo
-    # path = 'softcosine.stop.fasttext_elmo.ranking'
-    # pool.apply_async(run_softcosine, [True, 'fasttext+elmo', path])
-    # ###############################################################################
-    # # softcosine / stop / fasttext
-    # path = 'softcosine.stop.fasttext.ranking'
-    # pool.apply_async(run_softcosine, [True, 'fasttext', path])
-    # ###############################################################################
-    # # softcosine / stop / fasttext
-    # path = 'softcosine.stop.word2vec.ranking'
-    # pool.apply_async(run_softcosine, [True, 'word2vec', path])
-    # ###############################################################################
-    #
-    # # SVM / REGRESSION
-    # # model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.7, sigma=0.3
-    # # svm / bm25 / stop
-    # path = 'svm.bm25.stop.ranking'
-    # feature_path = 'bm25.stop.features'
-    # pool.apply_async(run_svm, ['svm', 'bm25,', True, '', path, feature_path])
-    # ###############################################################################
-    # # regression / bm25 / stop
-    # path = 'regression.bm25.stop.ranking'
-    # feature_path = 'bm25.stop.features'
-    # pool.apply_async(run_svm, ['regression', 'bm25,', True, '', path, feature_path])
-    # ###############################################################################
-    # # svm / softcosine / stop / word2vec+elmo
-    # path = 'svm.softcosine.stop.word2vec_elmo.ranking'
-    # feature_path = 'softcosine.stop.word2vec_elmo.features'
-    # pool.apply_async(run_svm, ['svm', 'softcosine,', True, 'word2vec+elmo', path, feature_path])
-    # ###############################################################################
-    # # regression / softcosine / stop / word2vec+elmo
-    # path = 'regression.softcosine.stop.word2vec_elmo.ranking'
-    # feature_path = 'softcosine.stop.word2vec_elmo.features'
-    # pool.apply_async(run_svm, ['regression', 'softcosine,', True, 'word2vec+elmo', path, feature_path])
-    # ###############################################################################
-    # # svm / translation / stop / word2vec
-    # path = 'svm.softcosine.stop.ranking'
-    # feature_path = 'softcosine.stop.word2vec.features'
-    # pool.apply_async(run_svm, ['svm', 'softcosine,', True, 'word2vec', path, feature_path])
-    # ###############################################################################
+    # TRANSLATION
+    # stop, vector, evaluation_path
+    # translation / stop / word2vec+elmo
+    path = 'translation.stop.word2vec_elmo.ranking'
+    run_translation(True, 'word2vec+elmo', path)
+    ###############################################################################
+    # translation / stop / fasttext+elmo
+    path = 'translation.stop.fasttext_elmo.ranking'
+    run_translation(True, 'fasttext+elmo', path)
+    ###############################################################################
+    # translation / stop / word2vec
+    path = 'translation.stop.word2vec.ranking'
+    run_translation(True, 'word2vec', path)
+    ###############################################################################
+    # translation / stop / fasttext
+    path = 'translation.stop.fasttext.ranking'
+    run_translation(True, 'fasttext', path)
+    ###############################################################################
+
+    # BM25
+    # stop, evaluation_path
+    # BM25 / stop
+    path = 'bm25.stop.ranking'
+    run_bm25(True, path)
+    ###############################################################################
+    # BM25 / nonstop
+    path = 'bm25.nonstop.ranking'
+    run_bm25(False, path)
+    ###############################################################################
+
+    # SOFTCOSINE
+    # stop, vector, evaluation_path
+    # softcosine / stop / word2vec+elmo
+    path = 'softcosine.stop.word2vec_elmo.ranking'
+    run_softcosine(True, 'word2vec+elmo', path)
+    ###############################################################################
+    # softcosine / nonstop / word2vec+elmo
+    path = 'softcosine.nonstop.word2vec_elmo.ranking'
+    run_softcosine(False, 'word2vec+elmo', path)
+    ###############################################################################
+    # softcosine / stop / fasttext+elmo
+    path = 'softcosine.stop.fasttext_elmo.ranking'
+    run_softcosine(True, 'fasttext+elmo', path)
+    ###############################################################################
+    # softcosine / stop / fasttext
+    path = 'softcosine.stop.fasttext.ranking'
+    run_softcosine(True, 'fasttext', path)
+    ###############################################################################
+    # softcosine / stop / fasttext
+    path = 'softcosine.stop.word2vec.ranking'
+    run_softcosine(True, 'word2vec', path)
+    ###############################################################################
+
+    # SVM / REGRESSION
+    # model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.1, sigma=0.9
+    # svm / translation / stop / word2vec
+    path = 'svm.translation.stop.word2vec.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'translation.stop.word2vec.features')
+    run_svm(model_='svm', metric='softcosine,', stop=True, vector='word2vec', evaluation_path=path, feature_path=feature_path, sigma=0.9, alpha=0.1)
+    ###############################################################################
+    # regression / translation / stop / word2vec
+    path = 'regression.translation.stop.word2vec.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'translation.stop.word2vec.features')
+    run_svm(model_='regression', metric='softcosine,', stop=True, vector='word2vec', evaluation_path=path, feature_path=feature_path, sigma=0.9, alpha=0.1)
+    ###############################################################################
+    # svm / translation / stop / word2vec+elmo
+    path = 'svm.translation.stop.word2vec_elmo.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'translation.stop.word2vec_elmo.features')
+    run_svm(model_='svm', metric='softcosine,', stop=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path, sigma=0.9, alpha=0.1)
+    ###############################################################################
+    # regression / translation / stop / word2vec+elmo
+    path = 'regression.translation.stop.word2vec_elmo.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'translation.stop.word2vec_elmo.features')
+    run_svm(model_='regression', metric='softcosine,', stop=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path, sigma=0.9, alpha=0.1)
+    ###############################################################################
+    # svm / bm25 / stop
+    path = 'svm.bm25.stop.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'bm25.stop.features')
+    run_svm('svm', 'bm25,', True, '', path, feature_path)
+    ###############################################################################
+    # regression / bm25 / stop
+    path = 'regression.bm25.stop.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'bm25.stop.features')
+    run_svm('regression', 'bm25,', True, '', path, feature_path)
+    ###############################################################################
+    # svm / softcosine / stop / word2vec+elmo
+    path = 'svm.softcosine.stop.word2vec_elmo.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec_elmo.features')
+    run_svm('svm', 'softcosine,', True, 'word2vec+elmo', path, feature_path)
+    ###############################################################################
+    # regression / softcosine / stop / word2vec+elmo
+    path = 'regression.softcosine.stop.word2vec_elmo.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec_elmo.features')
+    run_svm('regression', 'softcosine,', True, 'word2vec+elmo', path, feature_path)
+    ###############################################################################
+    # svm / softcosine / stop / word2vec
+    path = 'svm.softcosine.stop.word2vec_elmo.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec.features')
+    run_svm('svm', 'softcosine,', True, 'word2vec', path, feature_path)
+    ###############################################################################
+    # regression / softcosine / stop / word2vec
+    path = 'regression.softcosine.stop.word2vec_elmo.ranking'
+    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec.features')
+    run_svm('regression', 'softcosine,', True, 'word2vec', path, feature_path)
+    ###############################################################################
+
+    # TREE KERNEL
+    # svm kernel / subj tree / non smoothed
+    path = 'kernel.subj_tree.ranking'
+    kernel_path = 'kernel/kernel.pickle'
+    run_kernel(kernel_path=kernel_path, evaluation_path=path, smoothed=False, vector='', tree='subj_tree')
+    # svm kernel / subj tree / word2vec
+    path = 'kernel.subj_tree.word2vec.ranking'
+    kernel_path = 'kernel/kernel.word2vec.pickle'
+    run_kernel(kernel_path=kernel_path, evaluation_path=path, smoothed=True, vector='word2vec', tree='subj_tree')
+    # svm kernel / subj tree / word2vec+elmo
+    path = 'kernel.subj_tree.word2vec_elmo.ranking'
+    kernel_path = 'kernel/kernel.word2vec+elmo.pickle'
+    run_kernel(kernel_path=kernel_path, evaluation_path=path, smoothed=True, vector='word2vec+elmo', tree='subj_tree')

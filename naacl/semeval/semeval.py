@@ -25,7 +25,7 @@ FASTTEXT_PATH='/roaming/tcastrof/semeval/word2vec/fasttext.model'
 ELMO_PATH='/roaming/tcastrof/semeval/elmo/'
 
 ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec/corpus.pickle'
-DATA_PATH='/home/tcastrof/Question/DiscoSumo/naacl/semeval/data'
+DATA_PATH='/home/tcastrof/DiscoSumo/naacl/semeval/data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
