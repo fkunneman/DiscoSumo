@@ -16,9 +16,9 @@ echo "train wordvec vectors"
 cd $QUORA_PATH/word2vec
 python3 word2vec.py
 
-#echo "train elmo vectors"
-#cd $QUORA_PATH/elmo
-#sh run.sh
+echo "train elmo vectors"
+cd $QUORA_PATH/elmo
+sh run.sh
 
 #cd $QUORA_PATH
 #python3 evaluate.py

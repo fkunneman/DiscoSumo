@@ -1,5 +1,9 @@
 __author__='thiagocastroferreira'
 
+import logging
+FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
+logging.basicConfig(format=FORMAT)
+
 import json
 from nltk.corpus import stopwords
 stop = set(stopwords.words('english'))
@@ -35,8 +39,10 @@ def preprocess(indexset, corenlp, set_='train'):
     pairs = []
     questions = {}
     errors = 0
-    for pair in indexset:
+    for i, pair in enumerate(indexset):
         try:
+            percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
+            print('Process: ', percentage, i, end='\r')
             if set_ == 'test':
                 question = pair['question1']
                 tokens, tokens_proc = parse(question, corenlp)
@@ -88,8 +94,8 @@ def run():
     trainset, devset, testset = load.run()
 
     logging.info('Preparing test set...')
-    testset2017 = preprocess(testset, corenlp=corenlp, set_='test')
-    json.dump(testset2017, open(WRITE_TEST_PATH, 'w'))
+    testset = preprocess(testset, corenlp=corenlp, set_='test')
+    json.dump(testset, open(WRITE_TEST_PATH, 'w'))
 
     logging.info('Preparing development set...')
     devset = preprocess(devset, corenlp=corenlp, set_='dev')

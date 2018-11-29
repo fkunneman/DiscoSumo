@@ -22,14 +22,22 @@ def run(stop, write_train, write_dev, write_test):
         for i, pair in enumerate(procset):
             percentage = str(round((float(i+1) / len(procset)) * 100, 2)) + '%'
             print('Process: ', percentage, end='\r')
-            qid = pair['qid1']
+            if 'qid1' in pair: qid = pair['qid1']
+            else: qid = str(i) + '1'
             q1 = pair['tokens_proc1'] if stop else  pair['tokens1']
+            q1 = ' '.join(q1)
+            if q1.strip() == '':
+                q1 = 'eos'
 
             indexes.append(','.join([qid, '-', '-']))
             sentences.append(q1)
 
-            qid = pair['qid2']
+            if 'qid2' in pair: qid = pair['qid2']
+            else: qid = str(i) + '2'
             q2 = pair['tokens_proc2'] if stop else  pair['tokens2']
+            q2 = ' '.join(q2)
+            if q2.strip() == '':
+                q2 = 'eos'
 
             indexes.append(','.join([qid, '-', '-']))
             sentences.append(q2)

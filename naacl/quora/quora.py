@@ -6,7 +6,6 @@ import logging
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
 
-import _pickle as p
 import elmo.elmo as elmo
 import json
 import numpy as np
@@ -15,8 +14,6 @@ stop = set(stopwords.words('english'))
 import os
 import preprocessing
 import word2vec.word2vec as word2vec
-
-from gensim import corpora
 
 ALIGNMENTS_PATH='/roaming/tcastrof/quora/alignments/model/lex.f2e'
 WORD2VEC_PATH='/roaming/tcastrof/quora/word2vec/word2vec.model'
@@ -52,9 +49,9 @@ class Quora():
         self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = self.fulltestidx = self.fulltestelmo = None
         if 'elmo' in self.vector:
             self.trainidx, self.trainelmo, self.devidx, self.develmo, self.testidx, self.testelmo = elmo.init_elmo(True, ELMO_PATH)
-            self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo, self.fulltestidx, self.fulltestelmo = elmo.init_elmo(False, ELMO_PATH)
+            # self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo, self.fulltestidx, self.fulltestelmo = elmo.init_elmo(False, ELMO_PATH)
 
-        self.alignments = self.init_alignments(ALIGNMENTS_PATH)
+        # self.alignments = self.init_alignments(ALIGNMENTS_PATH)
 
 
     def init_alignments(self, path):
