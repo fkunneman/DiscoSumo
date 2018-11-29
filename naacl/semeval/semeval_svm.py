@@ -16,7 +16,7 @@ from semeval_translation import SemevalTranslation
 from sklearn.preprocessing import MinMaxScaler
 
 DATA_PATH='data'
-FEATURES_PATH = os.path.join(DATA_PATH, 'trainfeatures.pickle')
+FEATURES_PATH = 'feature'
 
 class SemevalSVM(Semeval):
     def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.1, sigma=0.9, gridsearch='random'):
@@ -36,21 +36,21 @@ class SemevalSVM(Semeval):
         self.train()
 
 
-    def train(self):
-        if not os.path.exists(self.path):
-            self.X, self.y = [], []
-            for i, query_question in enumerate(self.traindata):
-                percentage = round(float(i + 1) / len(self.traindata), 2)
-                print('Preparing traindata: ', percentage, i + 1, sep='\t', end = '\r')
-                q1id = query_question['q1_id']
-                q2id = query_question['q2_id']
+    def extract_features(self, procdata, elmoidx, elmovec, fullelmoidx, fullelmovec):
+        X, y = [], []
+        feat = {}
+        for i, q1id in enumerate(procdata):
+            percentage = round(float(i + 1) / len(procdata), 2)
+            print('Extracting features: ', percentage, i + 1, sep='\t', end = '\r')
+            for q2id in procdata[q1id]:
+                query_question = procdata[q1id][q2id]
                 q1, q2 = query_question['q1'], query_question['q2']
                 x = []
 
                 if self.stop:
-                    q1_emb = self.encode(q1id, q1, self.trainidx, self.trainelmo)
+                    q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
                 else:
-                    q1_emb = self.encode(q1id, q1, self.fulltrainidx, self.fulltrainelmo)
+                    q1_emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
 
                 # bm25
                 if 'bm25' in self.features:
@@ -73,9 +73,9 @@ class SemevalSVM(Semeval):
                         score = self.softcosine.model.score(q1, q2, self.alignments)
                     else:
                         if self.stop:
-                            q2_emb = self.encode(q2id, q2, self.trainidx, self.trainelmo)
+                            q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                         else:
-                            q2_emb = self.encode(q2id, q2, self.fulltrainidx, self.fulltrainelmo)
+                            q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
                         score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
                     x.append(score)
 
@@ -88,9 +88,9 @@ class SemevalSVM(Semeval):
                                 score = self.softcosine.model.score(q1, q2, self.alignments)
                             else:
                                 if self.stop:
-                                    q3_emb = self.encode(q3id, q3, self.trainidx, self.trainelmo)
+                                    q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
                                 else:
-                                    q3_emb = self.encode(q3id, q3, self.fulltrainidx, self.fulltrainelmo)
+                                    q3_emb = self.encode(q3id, q3, fullelmoidx, fullelmovec)
                                 score = self.softcosine.model(q1, q1_emb, q3, q3_emb)
                             x.append(score)
                         else:
@@ -102,9 +102,9 @@ class SemevalSVM(Semeval):
                         lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q2)
                     else:
                         if self.stop:
-                            q2_emb = self.encode(q2id, q2, self.trainidx, self.trainelmo)
+                            q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                         else:
-                            q2_emb = self.encode(q2id, q2, self.fulltrainidx, self.fulltrainelmo)
+                            q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
                         lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
                     x.append(trlmprob)
 
@@ -117,9 +117,9 @@ class SemevalSVM(Semeval):
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q3)
                             else:
                                 if self.stop:
-                                    q3_emb = self.encode(q3id, q3, self.trainidx, self.trainelmo)
+                                    q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
                                 else:
-                                    q3_emb = self.encode(q3id, q3, self.fulltrainidx, self.fulltrainelmo)
+                                    q3_emb = self.encode(q3id, q3, fullelmoidx, fullelmovec)
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q3, q3_emb)
                             x.append(trlmprob)
                         else:
@@ -140,14 +140,25 @@ class SemevalSVM(Semeval):
                         else:
                             x.append(0)
 
-                self.X.append(x)
-                self.y.append(query_question['label'])
+                y_ = query_question['label']
+                feat[q1id] = { q2id : (x, y) }
+                X.append(x)
+                y.append(y_)
+        return feat, X, y
 
-            p.dump(list(zip(self.X, self.y)), open(self.path, 'wb'))
+
+    def train(self):
+        path = os.path.join('feature', 'train', self.path)
+        if not os.path.exists(path):
+            feat, self.X, self.y = self.extract_features(self.traindata, self.trainidx, self.trainelmo, self.fulltrainidx, self.fulltrainelmo)
+
+            p.dump(feat, open(path, 'wb'))
         else:
-            f = p.load(open(self.path, 'rb'))
-            self.X = np.array([x[0] for x in f])
-            self.y = list(map(lambda x: x[1], f))
+            feat = p.load(open(path, 'rb'))
+            for q1id in feat:
+                for q2id in feat[q1id]:
+                    self.X.append(feat[q1id][q2id][0])
+                    self.y.append(feat[q1id][q2id][1])
 
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
         self.scaler.fit(self.X)
@@ -166,257 +177,58 @@ class SemevalSVM(Semeval):
         else:
             self.svm.train_regression(trainvectors=self.X, labels=self.y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
 
+
     def validate(self):
+        path = os.path.join('feature', 'dev', self.path)
+        if not os.path.exists(path):
+            feat, X, y = self.extract_features(self.devdata, self.devidx, self.develmo, self.fulldevidx, self.fulldevelmo)
+            p.dump(feat, open(path, 'wb'))
+        else:
+            feat = p.load(open(path, 'rb'))
+
         ranking = {}
         y_real, y_pred = [], []
-        for j, q1id in enumerate(self.devset):
-            ranking[q1id] = []
-            percentage = round(float(j+1) / len(self.devset), 2)
-            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+        for i, q1id in enumerate(feat):
+            for q2id in feat[q1id]:
+                X = feat[q1id][q2id][0]
 
-            query = self.devset[q1id]
-            q1 = query['tokens_proc'] if self.stop else query['tokens']
-            if self.stop:
-                q1_emb = self.encode(q1id, q1, self.devidx, self.develmo)
-            else:
-                q1_emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
-                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
-
-                x = []
-                # bm25
-                if 'bm25' in self.features:
-                    score = self.bm25.model(q1, q2id)
-                    x.append(score)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            score = self.bm25.model(q1, q3id)
-                            x.append(score)
-                        else:
-                            x.append(0)
-
-                # softcosine
-                elif 'softcosine' in self.features:
-                    if self.vector == 'alignments':
-                        score = self.softcosine.model.score(q1, q2, self.alignments)
-                    else:
-                        if self.stop:
-                            q2_emb = self.encode(q2id, q2, self.devidx, self.develmo)
-                        else:
-                            q2_emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
-                        score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
-                    x.append(score)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            if self.vector == 'alignments':
-                                score = self.softcosine.model.score(q1, q2, self.alignments)
-                            else:
-                                if self.stop:
-                                    q3_emb = self.encode(q3id, q3, self.devidx, self.develmo)
-                                else:
-                                    q3_emb = self.encode(q3id, q3, self.fulldevidx, self.fulldevelmo)
-                                score = self.softcosine.model(q1, q1_emb, q3, q3_emb)
-                            x.append(score)
-                        else:
-                            x.append(0)
-
-                # translation
-                elif 'translation' in self.features:
-                    if self.vector == 'alignments':
-                        lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q2)
-                    else:
-                        if self.stop:
-                            q2_emb = self.encode(q2id, q2, self.devidx, self.develmo)
-                        else:
-                            q2_emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
-                        lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
-                    x.append(trlmprob)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            if self.vector == 'alignments':
-                                lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q3)
-                            else:
-                                if self.stop:
-                                    q3_emb = self.encode(q3id, q3, self.devidx, self.develmo)
-                                else:
-                                    q3_emb = self.encode(q3id, q3, self.fulldevidx, self.fulldevelmo)
-                                lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q3, q3_emb)
-                            x.append(trlmprob)
-                        else:
-                            x.append(0)
-
-                # cosine
-                elif 'cosine' in self.features:
-                    score = self.cosine.model(q1, q2)
-                    x.append(score)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            score = self.cosine.model(q1, q3)
-                            x.append(score)
-                        else:
-                            x.append(0)
-
-                x = self.scaler.transform([x])[0]
-                score, pred_label = self.svm.score(x)
+                X = self.scaler.transform([X])[0]
+                score, pred_label = self.svm.score(X)
                 y_pred.append(pred_label)
 
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+                real_label = feat[q1id][q2id][1]
                 y_real.append(real_label)
                 ranking[q1id].append((real_label, score, q2id))
 
         parameter_settings = self.svm.return_parameter_settings(clf=self.model)
-                
+
         return ranking, y_real, y_pred, parameter_settings
 
 
-    def test(self, testset, elmoidx, elmovec, fullelmoidx, fullelmovec):
-        self.testset = testset
+    def test(self, testdata, elmoidx, elmovec, fullelmoidx, fullelmovec, test_='test2016'):
+        if test_ == 'test2016':
+            path = os.path.join('feature', 'test2016', self.path)
+        else:
+            path = os.path.join('feature', 'test2017', self.path)
+
+        self.testdata = testdata
+        if not os.path.exists(path):
+            feat, X, y = self.extract_features(self.testdata, elmoidx, elmovec, fullelmoidx, fullelmovec)
+            p.dump(feat, open(path, 'wb'))
+        else:
+            feat = p.load(open(path, 'rb'))
+
         ranking = {}
         y_real, y_pred = [], []
-        for j, q1id in enumerate(self.testset):
-            ranking[q1id] = []
-            percentage = round(float(j+1) / len(self.testset), 2)
-            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+        for i, q1id in enumerate(feat):
+            for q2id in feat[q1id]:
+                X = feat[q1id][q2id][0]
 
-            query = self.testset[q1id]
-            q1 = query['tokens_proc'] if self.stop else query['tokens']
-            if self.stop:
-                q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
-            else:
-                q1_emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
-                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
-
-                x = []
-                # bm25
-                if 'bm25' in self.features:
-                    score = self.bm25.model(q1, q2id)
-                    x.append(score)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            score = self.bm25.model(q1, q3id)
-                            x.append(score)
-                        else:
-                            x.append(0)
-
-                # softcosine
-                elif 'softcosine' in self.features:
-                    if self.vector == 'alignments':
-                        score = self.softcosine.model.score(q1, q2, self.alignments)
-                    else:
-                        if self.stop:
-                            q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
-                        else:
-                            q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
-                        score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
-                    x.append(score)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            if self.vector == 'alignments':
-                                score = self.softcosine.model.score(q1, q2, self.alignments)
-                            else:
-                                if self.stop:
-                                    q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
-                                else:
-                                    q3_emb = self.encode(q3id, q3, fullelmoidx, fullelmovec)
-                                score = self.softcosine.model(q1, q1_emb, q3, q3_emb)
-                            x.append(score)
-                        else:
-                            x.append(0)
-
-                # translation
-                elif 'translation' in self.features:
-                    if self.vector == 'alignments':
-                        lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q2)
-                    else:
-                        if self.stop:
-                            q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
-                        else:
-                            q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
-                        lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
-                    x.append(trlmprob)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            if self.vector == 'alignments':
-                                lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q3)
-                            else:
-                                if self.stop:
-                                    q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
-                                else:
-                                    q3_emb = self.encode(q3id, q3, fullelmoidx, fullelmovec)
-                                lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q3, q3_emb)
-                            x.append(trlmprob)
-                        else:
-                            x.append(0)
-
-                # cosine
-                elif 'cosine' in self.features:
-                    score = self.cosine.model(q1, q2)
-                    x.append(score)
-
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3id = rel_comment['id']
-                        q3 = rel_comment['tokens_proc'] if self.stop else rel_comment['tokens']
-
-                        if len(q3) > 0:
-                            score = self.cosine.model(q1, q3)
-                            x.append(score)
-                        else:
-                            x.append(0)
-
-                x = self.scaler.transform([x])[0]
-                score, pred_label = self.svm.score(x)
+                X = self.scaler.transform([X])[0]
+                score, pred_label = self.svm.score(X)
                 y_pred.append(pred_label)
 
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+                real_label = feat[q1id][q2id][1]
                 y_real.append(real_label)
                 ranking[q1id].append((real_label, score, q2id))
 
