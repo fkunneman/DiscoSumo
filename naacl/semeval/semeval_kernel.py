@@ -52,7 +52,7 @@ class SemevalTreeKernel(Semeval):
 
     def train(self):
         if not os.path.exists(self.path):
-            X, y = [], []
+            self.X, self.y = [], []
             for i, q_pair in enumerate(self.traindata):
                 percentage = round(float(i + 1) / len(self.traindata), 2)
                 x = []
@@ -91,17 +91,17 @@ class SemevalTreeKernel(Semeval):
 
                     k = kq1c1 + kq2c2
                     x.append(k)
-                X.append(x)
-                y.append(q_pair['label'])
+                self.X.append(x)
+                self.y.append(q_pair['label'])
 
-            p.dump(list(zip(X, y)), open(self.path, 'wb'))
-            X = np.array(X)
+            p.dump(list(zip(self.X, self.y)), open(self.path, 'wb'))
+            self.X = np.array(self.X)
         else:
             f = p.load(open(self.path, 'rb'))
-            X = np.array([x[0] for x in f])
-            y = list(map(lambda x: x[1], f))
+            self.X = np.array([x[0] for x in f])
+            self.y = list(map(lambda x: x[1], f))
 
-        self.svm.train_svm(trainvectors=X, labels=y, c='search', kernel='precomputed', gamma='search', jobs=10)
+        self.svm.train_svm(trainvectors=self.X, labels=self.y, c='search', kernel='precomputed', gamma='search', jobs=10)
 
 
     def validate(self):

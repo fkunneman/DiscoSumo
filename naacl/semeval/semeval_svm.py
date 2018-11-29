@@ -19,11 +19,12 @@ DATA_PATH='data'
 FEATURES_PATH = os.path.join(DATA_PATH, 'trainfeatures.pickle')
 
 class SemevalSVM(Semeval):
-    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.1, sigma=0.9):
+    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.1, sigma=0.9, gridsearch='random'):
         Semeval.__init__(self, stop=stop, vector=vector)
         self.path = path
         self.features = features.split(',')
         self.comment_features = comment_features.split(',')
+        self.gridsearch = gridsearch
         self.svm = Model()
 
         self.model = model
@@ -160,7 +161,7 @@ class SemevalSVM(Semeval):
                 kernel='search',
                 gamma='search',
                 jobs=10,
-                gridsearch='brutal'
+                gridsearch=self.gridsearch
             )
         else:
             self.svm.train_regression(trainvectors=self.X, labels=self.y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
