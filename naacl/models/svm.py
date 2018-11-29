@@ -27,9 +27,9 @@ class Model():
             model = svm.SVC(probability=True)
 
             if gridsearch == 'random':
-                paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+                paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4, scoring = 'f1')
             elif gridsearch == 'brutal':
-                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)
+                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True, scoring = 'f1')
             paramsearch.fit(trainvectors, labels)
             settings = paramsearch.best_params_
                 
@@ -66,7 +66,7 @@ class Model():
             if gridsearch == 'random':
                 paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
             elif gridsearch == 'brutal':
-                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)                
+                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)
             paramsearch.fit(trainvectors, labels)
             settings = paramsearch.best_params_
         # train an SVC classifier with the settings that led to the best performance

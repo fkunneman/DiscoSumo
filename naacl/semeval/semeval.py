@@ -41,16 +41,19 @@ class Semeval():
 
         logging.info('Preparing test set 2016...')
         self.testset2016 = json.load(open(TEST2016_PATH))
+        self.test2016data, _, _, _ = self.format_data(self.testset2016)
 
         logging.info('Preparing test set 2017...')
         self.testset2017 = json.load(open(TEST2017_PATH))
+        self.test2017data, _, _, _ = self.format_data(self.testset2017)
 
         logging.info('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
+        self.devdata, _, _, _ = self.format_data(self.devset)
 
         logging.info('Preparing trainset...')
         self.trainset = json.load(open(TRAIN_PATH))
-        self.traindata, self.voc2id, self.id2voc, self.vocabulary = self.format_data(self.trainset, parts=('train1', 'train2'))
+        self.traindata, self.voc2id, self.id2voc, self.vocabulary = self.format_data(self.trainset)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
 
@@ -135,73 +138,74 @@ class Semeval():
 
 
     # utilities
-    def format_data(self, indexset, parts):
-        procset, vocabulary = [], []
+    def format_data(self, indexset):
+        procset, vocabulary = {}, []
 
         vocquestions = []
         for i, qid in enumerate(indexset):
-            if indexset[qid]['set'] in parts:
-                percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
-                print('Process: ', percentage, end='\r')
+            procset[qid] = {}
+            percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
+            print('Process: ', percentage, end='\r')
 
-                question = indexset[qid]
-                subj_q1_tree = question['subj_tree']
-                q1_tree = question['tree']
-                q1_pos = question['pos']
-                q1_lemmas = question['lemmas_proc']
-                q1_full = question['tokens']
-                q1 = question['tokens_proc'] if stop else question['tokens']
+            question = indexset[qid]
+            subj_q1_tree = question['subj_tree']
+            q1_tree = question['tree']
+            q1_pos = question['pos']
+            q1_lemmas = question['lemmas_proc']
+            q1_full = question['tokens']
+            q1 = question['tokens_proc'] if stop else question['tokens']
 
-                vocquestions.append(q1)
-                vocabulary.extend(q1)
+            vocquestions.append(q1)
+            vocabulary.extend(q1)
 
-                duplicates = question['duplicates']
-                for duplicate in duplicates:
-                    rel_question = duplicate['rel_question']
-                    subj_q2_tree = rel_question['subj_tree']
-                    q2_tree = rel_question['tree']
-                    q2_pos = rel_question['pos']
-                    q2_lemmas = rel_question['lemmas_proc']
-                    q2_full = rel_question['tokens']
-                    q2 = rel_question['tokens_proc'] if stop else rel_question['tokens']
-                    vocquestions.append(q2)
-                    vocabulary.extend(q2)
+            duplicates = question['duplicates']
+            for duplicate in duplicates:
+                rel_question = duplicate['rel_question']
+                q2id = rel_question['id']
+                subj_q2_tree = rel_question['subj_tree']
+                q2_tree = rel_question['tree']
+                q2_pos = rel_question['pos']
+                q2_lemmas = rel_question['lemmas_proc']
+                q2_full = rel_question['tokens']
+                q2 = rel_question['tokens_proc'] if stop else rel_question['tokens']
+                vocquestions.append(q2)
+                vocabulary.extend(q2)
 
-                    # Related questions to augment the corpus
-                    comments = []
+                # Related questions to augment the corpus
+                comments = []
 
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3 = rel_comment['tokens_proc'] if stop else rel_comment['tokens']
-                        vocquestions.append(q3)
-                        vocabulary.extend(q3)
+                rel_comments = duplicate['rel_comments']
+                for rel_comment in rel_comments:
+                    q3 = rel_comment['tokens_proc'] if stop else rel_comment['tokens']
+                    vocquestions.append(q3)
+                    vocabulary.extend(q3)
 
-                        comments.append({
-                            'id': rel_comment['id'],
-                            'tokens': q3,
-                        })
-
-                    label = 0
-                    if rel_question['relevance'] != 'Irrelevant':
-                        label = 1
-                    procset.append({
-                        'q1_id': qid,
-                        'q1': q1,
-                        'q1_full': q1_full,
-                        'q1_tree': q1_tree,
-                        'subj_q1_tree': subj_q1_tree,
-                        'q1_lemmas': q1_lemmas,
-                        'q1_pos': q1_pos,
-                        'q2_id': rel_question['id'],
-                        'q2': q2,
-                        'q2_full': q2_full,
-                        'q2_tree': q2_tree,
-                        'subj_q2_tree': subj_q2_tree,
-                        'q2_lemmas': q2_lemmas,
-                        'q2_pos': q2_pos,
-                        'comments': comments,
-                        'label':label
+                    comments.append({
+                        'id': rel_comment['id'],
+                        'tokens': q3,
                     })
+
+                label = 0
+                if rel_question['relevance'] != 'Irrelevant':
+                    label = 1
+                procset[qid][q2id] = {
+                    'q1_id': qid,
+                    'q1': q1,
+                    'q1_full': q1_full,
+                    'q1_tree': q1_tree,
+                    'subj_q1_tree': subj_q1_tree,
+                    'q1_lemmas': q1_lemmas,
+                    'q1_pos': q1_pos,
+                    'q2_id': rel_question['id'],
+                    'q2': q2,
+                    'q2_full': q2_full,
+                    'q2_tree': q2_tree,
+                    'subj_q2_tree': subj_q2_tree,
+                    'q2_lemmas': q2_lemmas,
+                    'q2_pos': q2_pos,
+                    'comments': comments,
+                    'label':label
+                }
 
         vocabulary.append('UNK')
         vocabulary.append('eos')
