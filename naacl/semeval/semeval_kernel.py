@@ -101,7 +101,7 @@ class SemevalTreeKernel(Semeval):
                     x.append(k)
 
                 y_ = q_pair['label']
-                feat[q1id] = { q2id : (x, y_) }
+                feat[q1id][q2id] = (x, y_)
                 X.append(x)
                 y.append(y_)
         return feat, X, y

@@ -140,7 +140,7 @@ class SemevalSVM(Semeval):
                             x.append(0)
 
                 y_ = query_question['label']
-                feat[q1id] = { q2id : (x, y_) }
+                feat[q1id][q2id] = (x, y_)
                 X.append(x)
                 y.append(y_)
         return feat, X, y

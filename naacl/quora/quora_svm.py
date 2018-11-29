@@ -50,63 +50,67 @@ class QuoraSVM(Quora):
         feat = []
 
         for i, pair in enumerate(pairdata):
-            percentage = round(float(i + 1) / len(pairdata), 2)
-            print('Extracting features: ', percentage, i + 1, sep='\t', end = '\r')
-            q1id = pair['qid1'] if 'qid1' in pair else str(i) + '1'
-            q2id = pair['qid2'] if 'qid2' in pair else str(i) + '2'
-            q1, q2 = pair['tokens_proc1'], pair['tokens_proc2']
+            try:
+                percentage = round(float(i + 1) / len(pairdata), 2)
+                print('Extracting features: ', percentage, i + 1, sep='\t', end = '\r')
+                q1id = pair['qid1'] if 'qid1' in pair else str(i) + '1'
+                q2id = pair['qid2'] if 'qid2' in pair else str(i) + '2'
+                q1, q2 = pair['tokens_proc1'], pair['tokens_proc2']
 
-            x = []
+                x = []
 
-            if self.stop:
-                q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
-            else:
-                q1_emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
-
-            # bm25
-            if 'bm25' in self.features:
-                score = self.bm25.model(q1, q2id)
-                x.append(score)
-            # softcosine
-            elif 'softcosine' in self.features:
                 if self.stop:
-                    q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
+                    q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
                 else:
-                    q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
-                score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
-                x.append(score)
-            # translation
-            elif 'translation' in self.features:
-                if self.stop:
-                    q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
-                else:
-                    q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
-                lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
-                x.append(trlmprob)
-            # cosine
-            elif 'cosine' in self.features:
-                score = self.cosine.model(q1, q2)
-                x.append(score)
+                    q1_emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
 
-            y_ = int(pair['is_duplicate'])
-            feat.append((x, y_))
-            X.append(x)
-            y.append(y_)
-            return feat, X, y
+                # bm25
+                if 'bm25' in self.features:
+                    score = self.bm25.model(q1, q2id)
+                    x.append(score)
+                # softcosine
+                elif 'softcosine' in self.features:
+                    if self.stop:
+                        q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
+                    else:
+                        q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
+                    score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
+                    x.append(score)
+                # translation
+                elif 'translation' in self.features:
+                    if self.stop:
+                        q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
+                    else:
+                        q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
+                    lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
+                    x.append(trlmprob)
+                # cosine
+                elif 'cosine' in self.features:
+                    score = self.cosine.model(q1, q2)
+                    x.append(score)
+
+                y_ = int(pair['is_duplicate'])
+                feat.append((x, y_))
+                X.append(x)
+                y.append(y_)
+            except:
+                print('Error')
+                print(pair)
+        return feat, X, y
 
 
     def train(self):
         path = os.path.join(FEATURES_PATH, 'train', self.path)
+        self.X, self.y = [], []
         if not os.path.exists(path):
             feat, self.X, self.y = self.extract_features(self.trainset, self.trainidx, self.trainelmo, self.fulltrainidx, self.fulltrainelmo)
 
             p.dump(feat, open(path, 'wb'))
         else:
             feat = p.load(open(path, 'rb'))
-            for q1id in feat:
-                for q2id in feat[q1id]:
-                    self.X.append(feat[q1id][q2id][0])
-                    self.y.append(feat[q1id][q2id][1])
+            for row in feat:
+                self.X.append(row[0])
+                self.y.append(row[1])
 
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
         self.scaler.fit(self.X)
@@ -141,7 +145,7 @@ class QuoraSVM(Quora):
             score, pred_label = self.svm.score(X)
             y_pred.append(pred_label)
 
-            real_label = feat[1]
+            real_label = pair[1]
             y_real.append(real_label)
 
         parameter_settings = self.svm.return_parameter_settings(clf=self.model)

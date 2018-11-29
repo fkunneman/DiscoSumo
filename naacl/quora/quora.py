@@ -32,13 +32,13 @@ class Quora():
         self.stop = stop
         self.vector = vector
 
-        logging.info('Preparing test set...')
+        print('Preparing test set...')
         self.testset = json.load(open(TEST_PATH))
 
-        logging.info('Preparing development set...')
+        print('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
 
-        logging.info('Preparing trainset...')
+        print('Preparing trainset...')
         self.trainset = json.load(open(TRAIN_PATH))
 
         self.word2vec = None
