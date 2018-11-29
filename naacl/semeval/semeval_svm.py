@@ -5,7 +5,6 @@ sys.path.append('../')
 
 import _pickle as p
 import os
-import numpy as np
 
 from models.svm import Model
 from semeval import Semeval
@@ -141,13 +140,14 @@ class SemevalSVM(Semeval):
                             x.append(0)
 
                 y_ = query_question['label']
-                feat[q1id] = { q2id : (x, y) }
+                feat[q1id] = { q2id : (x, y_) }
                 X.append(x)
                 y.append(y_)
         return feat, X, y
 
 
     def train(self):
+        self.X, self.y = [], []
         path = os.path.join('feature', 'train', self.path)
         if not os.path.exists(path):
             feat, self.X, self.y = self.extract_features(self.traindata, self.trainidx, self.trainelmo, self.fulltrainidx, self.fulltrainelmo)
@@ -175,7 +175,7 @@ class SemevalSVM(Semeval):
                 gridsearch=self.gridsearch
             )
         else:
-            self.svm.train_regression(trainvectors=self.X, labels=self.y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
+            self.svm.train_regression(trainvectors=self.X, labels=self.y, c='search', penalty='search', tol='search', gridsearch=self.gridsearch, jobs=10)
 
 
     def validate(self):
@@ -189,6 +189,7 @@ class SemevalSVM(Semeval):
         ranking = {}
         y_real, y_pred = [], []
         for i, q1id in enumerate(feat):
+            ranking[q1id] = []
             for q2id in feat[q1id]:
                 X = feat[q1id][q2id][0]
 
@@ -221,6 +222,7 @@ class SemevalSVM(Semeval):
         ranking = {}
         y_real, y_pred = [], []
         for i, q1id in enumerate(feat):
+            ranking[q1id] = []
             for q2id in feat[q1id]:
                 X = feat[q1id][q2id][0]
 

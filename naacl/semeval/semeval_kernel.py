@@ -7,7 +7,6 @@ import _pickle as p
 import os
 import numpy as np
 
-from multiprocessing import Pool
 from models.treekernel import TreeKernel
 from models.svm import Model
 from semeval import Semeval
@@ -102,7 +101,7 @@ class SemevalTreeKernel(Semeval):
                     x.append(k)
 
                 y_ = q_pair['label']
-                feat[q1id] = { q2id : (x, y) }
+                feat[q1id] = { q2id : (x, y_) }
                 X.append(x)
                 y.append(y_)
         return feat, X, y
@@ -110,6 +109,7 @@ class SemevalTreeKernel(Semeval):
 
     def train(self):
         path = os.path.join('kernel', 'train', self.path)
+        self.X, self.y = [], []
         if not os.path.exists(path):
             feat, self.X, self.y = self.extract_features(self.traindata, self.fulltrainidx, self.fulltrainelmo)
 
@@ -135,6 +135,7 @@ class SemevalTreeKernel(Semeval):
         ranking = {}
         y_real, y_pred = [], []
         for i, q1id in enumerate(feat):
+            ranking[q1id] = []
             for q2id in feat[q1id]:
                 X = feat[q1id][q2id][0]
 
@@ -165,6 +166,7 @@ class SemevalTreeKernel(Semeval):
         ranking = {}
         y_real, y_pred = [], []
         for i, q1id in enumerate(feat):
+            ranking[q1id] = []
             for q2id in feat[q1id]:
                 X = feat[q1id][q2id][0]
 

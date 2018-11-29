@@ -49,6 +49,8 @@ class Cosine(Cos):
 
         q1q1 = np.sqrt(self.dot(q1tfidf, q1tfidf))
         q2q2 = np.sqrt(self.dot(q2tfidf, q2tfidf))
+        if q1q1 == 0 or q2q2 == 0:
+            return 0
         return self.dot(q1tfidf, q2tfidf) / (q1q1 * q2q2)
 
 
@@ -74,6 +76,8 @@ class SoftCosine(Cos):
 
         q1q1 = np.sqrt(self.softdot(q1tfidf, q1emb, q1tfidf, q1emb))
         q2q2 = np.sqrt(self.softdot(q2tfidf, q2emb, q2tfidf, q2emb))
+        if q1q1 == 0 or q2q2 == 0:
+            return 0
         sofcosine = self.softdot(q1tfidf, q1emb, q2tfidf, q2emb) / (q1q1 * q2q2)
         return sofcosine
 
