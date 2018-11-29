@@ -59,6 +59,7 @@ class SemevalTreeKernel(Semeval):
         feat, X, y = {}, [], []
 
         for i, q1id in enumerate(procdata):
+            feat[q1id] = {}
             percentage = round(float(i + 1) / len(self.traindata), 2)
             for q2id in procdata[q1id]:
                 q_pair = procdata[q1id][q2id]

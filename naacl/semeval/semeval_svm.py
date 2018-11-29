@@ -39,6 +39,7 @@ class SemevalSVM(Semeval):
         X, y = [], []
         feat = {}
         for i, q1id in enumerate(procdata):
+            feat[q1id] = {}
             percentage = round(float(i + 1) / len(procdata), 2)
             print('Extracting features: ', percentage, i + 1, sep='\t', end = '\r')
             for q2id in procdata[q1id]:
