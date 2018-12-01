@@ -18,8 +18,8 @@ DATA_PATH='data'
 FEATURES_PATH = 'feature'
 
 class SemevalSVM(Semeval):
-    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', path=FEATURES_PATH, alpha=0.1, sigma=0.9, gridsearch='random'):
-        Semeval.__init__(self, stop=stop, vector=vector)
+    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', lowercase=True, path=FEATURES_PATH, alpha=0.1, sigma=0.9, gridsearch='random'):
+        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase)
         self.path = path
         self.features = features.split(',')
         self.comment_features = comment_features.split(',')

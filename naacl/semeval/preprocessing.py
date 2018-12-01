@@ -61,13 +61,13 @@ def preprocess(indexset, corenlp, props):
 
         q1 = question['subject'] + ' ' + question['body']
         tokens, question['tree'], lemmas, pos = parse(q1, corenlp, props)
-        question['tokens'] = [w for w in tokens.lower().split()]
+        question['tokens'] = [w for w in tokens.split()]
         q1 = re.sub(r'[\W]+',' ', tokens).strip()
-        q1 = [w for w in q1.lower().split() if w not in stop]
+        q1 = [w for w in q1.split() if w not in stop]
         question['tokens_proc'] = q1
 
-        question['lemmas'] = [w for w in lemmas.lower().split()]
-        q1_lemmas = re.sub(r'[\W]+',' ', lemmas.lower()).strip()
+        question['lemmas'] = [w for w in lemmas.split()]
+        q1_lemmas = re.sub(r'[\W]+',' ', lemmas).strip()
         q1_lemmas = [w for w in q1_lemmas.split() if w not in stop]
         question['lemmas_proc'] = q1_lemmas
 
@@ -83,13 +83,13 @@ def preprocess(indexset, corenlp, props):
             if rel_question['body']:
                 q2 += ' ' + rel_question['body']
             tokens, rel_question['tree'], lemmas, pos = parse(q2, corenlp, props)
-            rel_question['tokens'] = [w for w in tokens.lower().split()]
+            rel_question['tokens'] = [w for w in tokens.split()]
             q2 = re.sub(r'[\W]+',' ', tokens).strip()
-            q2 = [w for w in q2.lower().split() if w not in stop]
+            q2 = [w for w in q2.split() if w not in stop]
             rel_question['tokens_proc'] = q2
 
-            rel_question['lemmas'] = [w for w in lemmas.lower().split()]
-            q2_lemmas = re.sub(r'[\W]+',' ', lemmas.lower()).strip()
+            rel_question['lemmas'] = [w for w in lemmas.split()]
+            q2_lemmas = re.sub(r'[\W]+',' ', lemmas).strip()
             q2_lemmas = [w for w in q2_lemmas.split() if w not in stop]
             rel_question['lemmas_proc'] = q2_lemmas
 
@@ -99,13 +99,13 @@ def preprocess(indexset, corenlp, props):
             for rel_comment in rel_comments:
                 q3 = rel_comment['text']
                 tokens, rel_comment['tree'], lemmas, pos = parse(q3, corenlp, props)
-                rel_comment['tokens'] = [w for w in tokens.lower().split()]
+                rel_comment['tokens'] = [w for w in tokens.split()]
                 q3 = re.sub(r'[\W]+',' ', tokens).strip()
-                q3 = [w for w in q3.lower().split() if w not in stop]
+                q3 = [w for w in q3.split() if w not in stop]
                 rel_comment['tokens_proc'] = q3
 
-                rel_comment['lemmas'] = [w for w in lemmas.lower().split()]
-                q3_lemmas = re.sub(r'[\W]+',' ', lemmas.lower()).strip()
+                rel_comment['lemmas'] = [w for w in lemmas.split()]
+                q3_lemmas = re.sub(r'[\W]+',' ', lemmas).strip()
                 q3_lemmas = [w for w in q3_lemmas.split() if w not in stop]
                 rel_comment['lemmas_proc'] = q3_lemmas
 

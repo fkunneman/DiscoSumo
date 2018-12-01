@@ -7,8 +7,8 @@ from semeval import Semeval
 from models.bm25 import BM25
 
 class SemevalBM25(Semeval):
-    def __init__(self, stop=True):
-        Semeval.__init__(self, stop=stop)
+    def __init__(self, stop=True, lowercase=True):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase)
         self.train()
 
     def train(self):
@@ -16,76 +16,76 @@ class SemevalBM25(Semeval):
 
         for i, q1id in enumerate(self.trainset):
             query = self.trainset[q1id]
-            q1 = query['tokens']
+            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = rel_question['tokens']
+                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = comment['tokens']
+                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
 
         for i, q1id in enumerate(self.devset):
             query = self.devset[q1id]
-            q1 = query['tokens']
+            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = rel_question['tokens']
+                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = comment['tokens']
+                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
 
         for i, q1id in enumerate(self.testset2016):
             query = self.testset2016[q1id]
-            q1 = query['tokens']
+            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = rel_question['tokens']
+                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = comment['tokens']
+                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
 
         for i, q1id in enumerate(self.testset2017):
             query = self.testset2017[q1id]
-            q1 = query['tokens']
+            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = rel_question['tokens']
+                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = comment['tokens']
+                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
@@ -98,45 +98,32 @@ class SemevalBM25(Semeval):
 
     def validate(self):
         ranking = {}
-        for i, q1id in enumerate(self.devset):
+        for i, q1id in enumerate(self.devdata):
             ranking[q1id] = []
-            percentage = round(float(i + 1) / len(self.devset), 2)
+            percentage = round(float(i + 1) / len(self.devdata), 2)
             print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
 
-            query = self.devset[q1id]
-            q1 = query['tokens_proc'] if self.stop else query['tokens']
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
+            for q2id in self.devdata[q1id]:
+                pair = self.devdata[q1id][q2id]
+                q1 = pair['q1']
                 q2score = self.model(q1, q2id)
-
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+                real_label = pair['label']
                 ranking[q1id].append((real_label, q2score, q2id))
         return ranking
 
-    def test(self, testset):
-        self.testset = testset
+
+    def test(self, testdata):
+        self.testdata = testdata
         ranking = {}
-        for i, q1id in enumerate(self.testset):
+        for i, q1id in enumerate(self.testdata):
             ranking[q1id] = []
-            percentage = round(float(i + 1) / len(self.testset), 2)
+            percentage = round(float(i + 1) / len(self.testdata), 2)
             print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
 
-            query = self.testset[q1id]
-            q1 = query['tokens_proc'] if self.stop else query['tokens']
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
+            for q2id in self.testdata[q1id]:
+                pair = self.testdata[q1id][q2id]
+                q1 = pair['q1']
                 q2score = self.model(q1, q2id)
-
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+                real_label = pair['label']
                 ranking[q1id].append((real_label, q2score, q2id))
         return ranking

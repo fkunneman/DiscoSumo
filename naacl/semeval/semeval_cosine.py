@@ -11,8 +11,8 @@ from models.cosine import Cosine, SoftCosine
 DATA_PATH='data'
 
 class SemevalCosine(Semeval):
-    def __init__(self, stop=True):
-        Semeval.__init__(self, stop=stop)
+    def __init__(self, stop=True, lowercase=True):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase)
         self.train()
 
     def train(self):
@@ -20,20 +20,25 @@ class SemevalCosine(Semeval):
         path = os.path.join(DATA_PATH,'tfidf.model')
         if not os.path.exists(path):
             corpus = copy.copy(self.additional)
-            for qid in self.trainset:
-                q1 = self.trainset[qid]['tokens']
+            for i, q1id in enumerate(self.trainset):
+                query = self.trainset[q1id]
+                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                corpus.append(q1)
 
-                duplicates = self.trainset[qid]['duplicates']
+                duplicates = query['duplicates']
                 for duplicate in duplicates:
-                    q2 = duplicate['rel_question']['tokens']
+                    rel_question = duplicate['rel_question']
+                    q2id = rel_question['id']
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
                     corpus.append(q2)
 
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3 = rel_comment['tokens']
+                    for comment in duplicate['rel_comments']:
+                        q3id = comment['id']
+                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        if len(q3) == 0:
+                            q3 = ['eos']
                         corpus.append(q3)
 
-                corpus.append(q1)
             self.model.init(corpus, DATA_PATH)
         else:
             self.model.load(DATA_PATH)
@@ -45,78 +50,67 @@ class SemevalCosine(Semeval):
 
     def validate(self):
         ranking = {}
-        for j, q1id in enumerate(self.devset):
+        for i, q1id in enumerate(self.devdata):
             ranking[q1id] = []
-            percentage = round(float(j+1) / len(self.devset), 2)
-            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+            percentage = round(float(i + 1) / len(self.devdata), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
 
-            query = self.devset[q1id]
-            q1 = query['tokens_proc']
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
-
-                q2 = rel_question['tokens_proc']
-
+            for q2id in self.devdata[q1id]:
+                pair = self.devdata[q1id][q2id]
+                q1 = pair['q1']
+                q2 = pair['q2']
                 score = self.model(q1, q2)
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+                real_label = pair['label']
                 ranking[q1id].append((real_label, score, q2id))
         return ranking
 
-    def test(self, testset):
-        self.testset = testset
+    def test(self, testdata):
+        self.testdata = testdata
         ranking = {}
-        for j, q1id in enumerate(self.testset):
+        for i, q1id in enumerate(self.testdata):
             ranking[q1id] = []
-            percentage = round(float(j+1) / len(self.testset), 2)
-            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+            percentage = round(float(i + 1) / len(self.testdata), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
 
-            query = self.devset[q1id]
-            q1 = query['tokens_proc']
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
-
-                q2 = rel_question['tokens_proc']
-
+            for q2id in self.testdata[q1id]:
+                pair = self.testdata[q1id][q2id]
+                q1 = pair['q1']
+                q2 = pair['q2']
                 score = self.model(q1, q2)
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+                real_label = pair['label']
                 ranking[q1id].append((real_label, score, q2id))
         return ranking
 
 
 class SemevalSoftCosine(Semeval):
-    def __init__(self, stop=True, vector='word2vec'):
-        Semeval.__init__(self, stop=stop, vector=vector)
+    def __init__(self, stop=True, lowercase=True, vector='word2vec'):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase, vector=vector)
         self.train()
 
     def train(self):
-        self.model = SoftCosine()
+        self.model = Cosine()
         path = os.path.join(DATA_PATH,'tfidf.model')
         if not os.path.exists(path):
             corpus = copy.copy(self.additional)
-            for qid in self.trainset:
-                q1 = self.trainset[qid]['tokens']
+            for i, q1id in enumerate(self.trainset):
+                query = self.trainset[q1id]
+                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                corpus.append(q1)
 
-                duplicates = self.trainset[qid]['duplicates']
+                duplicates = query['duplicates']
                 for duplicate in duplicates:
-                    q2 = duplicate['rel_question']['tokens']
+                    rel_question = duplicate['rel_question']
+                    q2id = rel_question['id']
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
                     corpus.append(q2)
 
-                    rel_comments = duplicate['rel_comments']
-                    for rel_comment in rel_comments:
-                        q3 = rel_comment['tokens']
+                    for comment in duplicate['rel_comments']:
+                        q3id = comment['id']
+                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        if len(q3) == 0:
+                            q3 = ['eos']
                         corpus.append(q3)
 
-                corpus.append(q1)
             self.model.init(corpus, DATA_PATH)
         else:
             self.model.load(DATA_PATH)
@@ -128,71 +122,54 @@ class SemevalSoftCosine(Semeval):
 
     def validate(self):
         ranking = {}
-        for j, q1id in enumerate(self.devset):
+        for j, q1id in enumerate(self.devdata):
             ranking[q1id] = []
-            percentage = round(float(j+1) / len(self.devset), 2)
+            percentage = round(float(j+1) / len(self.devdata), 2)
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
-            query = self.devset[q1id]
-            q1 = query['tokens_proc'] if self.stop else query['tokens']
-            if self.stop:
-                q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
-            else:
-                q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
-
-                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
+            for q2id in self.devdata[q1id]:
+                pair = self.devdata[q1id][q2id]
+                q1, q2 = pair['q1'], pair['q2']
 
                 if self.vector == 'alignments':
                     score = self.model.score(q1, q2, self.alignments)
                 else:
                     if self.stop:
+                        q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
                         q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
                     else:
+                        q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
                         q2emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
                     score = self.model(q1, q1emb, q2, q2emb)
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+
+                real_label = pair['label']
                 ranking[q1id].append((real_label, score, q2id))
         return ranking
 
-    def test(self, testset, elmoidx, elmovec, fullelmoidx, fullelmovec):
-        self.testset = testset
+
+    def test(self, testdata, elmoidx, elmovec, fullelmoidx, fullelmovec):
+        self.testdata = testdata
         ranking = {}
-        for j, q1id in enumerate(self.testset):
+        for j, q1id in enumerate(self.testdata):
             ranking[q1id] = []
-            percentage = round(float(j+1) / len(self.testset), 2)
+            percentage = round(float(j+1) / len(self.testdata), 2)
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
-            query = self.testset[q1id]
-            q1 = query['tokens_proc'] if self.stop else query['tokens']
-            if self.stop:
-                q1emb = self.encode(q1id, q1, elmoidx, elmovec)
-            else:
-                q1emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
-
-            duplicates = query['duplicates']
-            for duplicate in duplicates:
-                rel_question = duplicate['rel_question']
-                q2id = rel_question['id']
-
-                q2 = rel_question['tokens_proc'] if self.stop else rel_question['tokens']
+            for q2id in self.testdata[q1id]:
+                pair = self.devdata[q1id][q2id]
+                q1, q2 = pair['q1'], pair['q2']
 
                 if self.vector == 'alignments':
                     score = self.model.score(q1, q2, self.alignments)
                 else:
                     if self.stop:
+                        q1emb = self.encode(q1id, q1, elmoidx, elmovec)
                         q2emb = self.encode(q2id, q2, elmoidx, elmovec)
                     else:
+                        q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
                         q2emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
                     score = self.model(q1, q1emb, q2, q2emb)
-                real_label = 0
-                if rel_question['relevance'] != 'Irrelevant':
-                    real_label = 1
+
+                real_label = pair['label']
                 ranking[q1id].append((real_label, score, q2id))
         return ranking

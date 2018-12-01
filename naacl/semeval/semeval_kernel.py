@@ -17,8 +17,8 @@ if not os.path.exists(DATA_PATH):
 KERNEL_PATH = os.path.join(DATA_PATH, 'trainkernel.pickle')
 
 class SemevalTreeKernel(Semeval):
-    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, vector='word2vec', tree='tree', kernel_path=KERNEL_PATH):
-        Semeval.__init__(self, vector=vector, stop=False)
+    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, vector='word2vec', lowercase=True, tree='tree', kernel_path=KERNEL_PATH):
+        Semeval.__init__(self, vector=vector, stop=False, lowercase=lowercase)
         self.path = kernel_path
         self.tree = tree
         self.memoization = {}
@@ -188,11 +188,11 @@ def run(thread_id, smoothed, vector, path):
     SemevalTreeKernel(smoothed=smoothed, vector=vector, kernel_path=path)
 
 if __name__ == '__main__':
-    path = os.path.join(DATA_PATH, 'kernel.word2vec+elmo.pickle')
+    path = 'kernel.word2vec+elmo.pickle'
     SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path)
 
-    path = os.path.join(DATA_PATH, 'kernel.word2vec.pickle')
+    path = 'kernel.word2vec.pickle'
     SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path)
 
-    path = os.path.join(DATA_PATH, 'kernel.pickle')
+    path = 'kernel.pickle'
     SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path)
