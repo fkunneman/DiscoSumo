@@ -32,12 +32,13 @@ TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
 TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 class Semeval():
-    def __init__(self, stop=True, vector=''):
+    def __init__(self, stop=True, vector='', lowercase=True):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
         self.stop = stop
         self.vector = vector
+        self.lowercase = lowercase
 
         logging.info('Preparing test set 2016...')
         self.testset2016 = json.load(open(TEST2016_PATH))
@@ -103,7 +104,7 @@ class Semeval():
             emb = []
             for w in q:
                 try:
-                    emb.append(self.word2vec[w.lower()])
+                    emb.append(self.word2vec[w])
                 except:
                     emb.append(300 * [0])
             return emb
@@ -112,7 +113,7 @@ class Semeval():
             emb = []
             for w in q:
                 try:
-                    emb.append(self.fasttext[w.lower()])
+                    emb.append(self.fasttext[w])
                 except:
                     emb.append(300 * [0])
             return emb
@@ -155,6 +156,12 @@ class Semeval():
             q1_full = question['tokens']
             q1 = question['tokens_proc'] if stop else question['tokens']
 
+            if self.lowercase:
+                q1_pos = [w.lower() for w in q1_pos]
+                q1_lemmas = [w.lower() for w in q1_lemmas]
+                q1_full = [w.lower() for w in q1_full]
+                q1 = [w.lower() for w in q1]
+
             vocquestions.append(q1)
             vocabulary.extend(q1)
 
@@ -168,6 +175,12 @@ class Semeval():
                 q2_lemmas = rel_question['lemmas_proc']
                 q2_full = rel_question['tokens']
                 q2 = rel_question['tokens_proc'] if stop else rel_question['tokens']
+
+                if self.lowercase:
+                    q2_pos = [w.lower() for w in q2_pos]
+                    q2_lemmas = [w.lower() for w in q2_lemmas]
+                    q2_full = [w.lower() for w in q2_full]
+                    q2 = [w.lower() for w in q2]
                 vocquestions.append(q2)
                 vocabulary.extend(q2)
 
@@ -177,6 +190,8 @@ class Semeval():
                 rel_comments = duplicate['rel_comments']
                 for rel_comment in rel_comments:
                     q3 = rel_comment['tokens_proc'] if stop else rel_comment['tokens']
+                    if self.lowercase:
+                        q3 = [w.lower() for w in q3]
                     vocquestions.append(q3)
                     vocabulary.extend(q3)
 
