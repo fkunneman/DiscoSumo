@@ -2,7 +2,7 @@
 MOSESDIR=/home/tcastrof/workspace/mosesdecoder
 
 # MGIZA path
-MGIZA=/home/tcastrof/workspace/mgiza
+MGIZA=/home/tcastrof/workspace/mgiza/mgizapp/bin
 
 #  path
 ALIGNMENTS_PATH=/home/tcastrof/DiscoSumo/naacl/semeval/alignments
