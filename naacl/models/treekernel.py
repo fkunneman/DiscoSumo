@@ -4,11 +4,12 @@ import copy
 from sklearn.metrics.pairwise import cosine_similarity
 
 class TreeKernel():
-    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True):
+    def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, lowercase=True):
         self.alpha = alpha
         self.decay = decay
         self.ignore_leaves = ignore_leaves
         self.smoothed = smoothed
+        self.lowercase = lowercase
 
 
     def __call__(self, q1_tree, q1_emb, q1_token2lemma, q2_tree, q2_emb, q2_token2lemma):
@@ -233,18 +234,19 @@ class TreeKernel():
                 prev_id = copy.copy(node_id)
             else:
                 terminal = child.replace(')', '')
+                terminal = terminal.lower() if self.lowercase else terminal
                 nodes[prev_id]['type'] = 'preterminal'
 
                 nodes[node_id] = {
                     'id': node_id,
-                    'name': terminal.lower(),
+                    'name': terminal,
                     'parent': prev_id,
                     'type': 'terminal',
                     'idx': terminalidx,
-                    'lemma': terminal.lower(),
+                    'lemma': terminal,
                 }
-                if terminal.lower() in token2lemma:
-                    nodes[node_id]['lemma'] = token2lemma[terminal.lower()].lower()
+                if terminal in token2lemma:
+                    nodes[node_id]['lemma'] = token2lemma[terminal]
 
                 terminalidx += 1
                 edges[node_id] = []

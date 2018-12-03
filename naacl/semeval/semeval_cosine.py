@@ -11,18 +11,21 @@ from models.cosine import Cosine, SoftCosine
 DATA_PATH='data'
 
 class SemevalCosine(Semeval):
-    def __init__(self, stop=True, lowercase=True):
-        Semeval.__init__(self, stop=stop, lowercase=lowercase)
+    def __init__(self, stop=True, lowercase=True, punctuation=True, proctrain=True, path=DATA_PATH):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain)
+        self.path = path
         self.train()
 
     def train(self):
         self.model = Cosine()
-        path = os.path.join(DATA_PATH,'tfidf.model')
+        path = os.path.join(self.path,'tfidf.model')
         if not os.path.exists(path):
             corpus = copy.copy(self.additional)
             for i, q1id in enumerate(self.trainset):
                 query = self.trainset[q1id]
                 q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
                 corpus.append(q1)
 
                 duplicates = query['duplicates']
@@ -30,18 +33,22 @@ class SemevalCosine(Semeval):
                     rel_question = duplicate['rel_question']
                     q2id = rel_question['id']
                     q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
                     corpus.append(q2)
 
                     for comment in duplicate['rel_comments']:
                         q3id = comment['id']
                         q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
                         if len(q3) == 0:
                             q3 = ['eos']
                         corpus.append(q3)
 
-            self.model.init(corpus, DATA_PATH)
+            self.model.init(corpus, self.path)
         else:
-            self.model.load(DATA_PATH)
+            self.model.load(self.path)
 
         del self.additional
         del self.trainset
@@ -83,18 +90,21 @@ class SemevalCosine(Semeval):
 
 
 class SemevalSoftCosine(Semeval):
-    def __init__(self, stop=True, lowercase=True, vector='word2vec'):
-        Semeval.__init__(self, stop=stop, lowercase=lowercase, vector=vector)
+    def __init__(self, stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', path=DATA_PATH):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, proctrain=proctrain)
+        self.path = path
         self.train()
 
     def train(self):
-        self.model = Cosine()
-        path = os.path.join(DATA_PATH,'tfidf.model')
+        self.model = SoftCosine()
+        path = os.path.join(self.path,'tfidf.model')
         if not os.path.exists(path):
             corpus = copy.copy(self.additional)
             for i, q1id in enumerate(self.trainset):
                 query = self.trainset[q1id]
                 q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
                 corpus.append(q1)
 
                 duplicates = query['duplicates']
@@ -102,18 +112,22 @@ class SemevalSoftCosine(Semeval):
                     rel_question = duplicate['rel_question']
                     q2id = rel_question['id']
                     q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
                     corpus.append(q2)
 
                     for comment in duplicate['rel_comments']:
                         q3id = comment['id']
                         q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
                         if len(q3) == 0:
                             q3 = ['eos']
                         corpus.append(q3)
 
-            self.model.init(corpus, DATA_PATH)
+            self.model.init(corpus, self.path)
         else:
-            self.model.load(DATA_PATH)
+            self.model.load(self.path)
 
         del self.additional
         del self.trainset
@@ -134,12 +148,8 @@ class SemevalSoftCosine(Semeval):
                 if self.vector == 'alignments':
                     score = self.model.score(q1, q2, self.alignments)
                 else:
-                    if self.stop:
-                        q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
-                        q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
-                    else:
-                        q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
-                        q2emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
+                    q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
+                    q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
                     score = self.model(q1, q1emb, q2, q2emb)
 
                 real_label = pair['label']
@@ -147,7 +157,7 @@ class SemevalSoftCosine(Semeval):
         return ranking
 
 
-    def test(self, testdata, elmoidx, elmovec, fullelmoidx, fullelmovec):
+    def test(self, testdata, elmoidx, elmovec):
         self.testdata = testdata
         ranking = {}
         for j, q1id in enumerate(self.testdata):
@@ -156,18 +166,14 @@ class SemevalSoftCosine(Semeval):
             print('Progress: ', percentage, j+1, sep='\t', end='\r')
 
             for q2id in self.testdata[q1id]:
-                pair = self.devdata[q1id][q2id]
+                pair = self.testdata[q1id][q2id]
                 q1, q2 = pair['q1'], pair['q2']
 
                 if self.vector == 'alignments':
                     score = self.model.score(q1, q2, self.alignments)
                 else:
-                    if self.stop:
-                        q1emb = self.encode(q1id, q1, elmoidx, elmovec)
-                        q2emb = self.encode(q2id, q2, elmoidx, elmovec)
-                    else:
-                        q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
-                        q2emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
+                    q1emb = self.encode(q1id, q1, elmoidx, elmovec)
+                    q2emb = self.encode(q2id, q2, elmoidx, elmovec)
                     score = self.model(q1, q1emb, q2, q2emb)
 
                 real_label = pair['label']

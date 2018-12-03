@@ -11,9 +11,10 @@ import elmo.elmo as elmo
 import json
 import numpy as np
 from nltk.corpus import stopwords
-stop = set(stopwords.words('english'))
+stop_ = set(stopwords.words('english'))
 import os
 import preprocessing
+import re
 import word2vec.word2vec as word2vec
 import word2vec.fasttext as fasttext
 
@@ -24,7 +25,7 @@ WORD2VEC_PATH='/roaming/tcastrof/semeval/word2vec/word2vec.model'
 FASTTEXT_PATH='/roaming/tcastrof/semeval/word2vec/fasttext.model'
 ELMO_PATH='/roaming/tcastrof/semeval/elmo/'
 
-ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec/corpus.pickle'
+ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec'
 DATA_PATH='/home/tcastrof/DiscoSumo/naacl/semeval/data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
@@ -32,13 +33,15 @@ TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
 TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 class Semeval():
-    def __init__(self, stop=True, vector='', lowercase=True):
+    def __init__(self, stop=True, vector='', lowercase=True, punctuation=True, proctrain=True):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
-        self.stop = stop
-        self.vector = vector
         self.lowercase = lowercase
+        self.stop = stop
+        self.punctuation = punctuation
+        self.proctrain = proctrain
+        self.vector = vector
 
         logging.info('Preparing test set 2016...')
         self.testset2016 = json.load(open(TEST2016_PATH))
@@ -60,22 +63,20 @@ class Semeval():
 
         self.word2vec = None
         if 'word2vec' in self.vector:
-            self.word2vec = word2vec.init_word2vec(WORD2VEC_PATH)
+            self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop)
 
         self.fasttext = None
         if 'fasttext' in self.vector:
-            self.fasttext = fasttext.init_fasttext(FASTTEXT_PATH)
+            self.fasttext = fasttext.init_fasttext(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop)
 
         self.trainidx = self.trainelmo = self.devidx = self.develmo = self.test2016idx = self.test2016elmo = self.test2017idx = self.test2017elmo = None
-        self.fulltrainidx = self.fulltrainelmo = self.fulldevidx = self.fulldevelmo = self.fulltest2016idx = self.fulltest2016elmo = self.fulltest2017idx = self.fulltest2017elmo = None
         if 'elmo' in self.vector:
-            self.trainidx, self.trainelmo, self.devidx, self.develmo, self.test2016idx, self.test2016elmo, self.test2017idx, self.test2017elmo = elmo.init_elmo(True, ELMO_PATH)
-            self.fulltrainidx, self.fulltrainelmo, self.fulldevidx, self.fulldevelmo, self.fulltest2016idx, self.fulltest2016elmo, self.fulltest2017idx, self.fulltest2017elmo = elmo.init_elmo(False, ELMO_PATH)
+            self.trainidx, self.trainelmo, self.devidx, self.develmo, self.test2016idx, self.test2016elmo, self.test2017idx, self.test2017elmo = elmo.init_elmo(lowercase=self.lowercase, stop=self.stop, punctuation=self.punctuation, path=ELMO_PATH)
 
         self.alignments = self.init_alignments(ALIGNMENTS_PATH)
 
         # additional data
-        self.additional = p.load(open(ADDITIONAL_PATH, 'rb'))
+        self.init_additional()
 
 
     def init_alignments(self, path):
@@ -97,6 +98,30 @@ class Semeval():
             prob = float(row[2])
             alignments[t[0]][t][w[0]][w] = prob
         return alignments
+
+
+    def init_additional(self):
+        path = ADDITIONAL_PATH
+        if not self.proctrain:
+            fname = os.path.join(path, 'corpus.pickle')
+        else:
+            if self.lowercase and self.punctuation and self.stop:
+                fname = os.path.join(path, 'corpus.lower.stop.punct.pickle')
+            elif self.lowercase and self.punctuation and not self.stop:
+                fname = os.path.join(path, 'corpus.lower.punct.pickle')
+            elif self.lowercase and not self.punctuation and self.stop:
+                fname = os.path.join(path, 'corpus.lower.stop.pickle')
+            elif not self.lowercase and self.punctuation and self.stop:
+                fname = os.path.join(path, 'corpus.stop.punct.pickle')
+            elif self.lowercase and not self.punctuation and not self.stop:
+                fname = os.path.join(path, 'corpus.lower.pickle')
+            elif not self.lowercase and not self.punctuation and self.stop:
+                fname = os.path.join(path, 'corpus.stop.pickle')
+            elif not self.lowercase and self.punctuation and not self.stop:
+                fname = os.path.join(path, 'corpus.punct.pickle')
+            else:
+                fname = os.path.join(path, 'corpus.pickle')
+        self.additional = p.load(open(fname, 'rb'))
 
 
     def encode(self, qid, q, elmoidx, elmovec):
@@ -154,13 +179,20 @@ class Semeval():
             q1_pos = question['pos']
             q1_lemmas = question['lemmas_proc']
             q1_full = question['tokens']
-            q1 = question['tokens_proc'] if stop else question['tokens']
+            q1 = question['tokens']
 
             if self.lowercase:
-                q1_pos = [w.lower() for w in q1_pos]
                 q1_lemmas = [w.lower() for w in q1_lemmas]
                 q1_full = [w.lower() for w in q1_full]
                 q1 = [w.lower() for w in q1]
+
+            if self.punctuation:
+                q1_lemmas = self.remove_punctuation(q1_lemmas)
+                q1 = self.remove_punctuation(q1)
+
+            if self.stop:
+                q1_lemmas = self.remove_stopwords(q1_lemmas)
+                q1 = self.remove_stopwords(q1)
 
             vocquestions.append(q1)
             vocabulary.extend(q1)
@@ -174,13 +206,21 @@ class Semeval():
                 q2_pos = rel_question['pos']
                 q2_lemmas = rel_question['lemmas_proc']
                 q2_full = rel_question['tokens']
-                q2 = rel_question['tokens_proc'] if stop else rel_question['tokens']
+                q2 = rel_question['tokens']
 
                 if self.lowercase:
-                    q2_pos = [w.lower() for w in q2_pos]
                     q2_lemmas = [w.lower() for w in q2_lemmas]
                     q2_full = [w.lower() for w in q2_full]
                     q2 = [w.lower() for w in q2]
+
+                if self.punctuation:
+                    q2_lemmas = self.remove_punctuation(q2_lemmas)
+                    q2 = self.remove_punctuation(q2)
+
+                if self.stop:
+                    q2_lemmas = self.remove_stopwords(q2_lemmas)
+                    q2 = self.remove_stopwords(q2)
+
                 vocquestions.append(q2)
                 vocabulary.extend(q2)
 
@@ -189,9 +229,15 @@ class Semeval():
 
                 rel_comments = duplicate['rel_comments']
                 for rel_comment in rel_comments:
-                    q3 = rel_comment['tokens_proc'] if stop else rel_comment['tokens']
+                    q3 = rel_comment['tokens']
                     if self.lowercase:
                         q3 = [w.lower() for w in q3]
+
+                    if self.punctuation:
+                        q3 = self.remove_punctuation(q3)
+
+                    if self.stop:
+                        q3 = self.remove_stopwords(q3)
                     vocquestions.append(q3)
                     vocabulary.extend(q3)
 
@@ -246,3 +292,10 @@ class Semeval():
                     if row[0] == 1:
                         label = 'true'
                     f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
+
+
+    def remove_punctuation(self, tokens):
+        return re.sub(r'[\W]+',' ', ' '.join(tokens)).strip().split()
+
+    def remove_stopwords(self, tokens):
+        return [w for w in tokens if w.lower() not in stop_]

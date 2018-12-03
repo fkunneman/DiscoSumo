@@ -4,6 +4,7 @@ import sys
 sys.path.append('../')
 
 import _pickle as p
+import numpy as np
 import os
 
 from models.svm import Model
@@ -18,8 +19,8 @@ DATA_PATH='data'
 FEATURES_PATH = 'feature'
 
 class SemevalSVM(Semeval):
-    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', lowercase=True, path=FEATURES_PATH, alpha=0.1, sigma=0.9, gridsearch='random'):
-        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase)
+    def __init__(self, model='svm', features='bm25,', comment_features='bm25,', stop=True, vector='word2vec', lowercase=True, punctuation=True, proctrain=True, path=FEATURES_PATH, alpha=0.1, sigma=0.9, gridsearch='random'):
+        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation)
         self.path = path
         self.features = features.split(',')
         self.comment_features = comment_features.split(',')
@@ -27,15 +28,15 @@ class SemevalSVM(Semeval):
         self.svm = Model()
 
         self.model = model
-        self.bm25 = SemevalBM25(stop=stop) if 'bm25' in self.features+self.comment_features else None
-        self.cosine = SemevalCosine(stop=stop) if 'cosine' in self.features+self.comment_features else None
-        self.softcosine = SemevalSoftCosine(stop=stop, vector=vector) if 'softcosine' in self.features+self.comment_features else None
-        self.translation = SemevalTranslation(alpha=alpha, sigma=sigma, stop=stop, vector=self.vector) if 'translation' in self.features+self.comment_features else None
+        self.bm25 = SemevalBM25(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain) if 'bm25' in self.features+self.comment_features else None
+        self.cosine = SemevalCosine(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain) if 'cosine' in self.features+self.comment_features else None
+        self.softcosine = SemevalSoftCosine(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain, vector=vector) if 'softcosine' in self.features+self.comment_features else None
+        self.translation = SemevalTranslation(alpha=alpha, sigma=sigma, stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain, vector=self.vector) if 'translation' in self.features+self.comment_features else None
 
         self.train()
 
 
-    def extract_features(self, procdata, elmoidx, elmovec, fullelmoidx, fullelmovec):
+    def extract_features(self, procdata, elmoidx, elmovec):
         X, y = [], []
         feat = {}
         for i, q1id in enumerate(procdata):
@@ -47,10 +48,7 @@ class SemevalSVM(Semeval):
                 q1, q2 = query_question['q1'], query_question['q2']
                 x = []
 
-                if self.stop:
-                    q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
-                else:
-                    q1_emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
+                q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
 
                 # bm25
                 if 'bm25' in self.features:
@@ -72,10 +70,7 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         score = self.softcosine.model.score(q1, q2, self.alignments)
                     else:
-                        if self.stop:
-                            q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
-                        else:
-                            q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
+                        q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                         score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
                     x.append(score)
 
@@ -87,10 +82,7 @@ class SemevalSVM(Semeval):
                             if self.vector == 'alignments':
                                 score = self.softcosine.model.score(q1, q2, self.alignments)
                             else:
-                                if self.stop:
-                                    q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
-                                else:
-                                    q3_emb = self.encode(q3id, q3, fullelmoidx, fullelmovec)
+                                q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
                                 score = self.softcosine.model(q1, q1_emb, q3, q3_emb)
                             x.append(score)
                         else:
@@ -101,10 +93,7 @@ class SemevalSVM(Semeval):
                     if self.vector == 'alignments':
                         lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q2)
                     else:
-                        if self.stop:
-                            q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
-                        else:
-                            q2_emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
+                        q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                         lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
                     x.append(trlmprob)
 
@@ -116,10 +105,7 @@ class SemevalSVM(Semeval):
                             if self.vector == 'alignments':
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model.score(q1, q3)
                             else:
-                                if self.stop:
-                                    q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
-                                else:
-                                    q3_emb = self.encode(q3id, q3, fullelmoidx, fullelmovec)
+                                q3_emb = self.encode(q3id, q3, elmoidx, elmovec)
                                 lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q3, q3_emb)
                             x.append(trlmprob)
                         else:
@@ -151,7 +137,7 @@ class SemevalSVM(Semeval):
         self.X, self.y = [], []
         path = os.path.join('feature', 'train', self.path)
         if not os.path.exists(path):
-            feat, self.X, self.y = self.extract_features(self.traindata, self.trainidx, self.trainelmo, self.fulltrainidx, self.fulltrainelmo)
+            feat, self.X, self.y = self.extract_features(self.traindata, self.trainidx, self.trainelmo)
 
             p.dump(feat, open(path, 'wb'))
         else:
@@ -161,6 +147,7 @@ class SemevalSVM(Semeval):
                     self.X.append(feat[q1id][q2id][0])
                     self.y.append(feat[q1id][q2id][1])
 
+        self.X = np.array(self.X)
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
         self.scaler.fit(self.X)
         self.X = self.scaler.transform(self.X)
@@ -182,7 +169,7 @@ class SemevalSVM(Semeval):
     def validate(self):
         path = os.path.join('feature', 'dev', self.path)
         if not os.path.exists(path):
-            feat, X, y = self.extract_features(self.devdata, self.devidx, self.develmo, self.fulldevidx, self.fulldevelmo)
+            feat, X, y = self.extract_features(self.devdata, self.devidx, self.develmo)
             p.dump(feat, open(path, 'wb'))
         else:
             feat = p.load(open(path, 'rb'))
@@ -207,7 +194,7 @@ class SemevalSVM(Semeval):
         return ranking, y_real, y_pred, parameter_settings
 
 
-    def test(self, testdata, elmoidx, elmovec, fullelmoidx, fullelmovec, test_='test2016'):
+    def test(self, testdata, elmoidx, elmovec, test_='test2016'):
         if test_ == 'test2016':
             path = os.path.join('feature', 'test2016', self.path)
         else:
@@ -215,7 +202,7 @@ class SemevalSVM(Semeval):
 
         self.testdata = testdata
         if not os.path.exists(path):
-            feat, X, y = self.extract_features(self.testdata, elmoidx, elmovec, fullelmoidx, fullelmovec)
+            feat, X, y = self.extract_features(self.testdata, elmoidx, elmovec)
             p.dump(feat, open(path, 'wb'))
         else:
             feat = p.load(open(path, 'rb'))

@@ -6,8 +6,8 @@ import h5py
 import os
 import json
 import re
-
-from stanfordcorenlp import StanfordCoreNLP
+from nltk.corpus import stopwords
+stop_ = set(stopwords.words('english'))
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 DATA_PATH='../data'
@@ -16,55 +16,45 @@ DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
 TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
-def run(stop, write_train, write_dev, write_test2016, write_test2017):
-    def parse(question):
-        try:
-            out = corenlp.annotate(question, properties=props)
-            out = json.loads(out)
+def remove_punctuation(tokens):
+    return re.sub(r'[\W]+',' ', ' '.join(tokens)).strip().split()
 
-            tokens = []
-            for snt in out['sentences']:
-                tokens.extend(map(lambda x: x['originalText'], snt['tokens']))
-        except:
-            print('parsing error...')
-            tokens = re.split(r'[\W]+', question)
+def remove_stopwords(tokens):
+    return [w for w in tokens if w.lower() not in stop_]
 
-        tokens = ' '.join(tokens)
-        # treating empty documents to avoid error on allennlp
-        if tokens.strip() == '':
-            tokens = 'eos'
-        return tokens
-
+def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, write_test2017):
     def process(procset):
         indexes, sentences = [], []
         for i, qid in enumerate(procset):
             percentage = str(round((float(i+1) / len(procset)) * 100, 2)) + '%'
             print('Process: ', percentage, end='\r')
             question = procset[qid]
-            q1 = ' '.join(question['tokens_proc']) if stop else ' '.join(question['tokens'])
+            q1 = [w.lower() for w in question['tokens']] if lowercase else question['tokens']
+            q1 = remove_punctuation(q1) if punctuation else q1
+            q1 = remove_stopwords(q1) if stop else q1
 
             indexes.append(','.join([qid, '-', '-']))
-            sentences.append(parse(q1))
+            sentences.append(q1)
 
             duplicates = question['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
-
-                q2 = ' '.join(rel_question['tokens_proc']) if stop else ' '.join(rel_question['tokens'])
+                q2 = [w.lower() for w in rel_question['tokens']] if lowercase else rel_question['tokens']
+                q2 = remove_punctuation(q2) if punctuation else q2
+                q2 = remove_stopwords(q2) if stop else q2
                 indexes.append(rel_question['id'])
-                sentences.append(parse(q2))
+                sentences.append(q2)
 
                 rel_comments = duplicate['rel_comments']
                 for rel_comment in rel_comments:
-                    q2 = ' '.join(rel_comment['tokens_proc']) if stop else ' '.join(rel_comment['tokens'])
+                    q3 = [w.lower() for w in rel_comment['tokens']] if lowercase else rel_comment['tokens']
+                    q3 = remove_punctuation(q3) if punctuation else q3
+                    q3 = remove_stopwords(q3) if stop else q3
+                    if len(q3) == 0:
+                        q3 = ['eos']
                     indexes.append(rel_comment['id'])
-                    sentences.append(parse(q2))
+                    sentences.append(q3)
         return indexes, sentences
-
-    props={'annotators': 'tokenize,ssplit','pipelineLanguage':'en','outputFormat':'json'}
-    corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27')
-
-    # trainset, devset = load.run()
 
     # TRAINSET
     trainset = json.load(open(TRAIN_PATH))
@@ -118,28 +108,63 @@ def run(stop, write_train, write_dev, write_test2016, write_test2017):
     with open(os.path.join(write_test2017, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in test2017idx]))
 
-    corenlp.close()
+def init_elmo(stop, lowercase, punctuation, path):
+    if lowercase and punctuation and stop:
+        train_path = os.path.join(path, 'train.lower.stop.punct')
+        dev_path = os.path.join(path, 'dev.lower.stop.punct')
+        test2016_path = os.path.join(path, 'test2016.lower.stop.punct')
+        test2017_path = os.path.join(path, 'test2017.lower.stop.punct')
+    elif lowercase and punctuation and not stop:
+        train_path = os.path.join(path, 'train.lower.punct')
+        dev_path = os.path.join(path, 'dev.lower.punct')
+        test2016_path = os.path.join(path, 'test2016.lower.punct')
+        test2017_path = os.path.join(path, 'test2017.lower.punct')
+    elif lowercase and not punctuation and stop:
+        train_path = os.path.join(path, 'train.lower.stop')
+        dev_path = os.path.join(path, 'dev.lower.stop')
+        test2016_path = os.path.join(path, 'test2016.lower.stop')
+        test2017_path = os.path.join(path, 'test2017.lower.stop')
+    elif not lowercase and punctuation and stop:
+        train_path = os.path.join(path, 'train.stop.punct')
+        dev_path = os.path.join(path, 'dev.stop.punct')
+        test2016_path = os.path.join(path, 'test2016.stop.punct')
+        test2017_path = os.path.join(path, 'test2017.stop.punct')
+    elif lowercase and not punctuation and not stop:
+        train_path = os.path.join(path, 'train.lower')
+        dev_path = os.path.join(path, 'dev.lower')
+        test2016_path = os.path.join(path, 'test2016.lower')
+        test2017_path = os.path.join(path, 'test2017.lower')
+    elif not lowercase and not punctuation and stop:
+        train_path = os.path.join(path, 'train.stop')
+        dev_path = os.path.join(path, 'dev.stop')
+        test2016_path = os.path.join(path, 'test2016.stop')
+        test2017_path = os.path.join(path, 'test2017.stop')
+    elif not lowercase and  punctuation and not stop:
+        train_path = os.path.join(path, 'train.punct')
+        dev_path = os.path.join(path, 'dev.punct')
+        test2016_path = os.path.join(path, 'test2016.punct')
+        test2017_path = os.path.join(path, 'test2017.punct')
+    else:
+        train_path = os.path.join(path, 'train')
+        dev_path = os.path.join(path, 'dev')
+        test2016_path = os.path.join(path, 'test2016')
+        test2017_path = os.path.join(path, 'test2017')
 
-def init_elmo(stop, path):
-    train_path = os.path.join(path, 'train') if stop else os.path.join(path, 'train_full')
     trainelmo = h5py.File(os.path.join(train_path, 'elmovectors.hdf5'), 'r')
     with open(os.path.join(train_path, 'index.txt')) as f:
         trainidx = f.read().split('\n')
         trainidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(trainidx)])
 
-    dev_path = os.path.join(path, 'dev') if stop else os.path.join(path, 'dev_full')
     develmo = h5py.File(os.path.join(dev_path, 'elmovectors.hdf5'), 'r')
     with open(os.path.join(dev_path, 'index.txt')) as f:
         devidx = f.read().split('\n')
         devidx = dict([(qid.split(',')[0], i) for i, qid in enumerate(devidx)])
 
-    test2016_path = os.path.join(path, 'test2016') if stop else os.path.join(path, 'test2016_full')
     test2016elmo = h5py.File(os.path.join(test2016_path, 'elmovectors.hdf5'), 'r')
     with open(os.path.join(test2016_path, 'index.txt')) as f:
         test2016idx = f.read().split('\n')
         test2016idx = dict([(qid.split(',')[0], i) for i, qid in enumerate(test2016idx)])
 
-    test2017_path = os.path.join(path, 'test2017') if stop else os.path.join(path, 'test2017_full')
     test2017elmo = h5py.File(os.path.join(test2017_path, 'elmovectors.hdf5'), 'r')
     with open(os.path.join(test2017_path, 'index.txt')) as f:
         test2017idx = f.read().split('\n')
@@ -148,14 +173,59 @@ def init_elmo(stop, path):
     return trainidx, trainelmo, devidx, develmo, test2016idx, test2016elmo, test2017idx, test2017elmo
 
 if __name__ == '__main__':
-    WRITE_TRAIN_ELMO='/roaming/tcastrof/elmo/train'
-    WRITE_DEV_ELMO='/roaming/tcastrof/elmo/dev'
-    WRITE_TEST2016_ELMO='/roaming/tcastrof/elmo/test2016'
-    WRITE_TEST2017_ELMO='/roaming/tcastrof/elmo/test2017'
-    run(True, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO, WRITE_TEST2016_ELMO, WRITE_TEST2017_ELMO)
+    path = '/roaming/tcastrof/semeval/elmo/'
+    train_path = os.path.join(path, 'train.lower.stop.punct')
+    dev_path = os.path.join(path, 'dev.lower.stop.punct')
+    test2016_path = os.path.join(path, 'test2016.lower.stop.punct')
+    test2017_path = os.path.join(path, 'test2017.lower.stop.punct')
+    run(lowercase=True, stop=True, punctuation=True,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
 
-    WRITE_TRAIN_ELMO='/roaming/tcastrof/elmo/train_full'
-    WRITE_DEV_ELMO='/roaming/tcastrof/elmo/dev_full'
-    WRITE_TEST2016_ELMO='/roaming/tcastrof/elmo/test2016_full'
-    WRITE_TEST2017_ELMO='/roaming/tcastrof/elmo/test2017_full'
-    run(False, WRITE_TRAIN_ELMO, WRITE_DEV_ELMO, WRITE_TEST2016_ELMO, WRITE_TEST2017_ELMO)
+    train_path = os.path.join(path, 'train.lower.stop')
+    dev_path = os.path.join(path, 'dev.lower.stop')
+    test2016_path = os.path.join(path, 'test2016.lower.stop')
+    test2017_path = os.path.join(path, 'test2017.lower.stop')
+    run(lowercase=True, stop=True, punctuation=False,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+
+    train_path = os.path.join(path, 'train.lower.punct')
+    dev_path = os.path.join(path, 'dev.lower.punct')
+    test2016_path = os.path.join(path, 'test2016.lower.punct')
+    test2017_path = os.path.join(path, 'test2017.lower.punct')
+    run(lowercase=True, stop=False, punctuation=True,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+
+    train_path = os.path.join(path, 'train.stop.punct')
+    dev_path = os.path.join(path, 'dev.stop.punct')
+    test2016_path = os.path.join(path, 'test2016.stop.punct')
+    test2017_path = os.path.join(path, 'test2017.stop.punct')
+    run(lowercase=False, stop=True, punctuation=True,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+
+    train_path = os.path.join(path, 'train.lower')
+    dev_path = os.path.join(path, 'dev.lower')
+    test2016_path = os.path.join(path, 'test2016.lower')
+    test2017_path = os.path.join(path, 'test2017.lower')
+    run(lowercase=True, stop=False, punctuation=False,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+
+    train_path = os.path.join(path, 'train.stop')
+    dev_path = os.path.join(path, 'dev.stop')
+    test2016_path = os.path.join(path, 'test2016.stop')
+    test2017_path = os.path.join(path, 'test2017.stop')
+    run(lowercase=False, stop=True, punctuation=False,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+
+    train_path = os.path.join(path, 'train.punct')
+    dev_path = os.path.join(path, 'dev.punct')
+    test2016_path = os.path.join(path, 'test2016.punct')
+    test2017_path = os.path.join(path, 'test2017.punct')
+    run(lowercase=False, stop=False, punctuation=True,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+
+    train_path = os.path.join(path, 'train')
+    dev_path = os.path.join(path, 'dev')
+    test2016_path = os.path.join(path, 'test2016')
+    test2017_path = os.path.join(path, 'test2017')
+    run(lowercase=False, stop=False, punctuation=False,
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)

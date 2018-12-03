@@ -18,13 +18,13 @@ KERNEL_PATH = os.path.join(DATA_PATH, 'trainkernel.pickle')
 
 class SemevalTreeKernel(Semeval):
     def __init__(self, alpha=0, decay=1, ignore_leaves=True, smoothed=True, vector='word2vec', lowercase=True, tree='tree', kernel_path=KERNEL_PATH):
-        Semeval.__init__(self, vector=vector, stop=False, lowercase=lowercase)
+        Semeval.__init__(self, vector=vector, stop=False, lowercase=lowercase, punctuation=False)
         self.path = kernel_path
         self.tree = tree
         self.memoization = {}
         self.svm = Model()
         self.flat_traindata()
-        self.treekernel = TreeKernel(alpha, decay, ignore_leaves, smoothed)
+        self.treekernel = TreeKernel(alpha=alpha, decay=decay, ignore_leaves=ignore_leaves, smoothed=smoothed, lowercase=lowercase)
         self.train()
 
         del self.additional
@@ -49,11 +49,13 @@ class SemevalTreeKernel(Semeval):
 
         return k
 
+
     def flat_traindata(self):
         self.flattraindata = []
         for q1id in self.traindata:
             for q2id in self.traindata[q1id]:
                 self.flattraindata.append(self.traindata[q1id][q2id])
+
 
     def extract_features(self, procdata, elmoidx, elmovec):
         feat, X, y = {}, [], []
@@ -84,14 +86,14 @@ class SemevalTreeKernel(Semeval):
                     c1id = c['q1_id']
                     c1 = c['q1_full']
                     c1_tree = c['q1_tree'] if self.tree == 'tree' else c['subj_q1_tree']
-                    c1_emb = self.encode(c1id, c1, self.fulltrainidx, self.fulltrainelmo)
+                    c1_emb = self.encode(c1id, c1, self.trainidx, self.trainelmo)
                     c1_token2lemma = dict(zip(c1, c['q1_lemmas']))
                     kc1 = self.memoize(c1id, c1_tree, c1_emb, c1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma)
 
                     c2id = c['q2_id']
                     c2 = c['q2_full']
                     c2_tree = c['q2_tree'] if self.tree == 'tree' else c['subj_q2_tree']
-                    c2_emb = self.encode(c2id, c2, self.fulltrainidx, self.fulltrainelmo)
+                    c2_emb = self.encode(c2id, c2, self.trainidx, self.trainelmo)
                     c2_token2lemma = dict(zip(c2, c['q2_lemmas']))
                     kc2 = self.memoize(c2id, c2_tree, c2_emb, c2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma)
 
@@ -112,7 +114,7 @@ class SemevalTreeKernel(Semeval):
         path = os.path.join('kernel', 'train', self.path)
         self.X, self.y = [], []
         if not os.path.exists(path):
-            feat, self.X, self.y = self.extract_features(self.traindata, self.fulltrainidx, self.fulltrainelmo)
+            feat, self.X, self.y = self.extract_features(self.traindata, self.trainidx, self.trainelmo)
 
             p.dump(feat, open(path, 'wb'))
         else:
@@ -122,13 +124,14 @@ class SemevalTreeKernel(Semeval):
                     self.X.append(feat[q1id][q2id][0])
                     self.y.append(feat[q1id][q2id][1])
 
+        self.X = np.array(self.X)
         self.svm.train_svm(trainvectors=self.X, labels=self.y, c='search', kernel='precomputed', gamma='search', jobs=10)
 
 
     def validate(self):
         path = os.path.join('kernel', 'dev', self.path)
         if not os.path.exists(path):
-            feat, X, y = self.extract_features(self.devdata, self.fulldevidx, self.fulldevelmo)
+            feat, X, y = self.extract_features(self.devdata, self.devidx, self.develmo)
             p.dump(feat, open(path, 'wb'))
         else:
             feat = p.load(open(path, 'rb'))
@@ -151,7 +154,8 @@ class SemevalTreeKernel(Semeval):
 
         return ranking, y_real, y_pred, parameter_settings
 
-    def test(self, testdata, fullelmoidx, fullelmovec, test_='test2016'):
+
+    def test(self, testdata, elmoidx, elmovec, test_='test2016'):
         if test_ == 'test2016':
             path = os.path.join('kernel', 'test2016', self.path)
         else:
@@ -159,7 +163,7 @@ class SemevalTreeKernel(Semeval):
 
         self.testdata = testdata
         if not os.path.exists(path):
-            feat, X, y = self.extract_features(self.testdata, fullelmoidx, fullelmovec)
+            feat, X, y = self.extract_features(self.testdata, elmoidx, elmovec)
             p.dump(feat, open(path, 'wb'))
         else:
             feat = p.load(open(path, 'rb'))
@@ -187,12 +191,24 @@ def run(thread_id, smoothed, vector, path):
     print('Thread_id: ', thread_id)
     SemevalTreeKernel(smoothed=smoothed, vector=vector, kernel_path=path)
 
+
 if __name__ == '__main__':
+    # lower
+    path = 'kernel.word2vec+elmo.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
+
+    path = 'kernel.word2vec.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=True)
+
+    path = 'kernel.lower.pickle'
+    SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=True)
+
+    # capital
     path = 'kernel.word2vec+elmo.pickle'
-    SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path)
+    SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
 
     path = 'kernel.word2vec.pickle'
-    SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path)
+    SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)
 
     path = 'kernel.pickle'
-    SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path)
+    SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)

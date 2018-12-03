@@ -50,12 +50,10 @@ class TRLM():
         start = time.time()
         t_Qs = []
         for t in q2:
-            t = t.lower()
             t_Q = float(Q[Q == t].count()) / Q_count
             t_Qs.append(t_Q)
 
         for i, w in enumerate(q1):
-            w = w.lower()
             w_C = self.get_w_C(w)
 
             ml_w_Q = float(Q[Q == w].count()) / Q_count
@@ -83,19 +81,16 @@ class TRLM():
         start = time.time()
         t_Qs = []
         for t in q2:
-            t = t.lower()
             t_Q = float(Q[Q == t].count()) / Q_count
             t_Qs.append(t_Q)
 
         for i, w in enumerate(q1):
-            w = w.lower()
             w_C = self.get_w_C(w)
 
             ml_w_Q = float(Q[Q == w].count()) / Q_count
             mx_w_Q = 0.0
 
             for j, t in enumerate(q2):
-                t = t.lower()
                 try:
                     w_t = self.prob_w_t[t[0]][t][w[0]][w]
                 except:

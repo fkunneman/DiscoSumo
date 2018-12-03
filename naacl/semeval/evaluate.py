@@ -80,10 +80,10 @@ def run_kernel(smoothed, vector, tree, lowercase, evaluation_path, kernel_path):
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
-    result_test2016 = model.test(model.testset2016, model.fulltest2016idx, model.fulltest2016elmo, test_='test2016')
+    result_test2016 = model.test(model.test2016data, model.fulltest2016idx, model.fulltest2016elmo, test_='test2016')
     test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
 
-    result_test2017 = model.test(model.testset2017, model.fulltest2017idx, model.fulltest2017elmo, test_='test2017')
+    result_test2017 = model.test(model.test2017data, model.fulltest2017idx, model.fulltest2017elmo, test_='test2017')
     test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
 
     ranking, y_real, y_pred, parameter_settings = result_test2016
@@ -142,10 +142,10 @@ def run_bm25(stop, lowercase, evaluation_path):
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
-    result_test2016 = model.test(model.testset2016)
+    result_test2016 = model.test(model.test2016data)
     test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
 
-    result_test2017 = model.test(model.testset2017)
+    result_test2017 = model.test(model.test2017data)
     test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
 
     model.save(ranking=result_test2016, path=test2016_path, parameter_settings='')
@@ -199,12 +199,12 @@ def run_translation(stop, lowercase, vector, evaluation_path):
     translation.sigma = best['sigma']
     # test2016
     path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
-    ranking = translation.test(translation.testset2016, translation.test2016idx, translation.test2016elmo, translation.fulltest2016idx, translation.fulltest2016elmo)
+    ranking = translation.test(translation.test2016data, translation.test2016idx, translation.test2016elmo, translation.fulltest2016idx, translation.fulltest2016elmo)
     translation.save(ranking=ranking, path=path, parameter_settings=best['parameter_settings'])
 
     # test2017
     path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
-    ranking = translation.test(translation.testset2017, translation.test2017idx, translation.test2017elmo, translation.fulltest2017idx, translation.fulltest2017elmo)
+    ranking = translation.test(translation.test2017data, translation.test2017idx, translation.test2017elmo, translation.fulltest2017idx, translation.fulltest2017elmo)
     translation.save(ranking=ranking, path=path, parameter_settings=best['parameter_settings'])
 
 
@@ -213,10 +213,10 @@ def run_softcosine(stop, lowercase, vector, evaluation_path):
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
-    result_test2016 = model.test(model.testset2016, model.test2016idx, model.test2016elmo, model.fulltest2016idx, model.fulltest2016elmo)
+    result_test2016 = model.test(model.test2016data, model.test2016idx, model.test2016elmo, model.fulltest2016idx, model.fulltest2016elmo)
     test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
 
-    result_test2017 = model.test(model.testset2017, model.test2017idx, model.test2017elmo, model.fulltest2017idx, model.fulltest2017elmo)
+    result_test2017 = model.test(model.test2017data, model.test2017idx, model.test2017elmo, model.fulltest2017idx, model.fulltest2017elmo)
     test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
 
     model.save(ranking=result_test2016, path=test2016_path, parameter_settings='')

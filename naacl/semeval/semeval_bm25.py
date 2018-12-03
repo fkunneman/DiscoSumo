@@ -7,8 +7,8 @@ from semeval import Semeval
 from models.bm25 import BM25
 
 class SemevalBM25(Semeval):
-    def __init__(self, stop=True, lowercase=True):
-        Semeval.__init__(self, stop=stop, lowercase=lowercase)
+    def __init__(self, stop=True, lowercase=True, punctuation=True, proctrain=True):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain)
         self.train()
 
     def train(self):
@@ -17,6 +17,8 @@ class SemevalBM25(Semeval):
         for i, q1id in enumerate(self.trainset):
             query = self.trainset[q1id]
             q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+            q1 = self.remove_punctuation(q1) if self.punctuation else q1
+            q1 = self.remove_stopwords(q1) if self.stop else q1
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
@@ -24,11 +26,15 @@ class SemevalBM25(Semeval):
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                q2 = self.remove_stopwords(q2) if self.stop else q2
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
                     q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                    q3 = self.remove_stopwords(q3) if self.stop else q3
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
@@ -36,6 +42,8 @@ class SemevalBM25(Semeval):
         for i, q1id in enumerate(self.devset):
             query = self.devset[q1id]
             q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+            q1 = self.remove_punctuation(q1) if self.punctuation else q1
+            q1 = self.remove_stopwords(q1) if self.stop else q1
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
@@ -43,11 +51,15 @@ class SemevalBM25(Semeval):
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                q2 = self.remove_stopwords(q2) if self.stop else q2
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
                     q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                    q3 = self.remove_stopwords(q3) if self.stop else q3
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
@@ -55,6 +67,8 @@ class SemevalBM25(Semeval):
         for i, q1id in enumerate(self.testset2016):
             query = self.testset2016[q1id]
             q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+            q1 = self.remove_punctuation(q1) if self.punctuation else q1
+            q1 = self.remove_stopwords(q1) if self.stop else q1
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
@@ -62,11 +76,15 @@ class SemevalBM25(Semeval):
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                q2 = self.remove_stopwords(q2) if self.stop else q2
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
                     q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                    q3 = self.remove_stopwords(q3) if self.stop else q3
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
@@ -74,6 +92,8 @@ class SemevalBM25(Semeval):
         for i, q1id in enumerate(self.testset2017):
             query = self.testset2017[q1id]
             q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+            q1 = self.remove_punctuation(q1) if self.punctuation else q1
+            q1 = self.remove_stopwords(q1) if self.stop else q1
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
@@ -81,11 +101,15 @@ class SemevalBM25(Semeval):
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
                 q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                q2 = self.remove_stopwords(q2) if self.stop else q2
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
                     q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                    q3 = self.remove_stopwords(q3) if self.stop else q3
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3

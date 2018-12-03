@@ -46,7 +46,7 @@ def parse(question, corenlp, props):
 
         tokens = []
         for snt in parsed['sentences']:
-            words = [w for w in map(lambda x: x['originalText'].lower(), snt['tokens'])]
+            words = [w for w in map(lambda x: x['originalText'], snt['tokens'])]
             tokens.extend(words)
         trees = '()'
     return ' '.join(tokens), trees, ' '.join(lemmas), pos

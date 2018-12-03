@@ -13,10 +13,11 @@ DATA_PATH='data'
 TRANSLATION_PATH='alignments/model/lex.f2e'
 
 class SemevalTranslation(Semeval):
-    def __init__(self, alpha, sigma, stop=True, lowercase=True, vector='word2vec'):
-        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase)
+    def __init__(self, alpha, sigma, stop=True, lowercase=True, punctuation=True, vector='word2vec', proctrain=True, path=DATA_PATH):
+        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain)
         self.alpha = alpha
         self.sigma = sigma
+        self.path = path
         self.train()
 
     def train(self):
@@ -24,20 +25,28 @@ class SemevalTranslation(Semeval):
         for i, q1id in enumerate(self.trainset):
             question = self.trainset[q1id]
             q1 = [w.lower() for w in question['tokens']] if self.lowercase else question['tokens']
+            q1 = self.remove_punctuation(q1) if self.punctuation else q1
+            q1 = self.remove_stopwords(q1) if self.stop else q1
             questions.append(q1)
 
             duplicates = question['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                q2 = self.remove_stopwords(q2) if self.stop else q2
                 questions.append(q2)
 
                 rel_comments = duplicate['rel_comments']
                 for rel_comment in rel_comments:
                     q3 = [w.lower() for w in rel_comment['tokens']] if self.lowercase else rel_comment['tokens']
+                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                    q3 = self.remove_stopwords(q3) if self.stop else q3
+                    if len(q3) == 0:
+                        q3 = ['eos']
                     questions.append(q3)
 
-        path = os.path.join(DATA_PATH, 'transdict.model')
+        path = os.path.join(self.path, 'transdict.model')
         if not os.path.exists(path):
             self.vocabulary = Dictionary(questions)
             self.vocabulary.save(path)
@@ -68,12 +77,8 @@ class SemevalTranslation(Semeval):
                 pair = self.devdata[q1id][q2id]
                 q1, q2 = pair['q1'], pair['q2']
 
-                if self.stop:
-                    q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
-                    q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
-                else:
-                    q1emb = self.encode(q1id, q1, self.fulldevidx, self.fulldevelmo)
-                    q2emb = self.encode(q2id, q2, self.fulldevidx, self.fulldevelmo)
+                q1emb = self.encode(q1id, q1, self.devidx, self.develmo)
+                q2emb = self.encode(q2id, q2, self.devidx, self.develmo)
 
                 if self.vector == 'alignments':
                     lmprob, trmprob, score, _ = self.model.score(q1, q2)
@@ -85,7 +90,7 @@ class SemevalTranslation(Semeval):
         return ranking
 
 
-    def test(self, testdata, elmoidx, elmovec, fullelmoidx, fullelmovec):
+    def test(self, testdata, elmoidx, elmovec):
         self.testdata = testdata
         ranking = {}
         for j, q1id in enumerate(self.testdata):
@@ -97,12 +102,8 @@ class SemevalTranslation(Semeval):
                 pair = self.testdata[q1id][q2id]
                 q1, q2 = pair['q1'], pair['q2']
 
-                if self.stop:
-                    q1emb = self.encode(q1id, q1, elmoidx, elmovec)
-                    q2emb = self.encode(q2id, q2, elmoidx, elmovec)
-                else:
-                    q1emb = self.encode(q1id, q1, fullelmoidx, fullelmovec)
-                    q2emb = self.encode(q2id, q2, fullelmoidx, fullelmovec)
+                q1emb = self.encode(q1id, q1, elmoidx, elmovec)
+                q2emb = self.encode(q2id, q2, elmoidx, elmovec)
 
                 if self.vector == 'alignments':
                     lmprob, trmprob, score, _ = self.model.score(q1, q2)
