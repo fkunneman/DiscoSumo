@@ -20,12 +20,12 @@ import word2vec.fasttext as fasttext
 
 from gensim import corpora
 
-ALIGNMENTS_PATH='/roaming/tcastrof/semeval/alignments/model/lex.f2e'
+ALIGNMENTS_PATH='/roaming/tcastrof/semeval/alignments/align'
 WORD2VEC_PATH='/roaming/tcastrof/semeval/word2vec/word2vec.model'
 FASTTEXT_PATH='/roaming/tcastrof/semeval/word2vec/fasttext.model'
 ELMO_PATH='/roaming/tcastrof/semeval/elmo/'
 
-ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec'
+ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec/word2vec'
 DATA_PATH='/home/tcastrof/DiscoSumo/naacl/semeval/data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
@@ -80,7 +80,12 @@ class Semeval():
 
 
     def init_alignments(self, path):
-        with open(path) as f:
+        if self.lowercase: path += '.lower'
+        if self.stop: path += '.stop'
+        if self.punctuation: path += '.punct'
+
+        fname = os.path.join(path, 'model/lex.f2e')
+        with open(fname) as f:
             doc = list(map(lambda x: x.split(), f.read().split('\n')))
 
         alignments = {}
@@ -102,25 +107,13 @@ class Semeval():
 
     def init_additional(self):
         path = ADDITIONAL_PATH
-        if not self.proctrain:
-            fname = os.path.join(path, 'corpus.pickle')
-        else:
-            if self.lowercase and self.punctuation and self.stop:
-                fname = os.path.join(path, 'corpus.lower.stop.punct.pickle')
-            elif self.lowercase and self.punctuation and not self.stop:
-                fname = os.path.join(path, 'corpus.lower.punct.pickle')
-            elif self.lowercase and not self.punctuation and self.stop:
-                fname = os.path.join(path, 'corpus.lower.stop.pickle')
-            elif not self.lowercase and self.punctuation and self.stop:
-                fname = os.path.join(path, 'corpus.stop.punct.pickle')
-            elif self.lowercase and not self.punctuation and not self.stop:
-                fname = os.path.join(path, 'corpus.lower.pickle')
-            elif not self.lowercase and not self.punctuation and self.stop:
-                fname = os.path.join(path, 'corpus.stop.pickle')
-            elif not self.lowercase and self.punctuation and not self.stop:
-                fname = os.path.join(path, 'corpus.punct.pickle')
-            else:
-                fname = os.path.join(path, 'corpus.pickle')
+
+        if self.proctrain:
+            if self.lowercase: path += '.lower'
+            if self.stop: path += '.stop'
+            if self.punctuation: path += '.punct'
+        fname = os.path.join(path, 'corpus.pickle')
+
         self.additional = p.load(open(fname, 'rb'))
 
 

@@ -137,8 +137,8 @@ def run_svm(model_, metric, stop, vector, lowercase, evaluation_path, feature_pa
     print('F-Score: ', f1score)
 
 
-def run_bm25(stop, lowercase, evaluation_path):
-    model = SemevalBM25(stop=stop, lowercase=lowercase)
+def run_bm25(stop, lowercase, punctuation, proctrain, evaluation_path):
+    model = SemevalBM25(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain)
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
@@ -162,33 +162,47 @@ def run_bm25(stop, lowercase, evaluation_path):
     del model
 
 
-def run_translation(stop, lowercase, vector, evaluation_path):
-    best = {'map': 0, 'ranking': {}, 'y_real': [], 'y_pred': [], 'parameter_settings': '', 'alpha':0, 'sigma':0, 'model': None}
+def run_translation(stop, lowercase, punctuation, proctrain, vector, evaluation_path, alpha=0.0, sigma=0.0):
+    best = { }
+    translation = SemevalTranslation(alpha=alpha, sigma=sigma, punctuation=punctuation, proctrain=proctrain, vector=vector, stop=stop, lowercase=lowercase)
 
-    alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-
-    translation = SemevalTranslation(alpha=0.7, sigma=0.3, vector=vector, stop=stop, lowercase=lowercase)
-    for alpha in alphas:
-        sigma = abs(1-alpha)
+    if alpha > 0 and sigma > 0:
         translation.set_parameters(alpha=alpha, sigma=sigma)
         ranking = translation.validate()
 
         map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
-        if map_model > best['map']:
-            best['map'] = copy.copy(map_model)
-            best['ranking'] = ranking
-            best['alpha'] = alpha
-            best['sigma'] = sigma
-            best['parameter_settings'] = 'alpha='+str(translation.alpha)+','+'sigma='+str(translation.sigma)
-            best['model'] = translation
-            print('Parameters: ', best['parameter_settings'])
-            print('MAP model: ', best['map'])
-            print(10 * '-')
-        else:
-            print('Not best:')
-            print('Parameters: ', 'alpha='+str(translation.alpha)+','+'sigma='+str(translation.sigma))
-            print('MAP model: ', map_model)
-            print(10 * '-')
+        best['map'] = copy.copy(map_model)
+        best['ranking'] = ranking
+        best['alpha'] = alpha
+        best['sigma'] = sigma
+        best['parameter_settings'] = 'alpha='+str(translation.alpha)+','+'sigma='+str(translation.sigma)
+        best['model'] = translation
+        print('Parameters: ', best['parameter_settings'])
+        print('MAP model: ', best['map'])
+        print(10 * '-')
+    else:
+        alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        for alpha in alphas:
+            sigma = abs(1-alpha)
+            translation.set_parameters(alpha=alpha, sigma=sigma)
+            ranking = translation.validate()
+
+            map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
+            if map_model > best['map']:
+                best['map'] = copy.copy(map_model)
+                best['ranking'] = ranking
+                best['alpha'] = alpha
+                best['sigma'] = sigma
+                best['parameter_settings'] = 'alpha='+str(translation.alpha)+','+'sigma='+str(translation.sigma)
+                best['model'] = translation
+                print('Parameters: ', best['parameter_settings'])
+                print('MAP model: ', best['map'])
+                print(10 * '-')
+            else:
+                print('Not best:')
+                print('Parameters: ', 'alpha='+str(translation.alpha)+','+'sigma='+str(translation.sigma))
+                print('MAP model: ', map_model)
+                print(10 * '-')
 
     path = os.path.join(DEV_EVAL_PATH, evaluation_path)
     best['model'].save(ranking=best['ranking'], path=path, parameter_settings=best['parameter_settings'])
@@ -199,24 +213,24 @@ def run_translation(stop, lowercase, vector, evaluation_path):
     translation.sigma = best['sigma']
     # test2016
     path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
-    ranking = translation.test(translation.test2016data, translation.test2016idx, translation.test2016elmo, translation.fulltest2016idx, translation.fulltest2016elmo)
+    ranking = translation.test(translation.test2016data, translation.test2016idx, translation.test2016elmo)
     translation.save(ranking=ranking, path=path, parameter_settings=best['parameter_settings'])
 
     # test2017
     path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
-    ranking = translation.test(translation.test2017data, translation.test2017idx, translation.test2017elmo, translation.fulltest2017idx, translation.fulltest2017elmo)
+    ranking = translation.test(translation.test2017data, translation.test2017idx, translation.test2017elmo)
     translation.save(ranking=ranking, path=path, parameter_settings=best['parameter_settings'])
 
 
-def run_softcosine(stop, lowercase, vector, evaluation_path):
-    model = SemevalSoftCosine(stop=stop, vector=vector, lowercase=lowercase)
+def run_softcosine(stop, lowercase, punctuation, proctrain, vector, evaluation_path):
+    model = SemevalSoftCosine(stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain)
     result_dev = model.validate()
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
-    result_test2016 = model.test(model.test2016data, model.test2016idx, model.test2016elmo, model.fulltest2016idx, model.fulltest2016elmo)
+    result_test2016 = model.test(model.test2016data, model.test2016idx, model.test2016elmo)
     test2016_path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
 
-    result_test2017 = model.test(model.test2017data, model.test2017idx, model.test2017elmo, model.fulltest2017idx, model.fulltest2017elmo)
+    result_test2017 = model.test(model.test2017data, model.test2017idx, model.test2017elmo)
     test2017_path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
 
     model.save(ranking=result_test2016, path=test2016_path, parameter_settings='')
@@ -233,7 +247,145 @@ def run_softcosine(stop, lowercase, vector, evaluation_path):
 
 
 if __name__ == '__main__':
+    # PREPROCESSING EXPERIMENTS
+    ###############################################################################
+    # BM25
+    # Preprocessing training, dev and testsets
+    # lowercase, stop, punctuation, proctrain, vector=alignments
+    path = 'bm25.lower.stop.punct.proctrain.word2vec.ranking'
+    run_bm25(stop=True, lowercase=True, punctuation=True, proctrain=True, evaluation_path=path)
+    # lowercase, stop, proctrain, vector=alignments
+    path = 'bm25.lower.stop.proctrain.word2vec.ranking'
+    run_bm25(stop=True, lowercase=True, punctuation=False, proctrain=True, evaluation_path=path)
+    # lowercase, punctuation, proctrain, vector=alignments
+    path = 'bm25.lower.punct.proctrain.word2vec.ranking'
+    run_bm25(stop=False, lowercase=True, punctuation=True, proctrain=True, evaluation_path=path)
+    # stop, punctuation, proctrain, vector=alignments
+    path = 'bm25.stop.punct.proctrain.word2vec.ranking'
+    run_bm25(stop=True, lowercase=False, punctuation=True, proctrain=True, evaluation_path=path)
+    # lowercase, proctrain, vector=alignments
+    path = 'bm25.lower.proctrain.word2vec.ranking'
+    run_bm25(stop=False, lowercase=True, punctuation=False, proctrain=True, evaluation_path=path)
+    # stop, proctrain, vector=alignments
+    path = 'bm25.stop.proctrain.word2vec.ranking'
+    run_bm25(stop=True, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
+    # punctuation, proctrain, vector=alignments
+    path = 'bm25.punct.proctrain.word2vec.ranking'
+    run_bm25(stop=False, lowercase=False, punctuation=True, proctrain=True, evaluation_path=path)
+    # proctrain, vector=alignments
+    path = 'bm25.proctrain.word2vec.ranking'
+    run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
+    #########################################
+
+
     # TRANSLATION
+    # Preprocessing training, dev and testsets
+    # lowercase, stop, punctuation, proctrain, vector=alignments
+    path = 'translation.lower.stop.punct.proctrain.alignments.ranking'
+    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # lowercase, stop, proctrain, vector=alignments
+    path = 'translation.lower.stop.proctrain.alignments.ranking'
+    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # lowercase, punctuation, proctrain, vector=alignments
+    path = 'translation.lower.punct.proctrain.alignments.ranking'
+    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # stop, punctuation, proctrain, vector=alignments
+    path = 'translation.stop.punct.proctrain.alignments.ranking'
+    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # lowercase, proctrain, vector=alignments
+    path = 'translation.lower.proctrain.alignments.ranking'
+    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # stop, proctrain, vector=alignments
+    path = 'translation.stop.proctrain.alignments.ranking'
+    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # punctuation, proctrain, vector=alignments
+    path = 'translation.punct.proctrain.alignments.ranking'
+    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # proctrain, vector=alignments
+    path = 'translation.proctrain.alignments.ranking'
+    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    #########################################
+    # Preprocessing only dev and testsets
+    # lowercase, stop, punctuation, vector=alignments
+    path = 'translation.lower.stop.punct.alignments.ranking'
+    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # lowercase, stop, vector=alignments
+    path = 'translation.lower.stop.alignments.ranking'
+    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # lowercase, punctuation, vector=alignments
+    path = 'translation.lower.punct.alignments.ranking'
+    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # stop, punctuation, vector=alignments
+    path = 'translation.stop.punct.alignments.ranking'
+    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # lowercase, vector=alignments
+    path = 'translation.lower.alignments.ranking'
+    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # stop, vector=alignments
+    path = 'translation.stop.alignments.ranking'
+    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # punctuation, vector=alignments
+    path = 'translation.punct.alignments.ranking'
+    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    # vector=alignments
+    path = 'translation.alignments.ranking'
+    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+
+    ###############################################################################
+    # Soft-cosine
+    # Preprocessing training, dev and testsets
+    # lowercase, stop, punctuation, proctrain, vector=alignments
+    path = 'softcosine.lower.stop.punct.proctrain.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
+    # lowercase, stop, proctrain, vector=alignments
+    path = 'softcosine.lower.stop.proctrain.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
+    # lowercase, punctuation, proctrain, vector=alignments
+    path = 'softcosine.lower.punct.proctrain.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
+    # stop, punctuation, proctrain, vector=alignments
+    path = 'softcosine.stop.punct.proctrain.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
+    # lowercase, proctrain, vector=alignments
+    path = 'softcosine.lower.proctrain.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
+    # stop, proctrain, vector=alignments
+    path = 'softcosine.stop.proctrain.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
+    # punctuation, proctrain, vector=alignments
+    path = 'softcosine.punct.proctrain.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
+    # proctrain, vector=alignments
+    path = 'softcosine.proctrain.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
+    #########################################
+    # Preprocessing only dev and testsets
+    # lowercase, stop, punctuation, vector=alignments
+    path = 'softcosine.lower.stop.punct.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
+    # lowercase, stop, vector=alignments
+    path = 'softcosine.lower.stop.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
+    # lowercase, punctuation, vector=alignments
+    path = 'softcosine.lower.punct.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
+    # stop, punctuation, vector=alignments
+    path = 'softcosine.stop.punct.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
+    # lowercase, vector=alignments
+    path = 'softcosine.lower.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
+    # stop, vector=alignments
+    path = 'softcosine.stop.word2vec.ranking'
+    run_softcosine(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
+    # punctuation, vector=alignments
+    path = 'softcosine.punct.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
+    # vector=alignments
+    path = 'softcosine.word2vec.ranking'
+    run_softcosine(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
+    #########################################
+
     # stop, vector, evaluation_path
     # translation / stop / word2vec+elmo
     path = 'translation.stop.alignments.ranking'

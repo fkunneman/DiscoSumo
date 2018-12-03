@@ -11,6 +11,10 @@ DATA_PATH='../data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
+ALIGNMENTS_PATH='/roaming/tcastrof/semeval/alignments'
+if not os.path.exists(ALIGNMENTS_PATH):
+    os.mkdir(ALIGNMENTS_PATH)
+
 class SemevalAlignments():
     def __init__(self, lowercase=True, stop=True, punctuation=True):
         self.lowercase = lowercase
@@ -77,7 +81,7 @@ class SemevalAlignments():
                         'target': q1
                     })
 
-        path = 'align'
+        path = os.path.join(ALIGNMENTS_PATH, 'align')
         if self.lowercase: path += '.lower'
         if self.stop: path += '.stop'
         if self.punctuation: path += '.punct'

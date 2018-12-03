@@ -76,25 +76,14 @@ def parse(thread_id, document, port, lowercase=True, punctuation=True, stop=True
 
 def train(lowercase=True, punctuation=True, stop=True):
     path = '/roaming/tcastrof/semeval/word2vec'
+    path = os.path.join(path, 'fasttext')
+    if lowercase: path += '.lower'
+    if stop: path += '.stop'
+    if punctuation: path += '.punct'
     if not os.path.exists(path):
         os.mkdir(path)
 
-    if lowercase and punctuation and stop:
-        fname = os.path.join(path, 'corpus.lower.stop.punct.pickle')
-    elif lowercase and punctuation and not stop:
-        fname = os.path.join(path, 'corpus.lower.punct.pickle')
-    elif lowercase and not punctuation and stop:
-        fname = os.path.join(path, 'corpus.lower.stop.pickle')
-    elif not lowercase and punctuation and stop:
-        fname = os.path.join(path, 'corpus.stop.punct.pickle')
-    elif lowercase and not punctuation and not stop:
-        fname = os.path.join(path, 'corpus.lower.pickle')
-    elif not lowercase and not punctuation and stop:
-        fname = os.path.join(path, 'corpus.stop.pickle')
-    elif not lowercase and punctuation and not stop:
-        fname = os.path.join(path, 'corpus.punct.pickle')
-    else:
-        fname = os.path.join(path, 'corpus.pickle')
+    fname = os.path.join(path, 'corpus.pickle')
 
     if not os.path.exists(fname):
         questions, comments = load()
@@ -124,43 +113,18 @@ def train(lowercase=True, punctuation=True, stop=True):
         document = p.load(open(fname, 'rb'))
 
     logging.info('Training...')
-    if lowercase and punctuation and stop:
-        fname = os.path.join(path, 'fasttext.lower.stop.punct.pickle')
-    elif lowercase and punctuation and not stop:
-        fname = os.path.join(path, 'fasttext.lower.punct.pickle')
-    elif lowercase and not punctuation and stop:
-        fname = os.path.join(path, 'fasttext.lower.stop.pickle')
-    elif not lowercase and punctuation and stop:
-        fname = os.path.join(path, 'fasttext.stop.punct.pickle')
-    elif lowercase and not punctuation and not stop:
-        fname = os.path.join(path, 'fasttext.lower.pickle')
-    elif not lowercase and not punctuation and stop:
-        fname = os.path.join(path, 'fasttext.stop.pickle')
-    elif not lowercase and punctuation and not stop:
-        fname = os.path.join(path, 'fasttext.punct.pickle')
-    else:
-        fname = os.path.join(path, 'fasttext.pickle')
+    fname = os.path.join(path, 'fasttext.model')
     model = FastText(document, size=300, window=10, min_count=1, workers=10, iter=5)
     model.save(fname)
 
 def init_fasttext(lowercase=True, punctuation=True, stop=True):
     path = '/roaming/tcastrof/semeval/word2vec'
-    if lowercase and punctuation and stop:
-        fname = os.path.join(path, 'fasttext.lower.stop.punct.pickle')
-    elif lowercase and punctuation and not stop:
-        fname = os.path.join(path, 'fasttext.lower.punct.pickle')
-    elif lowercase and not punctuation and stop:
-        fname = os.path.join(path, 'fasttext.lower.stop.pickle')
-    elif not lowercase and punctuation and stop:
-        fname = os.path.join(path, 'fasttext.stop.punct.pickle')
-    elif lowercase and not punctuation and not stop:
-        fname = os.path.join(path, 'fasttext.lower.pickle')
-    elif not lowercase and not punctuation and stop:
-        fname = os.path.join(path, 'fasttext.stop.pickle')
-    elif not lowercase and punctuation and not stop:
-        fname = os.path.join(path, 'fasttext.punct.pickle')
-    else:
-        fname = os.path.join(path, 'fasttext.pickle')
+    path = os.path.join(path, 'fasttext')
+    if lowercase: path += '.lower'
+    if stop: path += '.stop'
+    if punctuation: path += '.punct'
+
+    fname = os.path.join(path, 'fasttext.model')
     return FastText.load(fname)
 
 

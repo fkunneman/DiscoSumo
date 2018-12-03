@@ -5,9 +5,8 @@ MOSESDIR=/home/tcastrof/workspace/mosesdecoder
 MGIZA=/home/tcastrof/workspace/mgiza/mgizapp/bin
 
 #  path
-ALIGNMENTS_PATH=/home/tcastrof/DiscoSumo/naacl/semeval/alignments
+ALIGNMENTS_PATH=/roaming/tcastrof/semeval/alignments
 
-cd $ALIGNMENTS_PATH
 python3 alignments.py
 
 #############################################################################

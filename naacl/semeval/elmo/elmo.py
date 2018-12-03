@@ -109,46 +109,26 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
         f.write('\n'.join([str(x) for x in test2017idx]))
 
 def init_elmo(stop, lowercase, punctuation, path):
-    if lowercase and punctuation and stop:
-        train_path = os.path.join(path, 'train.lower.stop.punct')
-        dev_path = os.path.join(path, 'dev.lower.stop.punct')
-        test2016_path = os.path.join(path, 'test2016.lower.stop.punct')
-        test2017_path = os.path.join(path, 'test2017.lower.stop.punct')
-    elif lowercase and punctuation and not stop:
-        train_path = os.path.join(path, 'train.lower.punct')
-        dev_path = os.path.join(path, 'dev.lower.punct')
-        test2016_path = os.path.join(path, 'test2016.lower.punct')
-        test2017_path = os.path.join(path, 'test2017.lower.punct')
-    elif lowercase and not punctuation and stop:
-        train_path = os.path.join(path, 'train.lower.stop')
-        dev_path = os.path.join(path, 'dev.lower.stop')
-        test2016_path = os.path.join(path, 'test2016.lower.stop')
-        test2017_path = os.path.join(path, 'test2017.lower.stop')
-    elif not lowercase and punctuation and stop:
-        train_path = os.path.join(path, 'train.stop.punct')
-        dev_path = os.path.join(path, 'dev.stop.punct')
-        test2016_path = os.path.join(path, 'test2016.stop.punct')
-        test2017_path = os.path.join(path, 'test2017.stop.punct')
-    elif lowercase and not punctuation and not stop:
-        train_path = os.path.join(path, 'train.lower')
-        dev_path = os.path.join(path, 'dev.lower')
-        test2016_path = os.path.join(path, 'test2016.lower')
-        test2017_path = os.path.join(path, 'test2017.lower')
-    elif not lowercase and not punctuation and stop:
-        train_path = os.path.join(path, 'train.stop')
-        dev_path = os.path.join(path, 'dev.stop')
-        test2016_path = os.path.join(path, 'test2016.stop')
-        test2017_path = os.path.join(path, 'test2017.stop')
-    elif not lowercase and  punctuation and not stop:
-        train_path = os.path.join(path, 'train.punct')
-        dev_path = os.path.join(path, 'dev.punct')
-        test2016_path = os.path.join(path, 'test2016.punct')
-        test2017_path = os.path.join(path, 'test2017.punct')
-    else:
-        train_path = os.path.join(path, 'train')
-        dev_path = os.path.join(path, 'dev')
-        test2016_path = os.path.join(path, 'test2016')
-        test2017_path = os.path.join(path, 'test2017')
+    train_path = os.path.join(path, 'train')
+    dev_path = os.path.join(path, 'dev')
+    test2016_path = os.path.join(path, 'test2016')
+    test2017_path = os.path.join(path, 'test2017')
+
+    if lowercase:
+        train_path += '.lower'
+        dev_path += '.lower'
+        test2016_path += '.lower'
+        test2017_path += '.lower'
+    if stop:
+        train_path += '.stop'
+        dev_path += '.stop'
+        test2016_path += '.stop'
+        test2017_path += '.stop'
+    if punctuation:
+        train_path += '.punct'
+        dev_path += '.punct'
+        test2016_path += '.punct'
+        test2017_path += '.punct'
 
     trainelmo = h5py.File(os.path.join(train_path, 'elmovectors.hdf5'), 'r')
     with open(os.path.join(train_path, 'index.txt')) as f:
