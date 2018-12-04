@@ -9,6 +9,8 @@ import re
 from nltk.corpus import stopwords
 stop_ = set(stopwords.words('english'))
 
+from allennlp.commands.elmo import ElmoEmbedder
+
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 DATA_PATH='../data'
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
@@ -22,7 +24,7 @@ def remove_punctuation(tokens):
 def remove_stopwords(tokens):
     return [w for w in tokens if w.lower() not in stop_]
 
-def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, write_test2017):
+def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, write_test2017, elmo):
     def process(procset):
         indexes, sentences = [], []
         for i, qid in enumerate(procset):
@@ -57,11 +59,13 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
         return indexes, sentences
 
     # TRAINSET
+    print('generating training ELMo...')
     trainset = json.load(open(TRAIN_PATH))
     trainidx, trainsnt = process(trainset)
 
     if not os.path.exists(write_train):
         os.mkdir(write_train)
+
 
     with open(os.path.join(write_train, 'sentences.txt'), 'w') as f:
         f.write('\n'.join(trainsnt))
@@ -69,7 +73,14 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
     with open(os.path.join(write_train, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in trainidx]))
 
+    vectors = [elmo.embed_sentence(snt) for snt in trainsnt]
+    path = os.path.join(write_train, 'elmovectors.hdf5')
+    with h5py.File(path, 'w') as hf:
+        for i, vector in enumerate(vectors):
+            hf.create_dataset(str(i),  data=vectors[i])
+
     # DEVSET
+    print('generating dev ELMo...')
     devset = json.load(open(DEV_PATH))
     devidx, devsnt = process(devset)
 
@@ -82,7 +93,14 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
     with open(os.path.join(write_dev, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in devidx]))
 
+    vectors = [elmo.embed_sentence(snt) for snt in devsnt]
+    path = os.path.join(write_dev, 'elmovectors.hdf5')
+    with h5py.File(path, 'w') as hf:
+        for i, vector in enumerate(vectors):
+            hf.create_dataset(str(i),  data=vectors[i])
+
     # TESTSET 2016
+    print('generating test ELMo...')
     testset2016 = json.load(open(TEST2016_PATH))
     test2016idx, test2016snt = process(testset2016)
 
@@ -94,6 +112,12 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
 
     with open(os.path.join(write_test2016, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in test2016idx]))
+
+    vectors = [elmo.embed_sentence(snt) for snt in test2016snt]
+    path = os.path.join(write_test2016, 'elmovectors.hdf5')
+    with h5py.File(path, 'w') as hf:
+        for i, vector in enumerate(vectors):
+            hf.create_dataset(str(i),  data=vectors[i])
 
     # TESTSET 2017
     testset2017 = json.load(open(TEST2017_PATH))
@@ -107,6 +131,12 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
 
     with open(os.path.join(write_test2017, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in test2017idx]))
+
+    vectors = [elmo.embed_sentence(snt) for snt in test2017snt]
+    path = os.path.join(write_test2017, 'elmovectors.hdf5')
+    with h5py.File(path, 'w') as hf:
+        for i, vector in enumerate(vectors):
+            hf.create_dataset(str(i),  data=vectors[i])
 
 def init_elmo(stop, lowercase, punctuation, path):
     train_path = os.path.join(path, 'train')
@@ -153,59 +183,65 @@ def init_elmo(stop, lowercase, punctuation, path):
     return trainidx, trainelmo, devidx, develmo, test2016idx, test2016elmo, test2017idx, test2017elmo
 
 if __name__ == '__main__':
+    print('Initializing ELMo...')
+    elmo = ElmoEmbedder(cuda_device=0)
+
     path = '/roaming/tcastrof/semeval/elmo/'
+    if not os.path.exists(path):
+        os.mkdir(path)
+
     train_path = os.path.join(path, 'train.lower.stop.punct')
     dev_path = os.path.join(path, 'dev.lower.stop.punct')
     test2016_path = os.path.join(path, 'test2016.lower.stop.punct')
     test2017_path = os.path.join(path, 'test2017.lower.stop.punct')
     run(lowercase=True, stop=True, punctuation=True,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train.lower.stop')
     dev_path = os.path.join(path, 'dev.lower.stop')
     test2016_path = os.path.join(path, 'test2016.lower.stop')
     test2017_path = os.path.join(path, 'test2017.lower.stop')
     run(lowercase=True, stop=True, punctuation=False,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train.lower.punct')
     dev_path = os.path.join(path, 'dev.lower.punct')
     test2016_path = os.path.join(path, 'test2016.lower.punct')
     test2017_path = os.path.join(path, 'test2017.lower.punct')
     run(lowercase=True, stop=False, punctuation=True,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train.stop.punct')
     dev_path = os.path.join(path, 'dev.stop.punct')
     test2016_path = os.path.join(path, 'test2016.stop.punct')
     test2017_path = os.path.join(path, 'test2017.stop.punct')
     run(lowercase=False, stop=True, punctuation=True,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train.lower')
     dev_path = os.path.join(path, 'dev.lower')
     test2016_path = os.path.join(path, 'test2016.lower')
     test2017_path = os.path.join(path, 'test2017.lower')
     run(lowercase=True, stop=False, punctuation=False,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train.stop')
     dev_path = os.path.join(path, 'dev.stop')
     test2016_path = os.path.join(path, 'test2016.stop')
     test2017_path = os.path.join(path, 'test2017.stop')
     run(lowercase=False, stop=True, punctuation=False,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train.punct')
     dev_path = os.path.join(path, 'dev.punct')
     test2016_path = os.path.join(path, 'test2016.punct')
     test2017_path = os.path.join(path, 'test2017.punct')
     run(lowercase=False, stop=False, punctuation=True,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)
 
     train_path = os.path.join(path, 'train')
     dev_path = os.path.join(path, 'dev')
     test2016_path = os.path.join(path, 'test2016')
     test2017_path = os.path.join(path, 'test2017')
     run(lowercase=False, stop=False, punctuation=False,
-        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path)
+        write_train=train_path, write_dev=dev_path, write_test2016=test2016_path, write_test2017=test2017_path, elmo=elmo)

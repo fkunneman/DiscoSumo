@@ -276,6 +276,32 @@ if __name__ == '__main__':
     path = 'bm25.proctrain.word2vec.ranking'
     run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
     #########################################
+    # Preprocessing only dev and testsets
+    # lowercase, stop, punctuation, vector=alignments
+    path = 'bm25.lower.stop.punct.word2vec.ranking'
+    run_bm25(stop=True, lowercase=True, punctuation=True, proctrain=False, evaluation_path=path)
+    # lowercase, stop, vector=alignments
+    path = 'bm25.lower.stop.word2vec.ranking'
+    run_bm25(stop=True, lowercase=True, punctuation=False, proctrain=False, evaluation_path=path)
+    # lowercase, punctuation, vector=alignments
+    path = 'bm25.lower.punct.word2vec.ranking'
+    run_bm25(stop=False, lowercase=True, punctuation=True, proctrain=False, evaluation_path=path)
+    # stop, punctuation, vector=alignments
+    path = 'bm25.stop.punct.word2vec.ranking'
+    run_bm25(stop=True, lowercase=False, punctuation=True, proctrain=False, evaluation_path=path)
+    # lowercase, vector=alignments
+    path = 'bm25.lower.word2vec.ranking'
+    run_bm25(stop=False, lowercase=True, punctuation=False, proctrain=False, evaluation_path=path)
+    # stop, vector=alignments
+    path = 'bm25.stop.word2vec.ranking'
+    run_bm25(stop=True, lowercase=False, punctuation=False, proctrain=False, evaluation_path=path)
+    # punctuation, vector=alignments
+    path = 'bm25.punct.word2vec.ranking'
+    run_bm25(stop=False, lowercase=False, punctuation=True, proctrain=False, evaluation_path=path)
+    # vector=alignments
+    path = 'bm25.word2vec.ranking'
+    run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=False, evaluation_path=path)
+    #########################################
 
 
     # TRANSLATION
@@ -385,62 +411,6 @@ if __name__ == '__main__':
     path = 'softcosine.word2vec.ranking'
     run_softcosine(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
     #########################################
-
-    # stop, vector, evaluation_path
-    # translation / stop / word2vec+elmo
-    path = 'translation.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=True, vector='alignments', evaluation_path=path)
-    ###############################################################################
-    # translation / stop / word2vec+elmo
-    path = 'translation.stop.word2vec_elmo.ranking'
-    run_translation(stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path)
-    ###############################################################################
-    # translation / stop / fasttext+elmo
-    path = 'translation.stop.fasttext_elmo.ranking'
-    run_translation(stop=True, lowercase=True, vector='fasttext+elmo', evaluation_path=path)
-    ###############################################################################
-    # translation / stop / word2vec
-    path = 'translation.stop.word2vec.ranking'
-    run_translation(stop=True, lowercase=True, vector='word2vec', evaluation_path=path)
-    ###############################################################################
-    # translation / stop / fasttext
-    path = 'translation.stop.fasttext.ranking'
-    run_translation(stop=True, lowercase=True, vector='fasttext', evaluation_path=path)
-    ###############################################################################
-
-    # BM25
-    # stop, evaluation_path
-    # BM25 / stop
-    path = 'bm25.stop.ranking'
-    run_bm25(stop=True, lowercase=True, evaluation_path=path)
-    ###############################################################################
-    # BM25 / nonstop
-    path = 'bm25.nonstop.ranking'
-    run_bm25(stop=False, lowercase=True, evaluation_path=path)
-    ###############################################################################
-
-    # SOFTCOSINE
-    # stop, vector, evaluation_path
-    # softcosine / stop / word2vec+elmo
-    path = 'softcosine.stop.word2vec_elmo.ranking'
-    run_softcosine(stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path)
-    ###############################################################################
-    # softcosine / nonstop / word2vec+elmo
-    path = 'softcosine.nonstop.word2vec_elmo.ranking'
-    run_softcosine(stop=False, lowercase=True, vector='word2vec+elmo', evaluation_path=path)
-    ###############################################################################
-    # softcosine / stop / fasttext+elmo
-    path = 'softcosine.stop.fasttext_elmo.ranking'
-    run_softcosine(stop=True, lowercase=True, vector='fasttext+elmo', evaluation_path=path)
-    ###############################################################################
-    # softcosine / stop / fasttext
-    path = 'softcosine.stop.fasttext.ranking'
-    run_softcosine(stop=True, lowercase=True, vector='fasttext', evaluation_path=path)
-    ###############################################################################
-    # softcosine / stop / fasttext
-    path = 'softcosine.stop.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=True, vector='word2vec', evaluation_path=path)
-    ###############################################################################
 
     # SVM / REGRESSION
     # model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.9, sigma=0.1

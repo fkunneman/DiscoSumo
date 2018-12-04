@@ -24,29 +24,45 @@ class SemevalTranslation(Semeval):
         questions = copy.copy(self.additional)
         for i, q1id in enumerate(self.trainset):
             question = self.trainset[q1id]
-            q1 = [w.lower() for w in question['tokens']] if self.lowercase else question['tokens']
-            q1 = self.remove_punctuation(q1) if self.punctuation else q1
-            q1 = self.remove_stopwords(q1) if self.stop else q1
+            if self.proctrain:
+                q1 = [w.lower() for w in question['tokens']] if self.lowercase else question['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
+            else:
+                q1 = question['tokens']
             questions.append(q1)
 
             duplicates = question['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
-                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                q2 = self.remove_stopwords(q2) if self.stop else q2
+                if self.proctrain:
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                else:
+                    q2 = rel_question['tokens']
                 questions.append(q2)
 
                 rel_comments = duplicate['rel_comments']
                 for rel_comment in rel_comments:
-                    q3 = [w.lower() for w in rel_comment['tokens']] if self.lowercase else rel_comment['tokens']
-                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                    q3 = self.remove_stopwords(q3) if self.stop else q3
+                    if self.proctrain:
+                        q3 = [w.lower() for w in rel_comment['tokens']] if self.lowercase else rel_comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                    else:
+                        q3 = rel_comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     questions.append(q3)
 
-        path = os.path.join(self.path, 'transdict.model')
+        fname = 'transdict'
+        if self.lowercase: fname += '.lower'
+        if self.stop: fname += '.stop'
+        if self.punctuation: fname += '.punct'
+        if self.proctrain: fname += '.proctrain'
+        fname += '.model'
+
+        path = os.path.join(self.path, fname)
         if not os.path.exists(path):
             self.vocabulary = Dictionary(questions)
             self.vocabulary.save(path)

@@ -17,9 +17,9 @@ cd $SEMEVAL_PATH/word2vec
 python3 word2vec.py
 python3 fasttext.py
 
-#echo "train elmo vectors"
+echo "train elmo vectors"
 cd $SEMEVAL_PATH/elmo
-sh run.sh
+python3 elmo.py
 
 #cd $SEMEVAL_PATH
 #python3 evaluate.py

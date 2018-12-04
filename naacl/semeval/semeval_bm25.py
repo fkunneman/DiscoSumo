@@ -16,100 +16,136 @@ class SemevalBM25(Semeval):
 
         for i, q1id in enumerate(self.trainset):
             query = self.trainset[q1id]
-            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
-            q1 = self.remove_punctuation(q1) if self.punctuation else q1
-            q1 = self.remove_stopwords(q1) if self.stop else q1
+            if self.proctrain:
+                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
+            else:
+                q1 = query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                q2 = self.remove_stopwords(q2) if self.stop else q2
+                if self.proctrain:
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                else:
+                    q2 = rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
-                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                    q3 = self.remove_stopwords(q3) if self.stop else q3
+                    if self.proctrain:
+                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                    else:
+                        q3 = comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
 
         for i, q1id in enumerate(self.devset):
             query = self.devset[q1id]
-            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
-            q1 = self.remove_punctuation(q1) if self.punctuation else q1
-            q1 = self.remove_stopwords(q1) if self.stop else q1
+            if self.proctrain:
+                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
+            else:
+                q1 = query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                q2 = self.remove_stopwords(q2) if self.stop else q2
+                if self.proctrain:
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                else:
+                    q2 = rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
-                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                    q3 = self.remove_stopwords(q3) if self.stop else q3
+                    if self.proctrain:
+                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                    else:
+                        q3 = comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
 
         for i, q1id in enumerate(self.testset2016):
             query = self.testset2016[q1id]
-            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
-            q1 = self.remove_punctuation(q1) if self.punctuation else q1
-            q1 = self.remove_stopwords(q1) if self.stop else q1
+            if self.proctrain:
+                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
+            else:
+                q1 = query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                q2 = self.remove_stopwords(q2) if self.stop else q2
+                if self.proctrain:
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                else:
+                    q2 = rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
-                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                    q3 = self.remove_stopwords(q3) if self.stop else q3
+                    if self.proctrain:
+                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                    else:
+                        q3 = comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3
 
         for i, q1id in enumerate(self.testset2017):
             query = self.testset2017[q1id]
-            q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
-            q1 = self.remove_punctuation(q1) if self.punctuation else q1
-            q1 = self.remove_stopwords(q1) if self.stop else q1
+            if self.proctrain:
+                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                q1 = self.remove_stopwords(q1) if self.stop else q1
+            else:
+                q1 = query['tokens']
             corpus[q1id] = q1
 
             duplicates = query['duplicates']
             for duplicate in duplicates:
                 rel_question = duplicate['rel_question']
                 q2id = rel_question['id']
-                q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                q2 = self.remove_stopwords(q2) if self.stop else q2
+                if self.proctrain:
+                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                else:
+                    q2 = rel_question['tokens']
                 corpus[q2id] = q2
 
                 for comment in duplicate['rel_comments']:
                     q3id = comment['id']
-                    q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
-                    q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                    q3 = self.remove_stopwords(q3) if self.stop else q3
+                    if self.proctrain:
+                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                    else:
+                        q3 = comment['tokens']
                     if len(q3) == 0:
                         q3 = ['eos']
                     corpus[q3id] = q3

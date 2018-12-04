@@ -137,7 +137,7 @@ class Semeval():
             return emb
 
         def elmo():
-            return elmovec.get(str(elmoidx[qid]))
+            return elmovec.get(str(elmoidx[qid]))[2]
 
         if self.vector == 'word2vec':
             return w2v()

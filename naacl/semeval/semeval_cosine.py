@@ -18,37 +18,61 @@ class SemevalCosine(Semeval):
 
     def train(self):
         self.model = Cosine()
-        path = os.path.join(self.path,'tfidf.model')
-        if not os.path.exists(path):
+        ftfidf, fdict = 'tfidf', 'dict'
+        if self.proctrain:
+            if self.lowercase:
+                ftfidf += '.lower'
+                fdict += '.lower'
+            if self.stop:
+                ftfidf += '.stop'
+                fdict += '.stop'
+            if self.punctuation:
+                ftfidf += '.punct'
+                fdict += '.punct'
+        ftfidf += '.model'
+        fdict += '.model'
+
+        tfidf_path = os.path.join(self.path, ftfidf)
+        dict_path = os.path.join(self.path, fdict)
+        if not os.path.exists(tfidf_path):
             corpus = copy.copy(self.additional)
             for i, q1id in enumerate(self.trainset):
                 query = self.trainset[q1id]
-                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
-                q1 = self.remove_punctuation(q1) if self.punctuation else q1
-                q1 = self.remove_stopwords(q1) if self.stop else q1
+                if self.proctrain:
+                    q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                    q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                    q1 = self.remove_stopwords(q1) if self.stop else q1
+                else:
+                    q1 = query['tokens']
                 corpus.append(q1)
 
                 duplicates = query['duplicates']
                 for duplicate in duplicates:
                     rel_question = duplicate['rel_question']
                     q2id = rel_question['id']
-                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                    if self.proctrain:
+                        q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                        q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                        q2 = self.remove_stopwords(q2) if self.stop else q2
+                    else:
+                        q2 = rel_question['tokens']
                     corpus.append(q2)
 
                     for comment in duplicate['rel_comments']:
                         q3id = comment['id']
-                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
-                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                        if self.proctrain:
+                            q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                            q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                            q3 = self.remove_stopwords(q3) if self.stop else q3
+                        else:
+                            q3 = comment['tokens']
                         if len(q3) == 0:
                             q3 = ['eos']
                         corpus.append(q3)
 
-            self.model.init(corpus, self.path)
+            self.model.init(corpus, dict_path, tfidf_path)
         else:
-            self.model.load(self.path)
+            self.model.load(dict_path, tfidf_path)
 
         del self.additional
         del self.trainset
@@ -97,37 +121,61 @@ class SemevalSoftCosine(Semeval):
 
     def train(self):
         self.model = SoftCosine()
-        path = os.path.join(self.path,'tfidf.model')
-        if not os.path.exists(path):
+        ftfidf, fdict = 'tfidf', 'dict'
+        if self.proctrain:
+            if self.lowercase:
+                ftfidf += '.lower'
+                fdict += '.lower'
+            if self.stop:
+                ftfidf += '.stop'
+                fdict += '.stop'
+            if self.punctuation:
+                ftfidf += '.punct'
+                fdict += '.punct'
+        ftfidf += '.model'
+        fdict += '.model'
+
+        tfidf_path = os.path.join(self.path, ftfidf)
+        dict_path = os.path.join(self.path, fdict)
+        if not os.path.exists(tfidf_path):
             corpus = copy.copy(self.additional)
             for i, q1id in enumerate(self.trainset):
                 query = self.trainset[q1id]
-                q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
-                q1 = self.remove_punctuation(q1) if self.punctuation else q1
-                q1 = self.remove_stopwords(q1) if self.stop else q1
+                if self.proctrain:
+                    q1 = [w.lower() for w in query['tokens']] if self.lowercase else query['tokens']
+                    q1 = self.remove_punctuation(q1) if self.punctuation else q1
+                    q1 = self.remove_stopwords(q1) if self.stop else q1
+                else:
+                    q1 = query['tokens']
                 corpus.append(q1)
 
                 duplicates = query['duplicates']
                 for duplicate in duplicates:
                     rel_question = duplicate['rel_question']
                     q2id = rel_question['id']
-                    q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
-                    q2 = self.remove_punctuation(q2) if self.punctuation else q2
-                    q2 = self.remove_stopwords(q2) if self.stop else q2
+                    if self.proctrain:
+                        q2 = [w.lower() for w in rel_question['tokens']] if self.lowercase else rel_question['tokens']
+                        q2 = self.remove_punctuation(q2) if self.punctuation else q2
+                        q2 = self.remove_stopwords(q2) if self.stop else q2
+                    else:
+                        q2 = rel_question['tokens']
                     corpus.append(q2)
 
                     for comment in duplicate['rel_comments']:
                         q3id = comment['id']
-                        q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
-                        q3 = self.remove_punctuation(q3) if self.punctuation else q3
-                        q3 = self.remove_stopwords(q3) if self.stop else q3
+                        if self.proctrain:
+                            q3 = [w.lower() for w in comment['tokens']] if self.lowercase else comment['tokens']
+                            q3 = self.remove_punctuation(q3) if self.punctuation else q3
+                            q3 = self.remove_stopwords(q3) if self.stop else q3
+                        else:
+                            q3 = comment['tokens']
                         if len(q3) == 0:
                             q3 = ['eos']
                         corpus.append(q3)
 
-            self.model.init(corpus, self.path)
+            self.model.init(corpus, dict_path, tfidf_path)
         else:
-            self.model.load(self.path)
+            self.model.load(dict_path, tfidf_path)
 
         del self.additional
         del self.trainset
