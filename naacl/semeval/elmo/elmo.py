@@ -68,7 +68,7 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
 
 
     with open(os.path.join(write_train, 'sentences.txt'), 'w') as f:
-        f.write('\n'.join(trainsnt))
+        f.write('\n'.join([' '.join(snt) for snt in trainsnt]))
 
     with open(os.path.join(write_train, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in trainidx]))
@@ -88,7 +88,7 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
         os.mkdir(write_dev)
 
     with open(os.path.join(write_dev, 'sentences.txt'), 'w') as f:
-        f.write('\n'.join(devsnt))
+        f.write('\n'.join([' '.join(snt) for snt in devsnt]))
 
     with open(os.path.join(write_dev, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in devidx]))
@@ -108,7 +108,7 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
         os.mkdir(write_test2016)
 
     with open(os.path.join(write_test2016, 'sentences.txt'), 'w') as f:
-        f.write('\n'.join(test2016snt))
+        f.write('\n'.join([' '.join(snt) for snt in test2016snt]))
 
     with open(os.path.join(write_test2016, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in test2016idx]))
@@ -127,7 +127,7 @@ def run(stop, lowercase, punctuation, write_train, write_dev, write_test2016, wr
         os.mkdir(write_test2017)
 
     with open(os.path.join(write_test2017, 'sentences.txt'), 'w') as f:
-        f.write('\n'.join(test2017snt))
+        f.write('\n'.join([' '.join(snt) for snt in test2017snt]))
 
     with open(os.path.join(write_test2017, 'index.txt'), 'w') as f:
         f.write('\n'.join([str(x) for x in test2017idx]))
@@ -184,7 +184,7 @@ def init_elmo(stop, lowercase, punctuation, path):
 
 if __name__ == '__main__':
     print('Initializing ELMo...')
-    elmo = ElmoEmbedder(cuda_device=0)
+    elmo = ElmoEmbedder(cuda_device=2)
 
     path = '/roaming/tcastrof/semeval/elmo/'
     if not os.path.exists(path):

@@ -251,55 +251,55 @@ if __name__ == '__main__':
     ###############################################################################
     # BM25
     # Preprocessing training, dev and testsets
-    # lowercase, stop, punctuation, proctrain, vector=alignments
-    path = 'bm25.lower.stop.punct.proctrain.word2vec.ranking'
+    # lowercase, stop, punctuation, proctrain
+    path = 'bm25.lower.stop.punct.proctrain.ranking'
     run_bm25(stop=True, lowercase=True, punctuation=True, proctrain=True, evaluation_path=path)
-    # lowercase, stop, proctrain, vector=alignments
-    path = 'bm25.lower.stop.proctrain.word2vec.ranking'
+    # lowercase, stop, proctrain
+    path = 'bm25.lower.stop.proctrain.ranking'
     run_bm25(stop=True, lowercase=True, punctuation=False, proctrain=True, evaluation_path=path)
-    # lowercase, punctuation, proctrain, vector=alignments
-    path = 'bm25.lower.punct.proctrain.word2vec.ranking'
+    # lowercase, punctuation, proctrain
+    path = 'bm25.lower.punct.proctrain.ranking'
     run_bm25(stop=False, lowercase=True, punctuation=True, proctrain=True, evaluation_path=path)
-    # stop, punctuation, proctrain, vector=alignments
-    path = 'bm25.stop.punct.proctrain.word2vec.ranking'
+    # stop, punctuation, proctrain
+    path = 'bm25.stop.punct.proctrain.ranking'
     run_bm25(stop=True, lowercase=False, punctuation=True, proctrain=True, evaluation_path=path)
-    # lowercase, proctrain, vector=alignments
-    path = 'bm25.lower.proctrain.word2vec.ranking'
+    # lowercase, proctrain
+    path = 'bm25.lower.proctrain.ranking'
     run_bm25(stop=False, lowercase=True, punctuation=False, proctrain=True, evaluation_path=path)
-    # stop, proctrain, vector=alignments
-    path = 'bm25.stop.proctrain.word2vec.ranking'
+    # stop, proctrain
+    path = 'bm25.stop.proctrain.ranking'
     run_bm25(stop=True, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
-    # punctuation, proctrain, vector=alignments
-    path = 'bm25.punct.proctrain.word2vec.ranking'
+    # punctuation, proctrain
+    path = 'bm25.punct.proctrain.ranking'
     run_bm25(stop=False, lowercase=False, punctuation=True, proctrain=True, evaluation_path=path)
-    # proctrain, vector=alignments
-    path = 'bm25.proctrain.word2vec.ranking'
+    # proctrain
+    path = 'bm25.proctrain.ranking'
     run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
     #########################################
     # Preprocessing only dev and testsets
-    # lowercase, stop, punctuation, vector=alignments
-    path = 'bm25.lower.stop.punct.word2vec.ranking'
+    # lowercase, stop, punctuation
+    path = 'bm25.lower.stop.punct.ranking'
     run_bm25(stop=True, lowercase=True, punctuation=True, proctrain=False, evaluation_path=path)
-    # lowercase, stop, vector=alignments
-    path = 'bm25.lower.stop.word2vec.ranking'
+    # lowercase, stop
+    path = 'bm25.lower.stop.ranking'
     run_bm25(stop=True, lowercase=True, punctuation=False, proctrain=False, evaluation_path=path)
-    # lowercase, punctuation, vector=alignments
-    path = 'bm25.lower.punct.word2vec.ranking'
+    # lowercase, punctuation
+    path = 'bm25.lower.punct.ranking'
     run_bm25(stop=False, lowercase=True, punctuation=True, proctrain=False, evaluation_path=path)
-    # stop, punctuation, vector=alignments
-    path = 'bm25.stop.punct.word2vec.ranking'
+    # stop, punctuation
+    path = 'bm25.stop.punct.ranking'
     run_bm25(stop=True, lowercase=False, punctuation=True, proctrain=False, evaluation_path=path)
-    # lowercase, vector=alignments
+    # lowercase
     path = 'bm25.lower.word2vec.ranking'
     run_bm25(stop=False, lowercase=True, punctuation=False, proctrain=False, evaluation_path=path)
-    # stop, vector=alignments
-    path = 'bm25.stop.word2vec.ranking'
+    # stop
+    path = 'bm25.stop.ranking'
     run_bm25(stop=True, lowercase=False, punctuation=False, proctrain=False, evaluation_path=path)
-    # punctuation, vector=alignments
-    path = 'bm25.punct.word2vec.ranking'
+    # punctuation
+    path = 'bm25.punct.ranking'
     run_bm25(stop=False, lowercase=False, punctuation=True, proctrain=False, evaluation_path=path)
-    # vector=alignments
-    path = 'bm25.word2vec.ranking'
+    # bm25
+    path = 'bm25.ranking'
     run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=False, evaluation_path=path)
     #########################################
 
@@ -308,54 +308,54 @@ if __name__ == '__main__':
     # Preprocessing training, dev and testsets
     # lowercase, stop, punctuation, proctrain, vector=alignments
     path = 'translation.lower.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # lowercase, stop, proctrain, vector=alignments
     path = 'translation.lower.stop.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # lowercase, punctuation, proctrain, vector=alignments
     path = 'translation.lower.punct.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # stop, punctuation, proctrain, vector=alignments
     path = 'translation.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # lowercase, proctrain, vector=alignments
     path = 'translation.lower.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # stop, proctrain, vector=alignments
     path = 'translation.stop.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # punctuation, proctrain, vector=alignments
     path = 'translation.punct.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # proctrain, vector=alignments
     path = 'translation.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     #########################################
     # Preprocessing only dev and testsets
     # lowercase, stop, punctuation, vector=alignments
     path = 'translation.lower.stop.punct.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # lowercase, stop, vector=alignments
     path = 'translation.lower.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # lowercase, punctuation, vector=alignments
     path = 'translation.lower.punct.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # stop, punctuation, vector=alignments
     path = 'translation.stop.punct.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # lowercase, vector=alignments
     path = 'translation.lower.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # stop, vector=alignments
     path = 'translation.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.2)
     # punctuation, vector=alignments
     path = 'translation.punct.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
     # vector=alignments
     path = 'translation.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.8, sigma=0.2)
+    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
 
     ###############################################################################
     # Soft-cosine
@@ -412,68 +412,68 @@ if __name__ == '__main__':
     run_softcosine(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
     #########################################
 
-    # SVM / REGRESSION
-    # model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.9, sigma=0.1
-    # svm / translation / stop / word2vec
-    path = 'svm.translation.stop.word2vec.ranking'
-    feature_path = 'translation.stop.word2vec.features'
-    run_svm(model_='svm', metric='translation,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path, sigma=0.3, alpha=0.7)
-    ###############################################################################
-    # regression / translation / stop / word2vec
-    path = 'regression.translation.stop.word2vec.ranking'
-    feature_path = 'translation.stop.word2vec.features'
-    run_svm(model_='regression', metric='translation,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path, sigma=0.3, alpha=0.7)
-    ###############################################################################
-    # svm / translation / stop / word2vec+elmo
-    path = 'svm.translation.stop.word2vec_elmo.ranking'
-    feature_path = 'translation.stop.word2vec_elmo.features'
-    run_svm(model_='svm', metric='translation,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path, sigma=0.1, alpha=0.9)
-    ###############################################################################
-    # regression / translation / stop / word2vec+elmo
-    path = 'regression.translation.stop.word2vec_elmo.ranking'
-    feature_path = 'translation.stop.word2vec_elmo.features'
-    run_svm(model_='regression', metric='translation,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path, sigma=0.1, alpha=0.9)
-    ###############################################################################
-    # svm / bm25 / stop
-    path = 'svm.bm25.stop.ranking'
-    feature_path = 'bm25.stop.features'
-    run_svm(model_='svm', metric='bm25,', stop=True, lowercase=True, vector='', evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # regression / bm25 / stop
-    path = 'regression.bm25.stop.ranking'
-    feature_path = 'bm25.stop.features'
-    run_svm(model_='regression', metric='bm25,', stop=True, lowercase=True, vector='', evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # svm / softcosine / stop / word2vec+elmo
-    path = 'svm.softcosine.stop.word2vec_elmo.ranking'
-    feature_path = 'softcosine.stop.word2vec_elmo.features'
-    run_svm(model_='svm', metric='softcosine,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # regression / softcosine / stop / word2vec+elmo
-    path = 'regression.softcosine.stop.word2vec_elmo.ranking'
-    feature_path = 'softcosine.stop.word2vec_elmo.features'
-    run_svm(model_='regression', metric='softcosine,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path)
+    # # SVM / REGRESSION
+    # # model_, metric, stop, vector, evaluation_path, feature_path, alpha=0.9, sigma=0.1
+    # # svm / translation / stop / word2vec
+    # path = 'svm.translation.stop.word2vec.ranking'
+    # feature_path = 'translation.stop.word2vec.features'
+    # run_svm(model_='svm', metric='translation,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path, sigma=0.3, alpha=0.7)
     # ###############################################################################
-    # svm / softcosine / stop / word2vec
-    path = 'svm.softcosine.stop.word2vec.ranking'
-    feature_path = 'softcosine.stop.word2vec.features'
-    run_svm(model_='svm', metric='softcosine,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # regression / softcosine / stop / word2vec
-    path = 'regression.softcosine.stop.word2vec.ranking'
-    feature_path = 'softcosine.stop.word2vec.features'
-    run_svm(model_='regression', metric='softcosine,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # svm / all / stop / word2vec+elmo
-    path = 'svm.all.stop.word2vec_elmo.ranking'
-    feature_path = 'all.stop.word2vec_elmo.features'
-    run_svm(model_='svm', metric='softcosine,bm25,translation', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # regression / all / stop / word2vec+elmo
-    path = 'regression.all.stop.word2vec_elmo.ranking'
-    feature_path = 'all.stop.word2vec_elmo.features'
-    run_svm(model_='regression', metric='softcosine,bm25,translation,', stop=True, lowercase=True, vector='word2vec+elmo',evaluation_path= path, feature_path=feature_path)
+    # # regression / translation / stop / word2vec
+    # path = 'regression.translation.stop.word2vec.ranking'
+    # feature_path = 'translation.stop.word2vec.features'
+    # run_svm(model_='regression', metric='translation,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path, sigma=0.3, alpha=0.7)
     # ###############################################################################
+    # # svm / translation / stop / word2vec+elmo
+    # path = 'svm.translation.stop.word2vec_elmo.ranking'
+    # feature_path = 'translation.stop.word2vec_elmo.features'
+    # run_svm(model_='svm', metric='translation,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path, sigma=0.1, alpha=0.9)
+    # ###############################################################################
+    # # regression / translation / stop / word2vec+elmo
+    # path = 'regression.translation.stop.word2vec_elmo.ranking'
+    # feature_path = 'translation.stop.word2vec_elmo.features'
+    # run_svm(model_='regression', metric='translation,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path, sigma=0.1, alpha=0.9)
+    # ###############################################################################
+    # # svm / bm25 / stop
+    # path = 'svm.bm25.stop.ranking'
+    # feature_path = 'bm25.stop.features'
+    # run_svm(model_='svm', metric='bm25,', stop=True, lowercase=True, vector='', evaluation_path=path, feature_path=feature_path)
+    # ###############################################################################
+    # # regression / bm25 / stop
+    # path = 'regression.bm25.stop.ranking'
+    # feature_path = 'bm25.stop.features'
+    # run_svm(model_='regression', metric='bm25,', stop=True, lowercase=True, vector='', evaluation_path=path, feature_path=feature_path)
+    # ###############################################################################
+    # # svm / softcosine / stop / word2vec+elmo
+    # path = 'svm.softcosine.stop.word2vec_elmo.ranking'
+    # feature_path = 'softcosine.stop.word2vec_elmo.features'
+    # run_svm(model_='svm', metric='softcosine,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path)
+    # ###############################################################################
+    # # regression / softcosine / stop / word2vec+elmo
+    # path = 'regression.softcosine.stop.word2vec_elmo.ranking'
+    # feature_path = 'softcosine.stop.word2vec_elmo.features'
+    # run_svm(model_='regression', metric='softcosine,', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path)
+    # # ###############################################################################
+    # # svm / softcosine / stop / word2vec
+    # path = 'svm.softcosine.stop.word2vec.ranking'
+    # feature_path = 'softcosine.stop.word2vec.features'
+    # run_svm(model_='svm', metric='softcosine,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path)
+    # ###############################################################################
+    # # regression / softcosine / stop / word2vec
+    # path = 'regression.softcosine.stop.word2vec.ranking'
+    # feature_path = 'softcosine.stop.word2vec.features'
+    # run_svm(model_='regression', metric='softcosine,', stop=True, lowercase=True, vector='word2vec', evaluation_path=path, feature_path=feature_path)
+    # ###############################################################################
+    # # svm / all / stop / word2vec+elmo
+    # path = 'svm.all.stop.word2vec_elmo.ranking'
+    # feature_path = 'all.stop.word2vec_elmo.features'
+    # run_svm(model_='svm', metric='softcosine,bm25,translation', stop=True, lowercase=True, vector='word2vec+elmo', evaluation_path=path, feature_path=feature_path)
+    # ###############################################################################
+    # # regression / all / stop / word2vec+elmo
+    # path = 'regression.all.stop.word2vec_elmo.ranking'
+    # feature_path = 'all.stop.word2vec_elmo.features'
+    # run_svm(model_='regression', metric='softcosine,bm25,translation,', stop=True, lowercase=True, vector='word2vec+elmo',evaluation_path= path, feature_path=feature_path)
+    # # ###############################################################################
 
     # TREE KERNEL
     # # svm kernel / subj tree / non smoothed

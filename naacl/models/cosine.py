@@ -16,17 +16,17 @@ class Cos():
         self.tfidf = {}
         self.dict = Dictionary()
 
-    def init(self, traindata, path):
+    def init(self, traindata, dict_path, tfidf_path):
         self.dict = Dictionary(traindata)  # fit dictionary
         corpus = [self.dict.doc2bow(line) for line in traindata]  # convert corpus to BoW format
         self.tfidf = TfidfModel(corpus)  # fit model
-        self.dict.save(os.path.join(path,'dict.model'))
-        self.tfidf.save(os.path.join(path,'tfidf.model'))
+        self.dict.save(dict_path)
+        self.tfidf.save(tfidf_path)
 
 
-    def load(self, path):
-        self.dict = Dictionary.load(os.path.join(path,'dict.model'))
-        self.tfidf = TfidfModel.load(os.path.join(path,'tfidf.model'))
+    def load(self, dict_path, tfidf_path):
+        self.dict = Dictionary.load(dict_path)
+        self.tfidf = TfidfModel.load(tfidf_path)
 
 
 class Cosine(Cos):
