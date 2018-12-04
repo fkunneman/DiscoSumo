@@ -62,10 +62,10 @@ class SoftCosine(Cos):
         cos = 0.0
         for i, w1 in enumerate(q1tfidf):
             for j, w2 in enumerate(q2tfidf):
-                # if w1[0] == w2[0]:
-                #     cos += (w1[1] * w2[1])
-                # else:
-                m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])**2
+                if w1[0] == w2[0]:
+                    m_ij = 1.0
+                else:
+                    m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])**2
                 cos += (w1[1] * m_ij * w2[1])
         return cos
 
@@ -86,10 +86,10 @@ class SoftCosine(Cos):
         cos = 0.0
         for i, w1 in enumerate(q1tfidf):
             for j, w2 in enumerate(q2tfidf):
-                # if w1[0] == w2[0]:
-                #     cos += (w1[1] * w2[1])
-                # else:
-                m_ij = alignments[i][j]
+                if w1[0] == w2[0]:
+                    m_ij = 1.0
+                else:
+                    m_ij = alignments[i][j]
                 cos += (w1[1] * m_ij * w2[1])
         return cos
 

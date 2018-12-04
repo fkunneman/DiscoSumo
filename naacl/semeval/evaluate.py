@@ -308,54 +308,54 @@ if __name__ == '__main__':
     # Preprocessing training, dev and testsets
     # lowercase, stop, punctuation, proctrain, vector=alignments
     path = 'translation.lower.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
     # lowercase, stop, proctrain, vector=alignments
     path = 'translation.lower.stop.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
     # lowercase, punctuation, proctrain, vector=alignments
     path = 'translation.lower.punct.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
     # stop, punctuation, proctrain, vector=alignments
     path = 'translation.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
     # lowercase, proctrain, vector=alignments
     path = 'translation.lower.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
     # stop, proctrain, vector=alignments
     path = 'translation.stop.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
     # punctuation, proctrain, vector=alignments
     path = 'translation.punct.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
     # proctrain, vector=alignments
     path = 'translation.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
     #########################################
     # Preprocessing only dev and testsets
     # lowercase, stop, punctuation, vector=alignments
     path = 'translation.lower.stop.punct.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
     # lowercase, stop, vector=alignments
     path = 'translation.lower.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
     # lowercase, punctuation, vector=alignments
     path = 'translation.lower.punct.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
     # stop, punctuation, vector=alignments
     path = 'translation.stop.punct.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
     # lowercase, vector=alignments
     path = 'translation.lower.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
     # stop, vector=alignments
     path = 'translation.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.2)
+    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
     # punctuation, vector=alignments
     path = 'translation.punct.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
     # vector=alignments
     path = 'translation.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path, alpha=0.2, sigma=0.8)
+    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
 
     ###############################################################################
     # Soft-cosine
