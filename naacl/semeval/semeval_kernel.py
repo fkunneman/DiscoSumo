@@ -115,11 +115,17 @@ class SemevalTreeKernel(Semeval):
                     alignments = self.get_alignment(c2, c2) if self.vector == 'alignments' else []
                     kc2 = self.memoize(c2id, c2_tree, c2_emb, c2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma, alignments)
 
-                    alignments = self.get_alignment(q1, c1) if self.vector == 'alignments' else []
-                    kq1c1 = float(self.memoize(q1id, q1_tree, q1_emb, q1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma, alignments)) / np.sqrt(kq1 * kc1)  # normalized
+                    if kq1 == 0 or kc1 == 0:
+                        kq1c1 = 0.0
+                    else:
+                        alignments = self.get_alignment(q1, c1) if self.vector == 'alignments' else []
+                        kq1c1 = float(self.memoize(q1id, q1_tree, q1_emb, q1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma, alignments)) / np.sqrt(kq1 * kc1)  # normalized
 
-                    alignments = self.get_alignment(q2, c2) if self.vector == 'alignments' else []
-                    kq2c2 = float(self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma, alignments)) / np.sqrt(kq2 * kc2)  # normalized
+                    if kq2 == 0 or kc2 == 0:
+                        kq2c2 = 0.0
+                    else:
+                        alignments = self.get_alignment(q2, c2) if self.vector == 'alignments' else []
+                        kq2c2 = float(self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma, alignments)) / np.sqrt(kq2 * kc2)  # normalized
 
                     k = kq1c1 + kq2c2
                     x.append(k)
