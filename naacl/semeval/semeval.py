@@ -33,7 +33,7 @@ TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
 TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 class Semeval():
-    def __init__(self, stop=True, vector='', lowercase=True, punctuation=True, proctrain=True):
+    def __init__(self, stop=True, vector='', lowercase=True, punctuation=True, proctrain=True, elmo_layer='top'):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
@@ -42,6 +42,7 @@ class Semeval():
         self.punctuation = punctuation
         self.proctrain = proctrain
         self.vector = vector
+        self.elmo_layer = elmo_layer
 
         logging.info('Preparing test set 2016...')
         self.testset2016 = json.load(open(TEST2016_PATH))
@@ -137,7 +138,16 @@ class Semeval():
             return emb
 
         def elmo():
-            return elmovec.get(str(elmoidx[qid]))[2]
+            vec =  elmovec.get(str(elmoidx[qid]))
+            if self.elmo_layer == 'average':
+                vec = np.mean(vec, axis=0)
+            elif self.elmo_layer == 'bottom':
+                vec = vec[0]
+            elif self.elmo_layer == 'middle':
+                vec = vec[1]
+            else:
+                vec = vec[2]
+            return vec
 
         if self.vector == 'word2vec':
             return w2v()

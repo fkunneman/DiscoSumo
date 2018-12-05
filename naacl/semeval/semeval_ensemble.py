@@ -2,135 +2,110 @@ __author='thiagocastroferreira'
 
 import sys
 sys.path.append('../')
-
+import _pickle as p
 import os
 
-from semeval_svm import SemevalSVM
+from semeval_bm25 import SemevalBM25
+from semeval_translation import SemevalTranslation
+from semeval_cosine import SemevalSoftCosine
 from semeval_kernel import SemevalTreeKernel
 
 from models.svm import Model
 from sklearn.preprocessing import MinMaxScaler
 
 DATA_PATH='data'
-FEATURE_PATH='feature'
+ENSEMBLE_PATH='ensemble'
+if not os.path.exists(ENSEMBLE_PATH):
+    os.mkdir(ENSEMBLE_PATH)
 
 class SemevalEnsemble:
-    def __init__(self, classifiers, kernels, scale=True, path=''):
+    def __init__(self, stop=True, lowercase=True, punctuation=True, vector={}, scale=True, path='', alpha=0.8, sigma=0.2):
+        self.stop = stop
+        self.lowercase = lowercase
+        self.punctuation = punctuation
         self.path = path
         self.scale = scale
-        self.classifiers = classifiers
-        self.kernels = kernels
+        self.vector = vector
+        self.alpha = alpha
+        self.sigma = sigma
 
         self.ensemble = Model()
         self.train()
 
 
-    def train_classifiers(self):
-        for i , classifier in enumerate(self.classifiers):
-            # model name
-            model_name = classifier['model'] + '.' + classifier['path']
-            self.features.append(model_name)
-
-            print('Model: ', model_name)
-            model = SemevalSVM(model=classifier['model'],
-                               features=classifier['features'],
-                               comment_features=classifier['comment_features'],
-                               stop=classifier['stop'],
-                               vector=classifier['vector'],
-                               path=classifier['path'],
-                               alpha=classifier['alpha'],
-                               sigma=classifier['sigma'])
-
-            if i == 0: self.y = model.y
-
-            X = model.scaler(model.X)
-            scores = model.svm.model.decision_function(X)
-            if len(self.X) == 0:
-                self.X = scores
-            else:
-                for j, score in enumerate(scores):
-                    self.X[j].append(score)
-
-            # model validation
-            ranking, y_real, y_pred, parameter_settings = model.validate()
-            for q1id in ranking:
-                if q1id not in self.devrank:
-                    self.devrank[q1id] = {}
-
-                for question in ranking[q1id]:
-                    label, score, q2id = question
-                    if q2id not in self.devrank[q1id]:
-                        self.devrank[q1id][q2id] = {}
-                    self.devrank[q1id][q2id][model_name] = float(score)
-
-            # testset 2016
-            ranking, y_real, y_pred, parameter_settings = model.test(testset=model.testset2016,
-                                                                     elmovec=model.test2016elmo, elmoidx=model.test2016idx,
-                                                                     fullelmovec=model.fulltest2016elmo, fullelmoidx=model.fulltest2016idx)
-            for q1id in ranking:
-                if q1id not in self.test2016rank:
-                    self.test2016rank[q1id] = {}
-
-                for question in ranking[q1id]:
-                    label, score, q2id = question
-                    if q2id not in self.test2016rank[q1id]:
-                        self.test2016rank[q1id][q2id] = {}
-                    self.test2016rank[q1id][q2id][model_name] = float(score)
-
-            # testset 2017
-            ranking, y_real, y_pred, parameter_settings = model.test(testset=model.testset2017,
-                                                                     elmovec=model.test2017elmo, elmoidx=model.test2017idx,
-                                                                     fullelmovec=model.fulltest2017elmo, fullelmoidx=model.fulltest2017idx)
-            for q1id in ranking:
-                if q1id not in self.test2017rank:
-                    self.test2017rank[q1id] = {}
-
-                for question in ranking[q1id]:
-                    label, score, q2id = question
-                    if q2id not in self.test2017rank[q1id]:
-                        self.test2017rank[q1id][q2id] = {}
-                    self.test2017rank[q1id][q2id][model_name] = float(score)
-
-
-    def train_kernels(self):
-        for i , kernel in enumerate(self.kernels):
-            # kernel name
-            kernel_name = kernel['kernel_path']
-            self.features.append(kernel_name)
-            print('Kernel: ', kernel_name)
-            model = SemevalTreeKernel(smoothed=kernel['smoothed'], vector=kernel['vector'], tree=kernel['tree'], kernel_path=kernel['kernel_path'])
-
-            if i == 0: self.y = model.y
-            for j, x in enumerate(list(model.X)):
-                percentage = round(float(j + 1) / len(model.X), 2)
-                print('Progress: ', percentage, j + 1, sep='\t', end = '\r')
-
-                score, pred_label = model.svm.score(x)
-                if len(model.X) != len(self.X):
-                    self.X.append([score])
-                else:
-                    self.X[j].append(score)
-
-            # model validation
-            ranking, y_real, y_pred, parameter_settings = model.validate()
-            self.devrank[kernel_name] = ranking
-
-            # testset 2016
-            ranking, y_real, y_pred, parameter_settings = model.test(testset=model.testset2016, elmovec=model.fulltest2016elmo, elmoidx=model.fulltest2016idx)
-            self.test2016rank[kernel_name] = ranking
-
-            # testset 2017
-            ranking, y_real, y_pred, parameter_settings = model.test(testset=model.testset2017, elmovec=model.fulltest2017elmo, elmoidx=model.fulltest2017idx)
-            self.test2017rank[kernel_name] = ranking
+    def format(self, ranking):
+        new_ranking = {}
+        for q1id in ranking:
+            new_ranking[q1id] = {}
+            for question in ranking[q1id]:
+                real_label, score, q2id = question
+                new_ranking[q1id][q2id] = (score, real_label)
+        return new_ranking
 
 
     def train(self):
-        self.X, self.y = [], []
-        self.features = []
-        self.devrank, self.test2016rank, self.test2017rank = {}, {}, {}
+        path = os.path.join('ensemble', 'bm25.' + self.path)
+        if not os.path.exists(path):
+            self.bm25 = SemevalBM25(stop=self.stop, lowercase=self.lowercase, punctuation=self.punctuation, proctrain=True)
+            self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
+            self.devbm25 = self.format(self.bm25.validate())
+            self.test2016bm25 = self.format(self.bm25.test(self.bm25.test2016data))
+            self.test2017bm25 = self.format(self.bm25.test(self.bm25.test2017data))
+            del self.bm25
 
-        self.train_classifiers()
-        self.train_kernels()
+            data = {'train': self.trainbm25, 'dev': self.devbm25, 'test2016': self.test2016bm25, 'test2017':self.test2017bm25}
+            p.dump(data, open(path, 'wb'))
+        else:
+            data = p.load(open(path, 'rb'))
+            self.trainbm25 = data['train']
+            self.devbm25 = data['dev']
+            self.test2016bm25 = data['test2016']
+            self.test2017bm25 = data['test2017']
+
+        vector = self.vector['translation']
+        path = os.path.join('ensemble', 'translation.' + vector + '.' + self.path)
+        if not os.path.exists(path):
+            self.translation = SemevalTranslation(alpha=self.alpha, sigma=self.sigma, punctuation=self.punctuation, proctrain=True, vector=self.vector, stop=self.stop, lowercase=self.lowercase)
+            self.traintranslation = self.format(self.translation.test(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo))
+            self.devtranslation = self.format(self.translation.validate())
+            self.test2016translation = self.format(self.translation.test(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo))
+            self.test2017translation = self.format(self.translation.test(self.translation.test2017data, self.translation.test2017idx, self.translation.test2017elmo))
+            del self.translation
+
+            data = {'train': self.trainbm25, 'dev': self.devbm25, 'test2016': self.test2016bm25, 'test2017':self.test2017bm25}
+            p.dump(data, open(path, 'wb'))
+        else:
+            data = p.load(open(path, 'rb'))
+            self.traintranslation = data['train']
+            self.devtranslation = data['dev']
+            self.test2016translation = data['test2016']
+            self.test2017translation = data['test2017']
+
+        vector = self.vector['softcosine']
+        path = os.path.join('ensemble', 'softcosine.' + vector + '.' + self.path)
+        if not os.path.exists(path):
+            self.softcosine = SemevalSoftCosine(stop=self.stop, vector=self.vector, lowercase=self.lowercase, punctuation=self.punctuation, proctrain=True)
+            self.trainsoftcosine = self.format(self.softcosine.test(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo))
+            self.devsoftcosine = self.format(self.softcosine.validate())
+            self.test2016softcosine = self.format(self.softcosine.test(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo))
+            self.test2017softcosine = self.format(self.softcosine.test(self.softcosine.test2017data, self.softcosine.test2017idx, self.softcosine.test2017elmo))
+            del self.softcosine
+        else:
+            data = p.load(open(path, 'rb'))
+            self.trainsoftcosine = data['train']
+            self.devsoftcosine = data['dev']
+            self.test2016softcosine = data['test2016']
+            self.test2017softcosine = data['test2017']
+
+        self.X, self.y = [], []
+
+        for q1id in self.trainbm25:
+            for q2id in self.trainbm25[q1id]:
+                X = [self.trainbm25[q1id][q2id][0]]
+                X.append(self.traintranslation[q1id][q2id][0])
+                X.append(self.trainsoftcosine[q1id][q2id][0])
+                self.X.append(X)
+                self.y.append(self.trainbm25[q1id][q2id][1])
 
         if self.scale:
             self.scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -141,20 +116,31 @@ class SemevalEnsemble:
 
     def test(self, set_='dev'):
         if set_ == 'dev':
-            self.ranking = self.devrank
+            bm25 = self.devbm25
+            translation = self.devtranslation
+            softcosine = self.devsoftcosine
+        elif set_ == 'train':
+            bm25 = self.trainbm25
+            translation = self.traintranslation
+            softcosine = self.trainsoftcosine
         elif set_ == 'test2016':
-            self.ranking = self.test2016rank
+            bm25 = self.test2016bm25
+            translation = self.test2016translation
+            softcosine = self.test2016softcosine
         else:
-            self.ranking = self.test2017rank
+            bm25 = self.test2017bm25
+            translation = self.test2017translation
+            softcosine = self.test2017softcosine
 
         ranking = {}
         y_real, y_pred = [], []
-        for q1id in self.ranking:
+        for q1id in bm25:
             ranking[q1id] = []
-            for q2id in self.ranking[q1id]:
+            for q2id in bm25[q1id]:
                 X = []
-                for model in self.features:
-                    X.append(self.ranking[q1id][q2id][model])
+                X.append(bm25[q1id][q2id][0])
+                X.append(translation[q1id][q2id][0])
+                X.append(softcosine[q1id][q2id][0])
 
                 if self.scale:
                     X = self.scaler.transform([X])[0]
@@ -168,78 +154,14 @@ class SemevalEnsemble:
         parameter_settings = self.ensemble.return_parameter_settings(clf='regression')
         return ranking, y_real, y_pred, parameter_settings
 
-def save(ranking, path, parameter_settings):
-    with open(path, 'w') as f:
-        f.write(parameter_settings)
-        f.write('\n')
-        for q1id in ranking:
-            for row in ranking[q1id]:
-                label = 'false'
-                if row[0] == 1:
-                    label = 'true'
-                f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
 
-def evaluate(classifiers, kernels, scale, evaluation_path):
-    ensemble = SemevalEnsemble(classifiers=classifiers, kernels=kernels, scale=scale)
-
-    # DEV
-    path = os.path.join(DEV_EVAL_PATH, evaluation_path)
-    ranking, y_real, y_pred, parameter_settings = ensemble.test(set_='dev')
-    save(ranking=ranking, path=path, parameter_settings=parameter_settings)
-
-    # TEST2016
-    path = os.path.join(TEST2016_EVAL_PATH, evaluation_path)
-    ranking, y_real, y_pred, parameter_settings = ensemble.test(set_='test2016')
-    save(ranking=ranking, path=path, parameter_settings=parameter_settings)
-
-    # TEST2017
-    path = os.path.join(TEST2017_EVAL_PATH, evaluation_path)
-    ranking, y_real, y_pred, parameter_settings = ensemble.test(set_='test2017')
-    save(ranking=ranking, path=path, parameter_settings=parameter_settings)
-
-
-if __name__ == '__main__':
-    EVALUATION_PATH='evaluation'
-    DEV_EVAL_PATH=os.path.join(EVALUATION_PATH, 'dev')
-    TEST2016_EVAL_PATH=os.path.join(EVALUATION_PATH, 'test2016')
-    TEST2017_EVAL_PATH=os.path.join(EVALUATION_PATH, 'test2017')
-
-    # Regression / Softcosine / word2vec+elmo + Regression / translation / word2vec + scaled
-    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec_elmo.features')
-    classifier1 = {
-        'model': 'regression',
-        'features': 'softcosine', 'comment_features': 'softcosine',
-        'stop': True, 'vector': 'word2vec+elmo', 'path': feature_path, 'alpha':0.7, 'sigma':0.3,
-    }
-
-    feature_path = os.path.join(FEATURE_PATH, 'translation.stop.word2vec.features')
-    classifier2 = {
-        'model': 'regression',
-        'features': 'translation', 'comment_features': 'translation',
-        'stop': True, 'vector': 'word2vec', 'path': feature_path, 'alpha':0.7, 'sigma':0.3,
-    }
-    classifiers = [classifier1, classifier2]
-    evaluation_path = 'ensemble.regression.softcosine.word2vec_elmo_regression.translation.word2vec.scaled'
-    evaluate(classifiers=classifiers, kernels=[], evaluation_path=evaluation_path, scale=True)
-    ###############################################################################
-
-    # Regression / Softcosine / word2vec+elmo + Regression / translation / word2vec + notscaled
-    feature_path = os.path.join(FEATURE_PATH, 'softcosine.stop.word2vec_elmo.features')
-    classifier1 = {
-        'model': 'regression',
-        'features': 'softcosine', 'comment_features': 'softcosine',
-        'stop': True, 'vector': 'word2vec+elmo', 'path': feature_path, 'alpha':0.7, 'sigma':0.3,
-    }
-
-    feature_path = os.path.join(FEATURE_PATH, 'translation.stop.word2vec.features')
-    classifier2 = {
-        'model': 'regression',
-        'features': 'translation', 'comment_features': 'translation',
-        'stop': True, 'vector': 'word2vec', 'path': feature_path, 'alpha':0.7, 'sigma':0.3,
-    }
-    classifiers = [classifier1, classifier2]
-    evaluation_path = 'ensemble.regression.softcosine.word2vec_elmo_regression.translation.word2vec.scaled'
-    evaluate(classifiers=classifiers, kernels=[], evaluation_path=evaluation_path, scale=False)
-    ###############################################################################
-
-
+    def save(self, ranking, path, parameter_settings):
+        with open(path, 'w') as f:
+            f.write(parameter_settings)
+            f.write('\n')
+            for q1id in ranking:
+                for row in ranking[q1id]:
+                    label = 'false'
+                    if row[0] == 1:
+                        label = 'true'
+                    f.write('\t'.join([str(q1id), str(row[2]), str(0), str(row[1]), label, '\n']))
