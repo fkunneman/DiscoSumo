@@ -30,7 +30,7 @@ class SemevalTreeKernel(Semeval):
         del self.additional
 
 
-    def memoize(self, q1id, q1, q1_emb, q1_token2lemma, q2id, q2, q2_emb, q2_token2lemma):
+    def memoize(self, q1id, q1, q1_emb, q1_token2lemma, q2id, q2, q2_emb, q2_token2lemma, alignments):
         if q1id in self.memoization:
             if q2id in self.memoization[q1id]:
                 return self.memoization[q1id][q2id]
@@ -43,7 +43,7 @@ class SemevalTreeKernel(Semeval):
         else:
             self.memoization[q2id] = {}
 
-        k = self.treekernel(q1, q1_emb, q1_token2lemma, q2, q2_emb, q2_token2lemma)
+        k = self.treekernel(q1, q1_emb, q1_token2lemma, q2, q2_emb, q2_token2lemma, alignments)
         self.memoization[q1id][q2id] = k
         self.memoization[q2id][q1id] = k
 
@@ -56,6 +56,20 @@ class SemevalTreeKernel(Semeval):
             for q2id in self.traindata[q1id]:
                 self.flattraindata.append(self.traindata[q1id][q2id])
 
+
+    def get_alignment(self, c1, c2):
+        alignments = []
+        for i, w in enumerate(c1):
+            alignments_i = []
+
+            for j, t in enumerate(c2):
+                try:
+                    w_t = self.alignments[t[0]][t][w[0]][w]
+                except:
+                    w_t = 0.0
+                alignments_i.append(w_t)
+            alignments.append(alignments_i)
+        return alignments
 
     def extract_features(self, procdata, elmoidx, elmovec):
         feat, X, y = {}, [], []
@@ -72,14 +86,16 @@ class SemevalTreeKernel(Semeval):
                 q1_tree = q_pair['q1_tree'] if self.tree == 'tree' else q_pair['subj_q1_tree']
                 q1_emb = self.encode(q1id, q1, elmoidx, elmovec)
                 q1_token2lemma = dict(zip(q1, q_pair['q1_lemmas']))
-                kq1 = self.memoize(q1id, q1_tree, q1_emb, q1_token2lemma, q1id, q1_tree, q1_emb, q1_token2lemma)
+                alignments = self.get_alignment(q1, q1) if self.vector == 'alignments' else []
+                kq1 = self.memoize(q1id, q1_tree, q1_emb, q1_token2lemma, q1id, q1_tree, q1_emb, q1_token2lemma, alignments)
 
                 q2id = q_pair['q2_id']
                 q2 = q_pair['q2_full']
                 q2_tree = q_pair['q2_tree'] if self.tree == 'tree' else q_pair['subj_q2_tree']
                 q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                 q2_token2lemma = dict(zip(q2, q_pair['q2_lemmas']))
-                kq2 = self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, q2id, q2_tree, q2_emb, q2_token2lemma)
+                alignments = self.get_alignment(q2, q2) if self.vector == 'alignments' else []
+                kq2 = self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, q2id, q2_tree, q2_emb, q2_token2lemma, alignments)
 
                 for j, c in enumerate(self.flattraindata):
                     print('Path: ', self.path,  'Progress: ', percentage, i + 1, j+1, sep=10 * ' ', end='\r')
@@ -88,17 +104,22 @@ class SemevalTreeKernel(Semeval):
                     c1_tree = c['q1_tree'] if self.tree == 'tree' else c['subj_q1_tree']
                     c1_emb = self.encode(c1id, c1, self.trainidx, self.trainelmo)
                     c1_token2lemma = dict(zip(c1, c['q1_lemmas']))
-                    kc1 = self.memoize(c1id, c1_tree, c1_emb, c1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma)
+                    alignments = self.get_alignment(c1, c1) if self.vector == 'alignments' else []
+                    kc1 = self.memoize(c1id, c1_tree, c1_emb, c1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma, alignments)
 
                     c2id = c['q2_id']
                     c2 = c['q2_full']
                     c2_tree = c['q2_tree'] if self.tree == 'tree' else c['subj_q2_tree']
                     c2_emb = self.encode(c2id, c2, self.trainidx, self.trainelmo)
                     c2_token2lemma = dict(zip(c2, c['q2_lemmas']))
-                    kc2 = self.memoize(c2id, c2_tree, c2_emb, c2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma)
+                    alignments = self.get_alignment(c2, c2) if self.vector == 'alignments' else []
+                    kc2 = self.memoize(c2id, c2_tree, c2_emb, c2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma, alignments)
 
-                    kq1c1 = float(self.memoize(q1id, q1_tree, q1_emb, q1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma)) / np.sqrt(kq1 * kc1)  # normalized
-                    kq2c2 = float(self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma)) / np.sqrt(kq2 * kc2)  # normalized
+                    alignments = self.get_alignment(q1, c1) if self.vector == 'alignments' else []
+                    kq1c1 = float(self.memoize(q1id, q1_tree, q1_emb, q1_token2lemma, c1id, c1_tree, c1_emb, c1_token2lemma, alignments)) / np.sqrt(kq1 * kc1)  # normalized
+
+                    alignments = self.get_alignment(q2, c2) if self.vector == 'alignments' else []
+                    kq2c2 = float(self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, c2id, c2_tree, c2_emb, c2_token2lemma, alignments)) / np.sqrt(kq2 * kc2)  # normalized
 
                     k = kq1c1 + kq2c2
                     x.append(k)
@@ -194,6 +215,15 @@ def run(thread_id, smoothed, vector, path):
 
 if __name__ == '__main__':
     # lower
+    path = 'kernel.alignments.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='alignments', tree='subj_tree', kernel_path=path, lowercase=True)
+
+    path = 'kernel.fasttext+elmo.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='fasttext+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
+
+    path = 'kernel.fasttext.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='fasttext', tree='subj_tree', kernel_path=path, lowercase=True)
+
     path = 'kernel.word2vec+elmo.lower.pickle'
     SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
 
@@ -204,11 +234,20 @@ if __name__ == '__main__':
     SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=True)
 
     # capital
-    path = 'kernel.word2vec+elmo.pickle'
+    path = 'kernel.alignments.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='alignments', tree='subj_tree', kernel_path=path, lowercase=False)
+
+    path = 'kernel.fasttext+elmo.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='fasttext+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
+
+    path = 'kernel.fasttext.lower.pickle'
+    SemevalTreeKernel(smoothed=True, vector='fasttext', tree='subj_tree', kernel_path=path, lowercase=False)
+
+    path = 'kernel.word2vec+elmo.lower.pickle'
     SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
 
-    path = 'kernel.word2vec.pickle'
+    path = 'kernel.word2vec.lower.pickle'
     SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)
 
-    path = 'kernel.pickle'
+    path = 'kernel.lower.pickle'
     SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)

@@ -12,10 +12,11 @@ class TreeKernel():
         self.lowercase = lowercase
 
 
-    def __call__(self, q1_tree, q1_emb, q1_token2lemma, q2_tree, q2_emb, q2_token2lemma):
+    def __call__(self, q1_tree, q1_emb, q1_token2lemma, q2_tree, q2_emb, q2_token2lemma, alignments):
         result = 0
         self.q1_emb = q1_emb
         self.q2_emb = q2_emb
+        self.alignments = alignments
 
         q1_tree = self.binarize(self.parse_tree(q1_tree, q1_token2lemma))
         q2_tree = self.binarize(self.parse_tree(q2_tree, q2_token2lemma))
@@ -56,8 +57,10 @@ class TreeKernel():
 
                     idx1 = q1_tree['nodes'][child1]['idx']
                     idx2 = q2_tree['nodes'][child2]['idx']
-                    # result = cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0]
-                    result = max(0, cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0])**2
+                    if len(self.alignments) > 0:
+                        result = self.alignments[idx1][idx2]
+                    else:
+                        result = max(0, cosine_similarity([self.q1_emb[idx1]], [self.q2_emb[idx2]])[0][0])**2
             else:
                 result = 1
                 for i in range(len(q1_tree['edges'][q1_root])):
