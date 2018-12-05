@@ -153,7 +153,6 @@ class SemevalBM25(Semeval):
 
         del self.additional
         del self.trainset
-        del self.traindata
 
 
     def validate(self):

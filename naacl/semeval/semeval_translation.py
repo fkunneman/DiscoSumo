@@ -73,7 +73,6 @@ class SemevalTranslation(Semeval):
 
         del self.additional
         del self.trainset
-        del self.traindata
 
 
     def set_parameters(self, alpha, sigma):

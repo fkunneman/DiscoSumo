@@ -179,7 +179,6 @@ class SemevalSoftCosine(Semeval):
 
         del self.additional
         del self.trainset
-        del self.traindata
 
 
     def validate(self):
