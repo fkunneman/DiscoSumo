@@ -246,8 +246,8 @@ def run_softcosine(stop, lowercase, punctuation, proctrain, vector, evaluation_p
     print('MAP model: ', map_model)
     print(10 * '-')
 
-def run_ensemble(stop, lowercase, punctuation, vector, evaluation_path, feature_path):
-    model = SemevalEnsemble(stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, scale=True, path=feature_path, alpha=0.8, sigma=0.2)
+def run_ensemble(stop, lowercase, punctuation, vector, evaluation_path, feature_path, kernel_path, alpha, sigma):
+    model = SemevalEnsemble(stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, scale=True, path=feature_path, kernel_path=kernel_path, alpha=alpha, sigma=sigma)
     result_dev = model.test(set_='dev')
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
@@ -282,301 +282,78 @@ if __name__ == '__main__':
     ###############################################################################
     # ENSEMBLE
     # lowercase, stop, punctuation
-    vector = {'translation':'alignments', 'softcosine':'word2vec'}
+    vector = {'translation':'alignments', 'softcosine':'word2vec', 'kernel':'word2vec'}
+    kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.stop.punct.ranking'
     feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase, stop
+    kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.stop.ranking'
     feature_path = 'lower.stop'
-    run_ensemble(stop=True, lowercase=True, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=True, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase, punctuation,
+    kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.punct.ranking'
     feature_path = 'lower.punct'
-    run_ensemble(stop=False, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=False, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # stop, punctuation
+    kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.stop.punct.ranking'
     feature_path = 'stop.punct'
-    run_ensemble(stop=True, lowercase=False, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=False, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase
+    kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.ranking'
     feature_path = 'lower'
-    run_ensemble(stop=False, lowercase=True, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=False, lowercase=True, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # stop
+    kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.stop.ranking'
     feature_path = 'stop'
-    run_ensemble(stop=True, lowercase=False, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=False, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # punctuation
+    kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.punct.ranking'
     feature_path = 'punct'
-    run_ensemble(stop=False, lowercase=False, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=False, lowercase=False, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     #
+    kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.ranking'
     feature_path = ''
-    run_ensemble(stop=False, lowercase=False, punctuation=False, vector=True, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=False, lowercase=False, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     ###############################################################################
-    # TREE KERNEL
-    # lowercase, vector=
-    path = 'kernel.lower.ranking'
-    kernel_path = 'kernel.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=False, vector='', tree='subj_tree')
-    # vector=
-    path = 'kernel.ranking'
-    kernel_path = 'kernel.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=False, smoothed=False, vector='', tree='subj_tree')
-    # lowercase, vector=word2vec
-    path = 'kernel.lower.word2vec.ranking'
-    kernel_path = 'kernel.word2vec.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=True, vector='word2vec', tree='subj_tree')
-    # vector=word2vec
-    path = 'kernel.word2vec.ranking'
-    kernel_path = 'kernel.word2vec.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=False, smoothed=True, vector='word2vec', tree='subj_tree')
-    # ###############################################################################
-    # BM25
-    # Preprocessing training, dev and testsets
-    # lowercase, stop, punctuation, proctrain
-    path = 'bm25.lower.stop.punct.proctrain.ranking'
-    run_bm25(stop=True, lowercase=True, punctuation=True, proctrain=True, evaluation_path=path)
-    # lowercase, stop, proctrain
-    path = 'bm25.lower.stop.proctrain.ranking'
-    run_bm25(stop=True, lowercase=True, punctuation=False, proctrain=True, evaluation_path=path)
-    # lowercase, punctuation, proctrain
-    path = 'bm25.lower.punct.proctrain.ranking'
-    run_bm25(stop=False, lowercase=True, punctuation=True, proctrain=True, evaluation_path=path)
-    # stop, punctuation, proctrain
-    path = 'bm25.stop.punct.proctrain.ranking'
-    run_bm25(stop=True, lowercase=False, punctuation=True, proctrain=True, evaluation_path=path)
-    # lowercase, proctrain
-    path = 'bm25.lower.proctrain.ranking'
-    run_bm25(stop=False, lowercase=True, punctuation=False, proctrain=True, evaluation_path=path)
-    # stop, proctrain
-    path = 'bm25.stop.proctrain.ranking'
-    run_bm25(stop=True, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
-    # punctuation, proctrain
-    path = 'bm25.punct.proctrain.ranking'
-    run_bm25(stop=False, lowercase=False, punctuation=True, proctrain=True, evaluation_path=path)
-    # proctrain
-    path = 'bm25.proctrain.ranking'
-    run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=True, evaluation_path=path)
-    #########################################
-    # Preprocessing only dev and testsets
-    # lowercase, stop, punctuation
-    path = 'bm25.lower.stop.punct.ranking'
-    run_bm25(stop=True, lowercase=True, punctuation=True, proctrain=False, evaluation_path=path)
-    # lowercase, stop
-    path = 'bm25.lower.stop.ranking'
-    run_bm25(stop=True, lowercase=True, punctuation=False, proctrain=False, evaluation_path=path)
-    # lowercase, punctuation
-    path = 'bm25.lower.punct.ranking'
-    run_bm25(stop=False, lowercase=True, punctuation=True, proctrain=False, evaluation_path=path)
-    # stop, punctuation
-    path = 'bm25.stop.punct.ranking'
-    run_bm25(stop=True, lowercase=False, punctuation=True, proctrain=False, evaluation_path=path)
-    # lowercase
-    path = 'bm25.lower.ranking'
-    run_bm25(stop=False, lowercase=True, punctuation=False, proctrain=False, evaluation_path=path)
-    # stop
-    path = 'bm25.stop.ranking'
-    run_bm25(stop=True, lowercase=False, punctuation=False, proctrain=False, evaluation_path=path)
-    # punctuation
-    path = 'bm25.punct.ranking'
-    run_bm25(stop=False, lowercase=False, punctuation=True, proctrain=False, evaluation_path=path)
-    # bm25
-    path = 'bm25.ranking'
-    run_bm25(stop=False, lowercase=False, punctuation=False, proctrain=False, evaluation_path=path)
-    #########################################
 
-
-    # TRANSLATION
-    # Preprocessing training, dev and testsets
-    # lowercase, stop, punctuation, proctrain, vector=alignments
-    path = 'translation.lower.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
-    # lowercase, stop, proctrain, vector=alignments
-    path = 'translation.lower.stop.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
-    # lowercase, punctuation, proctrain, vector=alignments
-    path = 'translation.lower.punct.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
-    # stop, punctuation, proctrain, vector=alignments
-    path = 'translation.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
-    # lowercase, proctrain, vector=alignments
-    path = 'translation.lower.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
-    # stop, proctrain, vector=alignments
-    path = 'translation.stop.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
-    # punctuation, proctrain, vector=alignments
-    path = 'translation.punct.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
-    # proctrain, vector=alignments
-    path = 'translation.proctrain.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='alignments', evaluation_path=path)
-    #########################################
-    # Preprocessing only dev and testsets
-    # lowercase, stop, punctuation, vector=alignments
-    path = 'translation.lower.stop.punct.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
-    # lowercase, stop, vector=alignments
-    path = 'translation.lower.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
-    # lowercase, punctuation, vector=alignments
-    path = 'translation.lower.punct.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
-    # stop, punctuation, vector=alignments
-    path = 'translation.stop.punct.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
-    # lowercase, vector=alignments
-    path = 'translation.lower.alignments.ranking'
-    run_translation(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
-    # stop, vector=alignments
-    path = 'translation.stop.alignments.ranking'
-    run_translation(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
-    # punctuation, vector=alignments
-    path = 'translation.punct.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='alignments', evaluation_path=path)
-    # vector=alignments
-    path = 'translation.alignments.ranking'
-    run_translation(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='alignments', evaluation_path=path)
-
-    ###############################################################################
-    # Soft-cosine
-    # Preprocessing training, dev and testsets
-    # lowercase, stop, punctuation, proctrain, vector=alignments
-    path = 'softcosine.lower.stop.punct.proctrain.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
-    # lowercase, stop, proctrain, vector=alignments
-    path = 'softcosine.lower.stop.proctrain.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
-    # lowercase, punctuation, proctrain, vector=alignments
-    path = 'softcosine.lower.punct.proctrain.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
-    # stop, punctuation, proctrain, vector=alignments
-    path = 'softcosine.stop.punct.proctrain.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=False, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
-    # lowercase, proctrain, vector=alignments
-    path = 'softcosine.lower.proctrain.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=True, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
-    # stop, proctrain, vector=alignments
-    path = 'softcosine.stop.proctrain.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=False, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
-    # punctuation, proctrain, vector=alignments
-    path = 'softcosine.punct.proctrain.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=False, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
-    # proctrain, vector=alignments
-    path = 'softcosine.proctrain.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=False, punctuation=False, proctrain=True, vector='word2vec', evaluation_path=path)
-    #########################################
-    # Preprocessing only dev and testsets
-    # lowercase, stop, punctuation, vector=alignments
-    path = 'softcosine.lower.stop.punct.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
-    # lowercase, stop, vector=alignments
-    path = 'softcosine.lower.stop.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
-    # lowercase, punctuation, vector=alignments
-    path = 'softcosine.lower.punct.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=True, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
-    # stop, punctuation, vector=alignments
-    path = 'softcosine.stop.punct.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=False, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
-    # lowercase, vector=alignments
-    path = 'softcosine.lower.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=True, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
-    # stop, vector=alignments
-    path = 'softcosine.stop.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=False, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
-    # punctuation, vector=alignments
-    path = 'softcosine.punct.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=False, punctuation=True, proctrain=False, vector='word2vec', evaluation_path=path)
-    # vector=alignments
-    path = 'softcosine.word2vec.ranking'
-    run_softcosine(stop=False, lowercase=False, punctuation=False, proctrain=False, vector='word2vec', evaluation_path=path)
-    ###############################################################################
 
     # WORD SIMILARITY EXPERIMENTS
     # ENSEMBLE
     # lowercase, stop, punctuation, alignments
-    vector = {'translation':'alignments', 'softcosine':'alignments'}
+    vector = {'translation':'alignments', 'softcosine':'alignments', 'kernel': 'alignments'}
+    kernel_path = 'kernel.alignments.lower.pickle'
     path = 'ensemble.lower.stop.punct.alignments.ranking'
     feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase, stop, punctuation, word2vec
-    vector = {'translation':'word2vec', 'softcosine':'word2vec'}
+    vector = {'translation':'word2vec', 'softcosine':'word2vec', 'kernel': 'word2vec'}
+    kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.stop.punct.word2vec.ranking'
     feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
     # lowercase, stop, punctuation, fasttext
-    vector = {'translation':'fasttext', 'softcosine':'fasttext'}
+    vector = {'translation':'fasttext', 'softcosine':'fasttext', 'kernel': 'fasttext'}
+    kernel_path = 'kernel.fasttext.lower.pickle'
     path = 'ensemble.lower.stop.punct.fasttext.ranking'
     feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
     # lowercase, stop, punctuation, word2vec+elmo
-    vector = {'translation':'word2vec+elmo', 'softcosine':'word2vec+elmo'}
+    vector = {'translation':'word2vec+elmo', 'softcosine':'word2vec+elmo', 'kernel': 'word2vec+elmo'}
+    kernel_path = 'kernel.word2vec+elmo.lower.pickle'
     path = 'ensemble.lower.stop.punct.word2vec+elmo.ranking'
     feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
+    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
     # lowercase, stop, punctuation, fasttext+elmo
-    vector = {'translation':'fasttext+elmo', 'softcosine':'fasttext+elmo'}
+    vector = {'translation':'fasttext+elmo', 'softcosine':'fasttext+elmo', 'kernel': 'fasttext+elmo'}
+    kernel_path = 'kernel.fasttext+elmo.lower.pickle'
     path = 'ensemble.lower.stop.punct.fasttext+elmo.ranking'
     feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path)
-    ###############################################################################
-    # TREE KERNEL
-    # lowercase, vector=alignments
-    path = 'kernel.lower.alignments.ranking'
-    kernel_path = 'kernel.alignments.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=False, vector='alignments', tree='subj_tree')
-    # lowercase, vector=word2vec
-    path = 'kernel.lower.word2vec.ranking'
-    kernel_path = 'kernel.word2vec.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=False, vector='word2vec', tree='subj_tree')
-    # lowercase, vector=word2vec+elmo
-    path = 'kernel.lower.word2vec+elmo.ranking'
-    kernel_path = 'kernel.word2vec+elmo.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=False, vector='word2vec+elmo', tree='subj_tree')
-    # lowercase, vector=fasttext
-    path = 'kernel.lower.fasttext.ranking'
-    kernel_path = 'kernel.fasttext.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=False, vector='fasttext', tree='subj_tree')
-    # lowercase, vector=word2vec+elmo
-    path = 'kernel.lower.fasttext+elmo.ranking'
-    kernel_path = 'kernel.fasttext+elmo.lower.pickle'
-    run_kernel(kernel_path=kernel_path, evaluation_path=path, lowercase=True, smoothed=False, vector='fasttext+elmo', tree='subj_tree')
-    ###############################################################################
-    # TRANSLATION
-    # lowercase, stop, punctuation, proctrain, vector=alignments
-    path = 'translation.lower.stop.punct.proctrain.alignments.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=word2vec
-    path = 'translation.lower.stop.punct.proctrain.word2vec.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=fasttext
-    path = 'translation.lower.stop.punct.proctrain.fasttext.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='fasttext', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=word2vec+elmo
-    path = 'translation.lower.stop.punct.proctrain.word2vec+elmo.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec+elmo', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=fasttext+elmo
-    path = 'translation.lower.stop.punct.proctrain.fasttext+elmo.ranking'
-    run_translation(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='fasttext+elmo', evaluation_path=path)
-    ###############################################################################
-    # Soft-cosine
-    # lowercase, stop, punctuation, proctrain, vector=alignments
-    path = 'softcosine.lower.stop.punct.proctrain.alignments.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='alignments', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=word2vec
-    path = 'softcosine.lower.stop.punct.proctrain.word2vec.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=word2vec+elmo
-    path = 'softcosine.lower.stop.punct.proctrain.word2vec+elmo.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec+elmo', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=fasttext
-    path = 'softcosine.lower.stop.punct.proctrain.fasttext.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='fasttext', evaluation_path=path)
-    # lowercase, stop, punctuation, proctrain, vector=fasttext+elmo
-    path = 'softcosine.lower.stop.punct.proctrain.fasttext+elmo.ranking'
-    run_softcosine(stop=True, lowercase=True, punctuation=True, proctrain=True, vector='fasttext+elmo', evaluation_path=path)
-    ###############################################################################
+    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)

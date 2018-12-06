@@ -11,9 +11,15 @@ from models.treekernel import TreeKernel
 from models.svm import Model
 from semeval import Semeval
 
+from multiprocessing import Pool
+
 DATA_PATH='kernel'
 if not os.path.exists(DATA_PATH):
     os.mkdir(DATA_PATH)
+    os.mkdir(os.path.join(DATA_PATH, 'train'))
+    os.mkdir(os.path.join(DATA_PATH, 'dev'))
+    os.mkdir(os.path.join(DATA_PATH, 'test2016'))
+    os.mkdir(os.path.join(DATA_PATH, 'test2017'))
 KERNEL_PATH = os.path.join(DATA_PATH, 'trainkernel.pickle')
 
 class SemevalTreeKernel(Semeval):
@@ -97,8 +103,9 @@ class SemevalTreeKernel(Semeval):
                 alignments = self.get_alignment(q2, q2) if self.vector == 'alignments' else []
                 kq2 = self.memoize(q2id, q2_tree, q2_emb, q2_token2lemma, q2id, q2_tree, q2_emb, q2_token2lemma, alignments)
 
+                if i % 10 == 0:
+                    print('Path: ', self.path,  'Progress: ', percentage, i + 1, sep=10 * ' ', end='\r')
                 for j, c in enumerate(self.flattraindata):
-                    print('Path: ', self.path,  'Progress: ', percentage, i + 1, j+1, sep=10 * ' ', end='\r')
                     c1id = c['q1_id']
                     c1 = c['q1_full']
                     c1_tree = c['q1_tree'] if self.tree == 'tree' else c['subj_q1_tree']
@@ -185,6 +192,10 @@ class SemevalTreeKernel(Semeval):
     def test(self, testdata, elmoidx, elmovec, test_='test2016'):
         if test_ == 'test2016':
             path = os.path.join('kernel', 'test2016', self.path)
+        elif test_ == 'train':
+            path = os.path.join('kernel', 'train', self.path)
+        elif test_ == 'dev':
+            path = os.path.join('kernel', 'test2016', self.path)
         else:
             path = os.path.join('kernel', 'test2017', self.path)
 
@@ -213,47 +224,97 @@ class SemevalTreeKernel(Semeval):
 
         return ranking, y_real, y_pred, parameter_settings
 
-
-def run(thread_id, smoothed, vector, path):
-    print('Thread_id: ', thread_id)
-    SemevalTreeKernel(smoothed=smoothed, vector=vector, kernel_path=path)
-
+def run(smoothed, vector, tree, kernel_path, lowercase):
+    s = SemevalTreeKernel(smoothed=smoothed, vector=vector, tree=tree, kernel_path=kernel_path, lowercase=lowercase)
+    s.validate()
+    s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
 if __name__ == '__main__':
+    pool = Pool(processes=4)
+
     # lower
     path = 'kernel.alignments.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='alignments', tree='subj_tree', kernel_path=path, lowercase=True)
+    pool.apply_async(run, [True, 'alignments', 'subj_tree', path, True])
+    # s = SemevalTreeKernel(smoothed=True, vector='alignments', tree='subj_tree', kernel_path=path, lowercase=True)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
     path = 'kernel.fasttext+elmo.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='fasttext+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
+    pool.apply_async(run, [True, 'fasttext+elmo', 'subj_tree', path, True])
+    # s = SemevalTreeKernel(smoothed=True, vector='fasttext+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
     path = 'kernel.fasttext.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='fasttext', tree='subj_tree', kernel_path=path, lowercase=True)
+    pool.apply_async(run, [True, 'fasttext', 'subj_tree', path, True])
+    # s = SemevalTreeKernel(smoothed=True, vector='fasttext', tree='subj_tree', kernel_path=path, lowercase=True)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
     path = 'kernel.word2vec+elmo.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
+    pool.apply_async(run, [True, 'word2vec+elmo', 'subj_tree', path, True])
+    # s = SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=True)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
     path = 'kernel.word2vec.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=True)
+    pool.apply_async(run, [True, 'word2vec', 'subj_tree', path, True])
+    # s = SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=True)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
     path = 'kernel.lower.pickle'
-    SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=True)
+    pool.apply_async(run, [False, '', 'subj_tree', path, True])
+    # s = SemevalTreeKernel(smoothed=False, vector='', tree='subj_tree', kernel_path=path, lowercase=True)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
     # capital
-    path = 'kernel.alignments.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='alignments', tree='subj_tree', kernel_path=path, lowercase=False)
+    path = 'kernel.alignments.pickle'
+    pool.apply_async(run, [True, 'alignments', 'subj_tree', path, False])
+    # s = SemevalTreeKernel(smoothed=True, vector='alignments', tree='subj_tree', kernel_path=path, lowercase=False)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
-    path = 'kernel.fasttext+elmo.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='fasttext+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
+    path = 'kernel.fasttext+elmo.pickle'
+    pool.apply_async(run, [True, 'fasttext+elmo', 'subj_tree', path, False])
+    # s = SemevalTreeKernel(smoothed=True, vector='fasttext+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
-    path = 'kernel.fasttext.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='fasttext', tree='subj_tree', kernel_path=path, lowercase=False)
+    path = 'kernel.fasttext.pickle'
+    pool.apply_async(run, [True, 'fasttext', 'subj_tree', path, False])
+    # s = SemevalTreeKernel(smoothed=True, vector='fasttext', tree='subj_tree', kernel_path=path, lowercase=False)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
-    path = 'kernel.word2vec+elmo.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
+    path = 'kernel.word2vec+elmo.pickle'
+    pool.apply_async(run, [True, 'word2vec+elmo', 'subj_tree', path, False])
+    # s = SemevalTreeKernel(smoothed=True, vector='word2vec+elmo', tree='subj_tree', kernel_path=path, lowercase=False)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
-    path = 'kernel.word2vec.lower.pickle'
-    SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)
+    path = 'kernel.word2vec.pickle'
+    pool.apply_async(run, [True, 'word2vec', 'subj_tree', path, False])
+    # s = SemevalTreeKernel(smoothed=True, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
 
-    path = 'kernel.lower.pickle'
-    SemevalTreeKernel(smoothed=False, vector='word2vec', tree='subj_tree', kernel_path=path, lowercase=False)
+    path = 'kernel.pickle'
+    pool.apply_async(run, [False, '', 'subj_tree', path, False])
+    # s = SemevalTreeKernel(smoothed=False, vector='', tree='subj_tree', kernel_path=path, lowercase=False)
+    # s.validate()
+    # s.test(testdata=s.test2016data, elmoidx=s.test2016idx, elmovec=s.test2016elmo, test_='test2016')
+    # s.test(testdata=s.test2017data, elmoidx=s.test2017idx, elmovec=s.test2017elmo, test_='test2017')
