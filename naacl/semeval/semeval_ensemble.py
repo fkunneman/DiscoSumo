@@ -2,9 +2,10 @@ __author='thiagocastroferreira'
 
 import sys
 sys.path.append('../')
+sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
+import ev, metrics
 import _pickle as p
 import copy
-import evaluate
 import os
 
 from semeval_bm25 import SemevalBM25
@@ -15,10 +16,46 @@ from semeval_kernel import SemevalTreeKernel
 from models.svm import Model
 from sklearn.preprocessing import MinMaxScaler
 
+DEV_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+
 DATA_PATH='data'
 ENSEMBLE_PATH='ensemble'
 if not os.path.exists(ENSEMBLE_PATH):
     os.mkdir(ENSEMBLE_PATH)
+
+def prepare_gold(path):
+    ir = ev.read_res_file_aid(path, 'trec')
+    return ir
+
+
+def evaluate(ranking, gold):
+    for qid in gold:
+        gold_sorted = sorted(gold[qid], key = itemgetter(2), reverse = True)
+        pred_sorted = ranking[qid]
+        pred_sorted = sorted(pred_sorted, key = itemgetter(2), reverse = True)
+
+        gold[qid], ranking[qid] = [], []
+        for i, row in enumerate(gold_sorted):
+            relevant, gold_score, aid = row
+            gold[qid].append((relevant, gold_score, aid))
+
+            pred_score = pred_sorted[i][1]
+            ranking[qid].append((relevant, pred_score, aid))
+
+    for qid in gold:
+        # Sort by IR score.
+        gold_sorted = sorted(gold[qid], key = itemgetter(1), reverse = True)
+
+        # Sort by SVM prediction score.
+        pred_sorted = ranking[qid]
+        pred_sorted = sorted(pred_sorted, key = itemgetter(1), reverse = True)
+
+        gold[qid] = [rel for rel, score, aid in gold_sorted]
+        ranking[qid] = [rel for rel, score, aid in pred_sorted]
+
+    map_gold = metrics.map(gold, 10)
+    map_pred = metrics.map(ranking, 10)
+    return map_gold, map_pred
 
 class SemevalEnsemble:
     def __init__(self, stop={}, lowercase={}, punctuation={}, vector={}, scale=True, kernel_path='', alpha=0.8, sigma=0.2):
@@ -72,7 +109,7 @@ class SemevalEnsemble:
 
                     ranking[q1id].append((pred_label, score, q2id))
 
-            map_baseline, map_model = evaluate.evaluate(copy.copy(ranking), evaluate.prepare_gold(evaluate.DEV_GOLD_PATH))
+            map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
             if map_model > best_map:
                 best_map = copy.copy(map_model)
                 self.theta = theta
@@ -81,7 +118,7 @@ class SemevalEnsemble:
     def train_kernel(self):
         vector = self.vector['kernel']
         lowercase = self.lowercase['kernel']
-        path = os.path.join('ensemble', 'kernel.' + vector + '.' + self.path)
+        path = os.path.join('ensemble', 'kernel.lower_' + str(lowercase) + '.vector_' + vector)
         if not os.path.exists(path):
             self.kernel = SemevalTreeKernel(smoothed=True, vector=vector, lowercase=lowercase, tree='subj_tree', kernel_path=self.kernel_path)
             self.trainkernel, _, _, _ = self.format(self.kernel.test(self.kernel.traindata, self.kernel.trainidx, self.kernel.trainelmo, test_='train'))
@@ -101,7 +138,7 @@ class SemevalEnsemble:
 
     def train_classifier(self):
         lowercase, stop, punctuation = self.lowercase['bm25'], self.stop['bm25'], self.punctuation['bm25']
-        path = os.path.join('ensemble', 'bm25.' + lowercase + '.' + stop + '.' + punctuation)
+        path = os.path.join('ensemble', 'bm25.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation))
         if not os.path.exists(path):
             self.bm25 = SemevalBM25(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=True)
             self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
@@ -121,7 +158,7 @@ class SemevalEnsemble:
 
         vector = self.vector['translation']
         lowercase, stop, punctuation = self.lowercase['translation'], self.stop['translation'], self.punctuation['translation']
-        path = os.path.join('ensemble', 'translation.' + lowercase + '.' + stop + '.' + punctuation + '.' + vector)
+        path = os.path.join('ensemble', 'translation.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation) + '.vector_' + str(vector))
         if not os.path.exists(path):
             self.translation = SemevalTranslation(alpha=self.alpha, sigma=self.sigma, punctuation=punctuation, proctrain=True, vector=vector, stop=stop, lowercase=lowercase)
             self.traintranslation = self.format(self.translation.test(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo))
@@ -141,7 +178,7 @@ class SemevalEnsemble:
 
         vector = self.vector['softcosine']
         lowercase, stop, punctuation = self.lowercase['softcosine'], self.stop['softcosine'], self.punctuation['softcosine']
-        path = os.path.join('ensemble', 'softcosine.' + lowercase + '.' + stop + '.' + punctuation + '.' + vector)
+        path = os.path.join('ensemble', 'softcosine.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation) + '.vector_' + str(vector))
         if not os.path.exists(path):
             self.softcosine = SemevalSoftCosine(stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation, proctrain=True)
             self.trainsoftcosine = self.format(self.softcosine.test(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo))
