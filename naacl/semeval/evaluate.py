@@ -246,8 +246,8 @@ def run_softcosine(stop, lowercase, punctuation, proctrain, vector, evaluation_p
     print('MAP model: ', map_model)
     print(10 * '-')
 
-def run_ensemble(stop, lowercase, punctuation, vector, evaluation_path, feature_path, kernel_path, alpha, sigma):
-    model = SemevalEnsemble(stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, scale=True, path=feature_path, kernel_path=kernel_path, alpha=alpha, sigma=sigma)
+def run_ensemble(stop, lowercase, punctuation, vector, evaluation_path, kernel_path, alpha, sigma):
+    model = SemevalEnsemble(stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, scale=True, kernel_path=kernel_path, alpha=alpha, sigma=sigma)
     result_dev = model.test(set_='dev')
     dev_path = os.path.join(DEV_EVAL_PATH, evaluation_path)
 
@@ -283,77 +283,92 @@ if __name__ == '__main__':
     # ENSEMBLE
     # lowercase, stop, punctuation
     vector = {'translation':'alignments', 'softcosine':'word2vec', 'kernel':'word2vec'}
+    lower = {'translation':True, 'softcosine':True, 'kernel':True}
+    stop = {'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'translation':True, 'softcosine':True, 'kernel':True}
     kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.stop.punct.ranking'
-    feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase, stop
+    lower = {'translation':True, 'softcosine':True, 'kernel':True}
+    stop = {'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'translation':False, 'softcosine':False, 'kernel':False}
     kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.stop.ranking'
-    feature_path = 'lower.stop'
-    run_ensemble(stop=True, lowercase=True, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase, punctuation,
+    lower = {'translation':True, 'softcosine':True, 'kernel':True}
+    stop = {'translation':False, 'softcosine':False, 'kernel':False}
+    punctuation = {'translation':True, 'softcosine':True, 'kernel':True}
     kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.punct.ranking'
-    feature_path = 'lower.punct'
-    run_ensemble(stop=False, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # stop, punctuation
+    lower = {'translation':False, 'softcosine':False, 'kernel':False}
+    stop = {'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'translation':True, 'softcosine':True, 'kernel':True}
     kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.stop.punct.ranking'
-    feature_path = 'stop.punct'
-    run_ensemble(stop=True, lowercase=False, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase
+    lower = {'translation':True, 'softcosine':True, 'kernel':True}
+    stop = {'translation':False, 'softcosine':False, 'kernel':False}
+    punctuation = {'translation':False, 'softcosine':False, 'kernel':False}
     kernel_path = 'kernel.word2vec.lower.pickle'
     path = 'ensemble.lower.ranking'
-    feature_path = 'lower'
-    run_ensemble(stop=False, lowercase=True, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # stop
+    lower = {'translation':False, 'softcosine':False, 'kernel':False}
+    stop = {'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'translation':False, 'softcosine':False, 'kernel':False}
     kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.stop.ranking'
-    feature_path = 'stop'
-    run_ensemble(stop=True, lowercase=False, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # punctuation
+    lower = {'translation':False, 'softcosine':False, 'kernel':False}
+    stop = {'translation':False, 'softcosine':False, 'kernel':False}
+    punctuation = {'translation':True, 'softcosine':True, 'kernel':True}
     kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.punct.ranking'
-    feature_path = 'punct'
-    run_ensemble(stop=False, lowercase=False, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     #
+    lower = {'translation':False, 'softcosine':False, 'kernel':False}
+    stop = {'translation':False, 'softcosine':False, 'kernel':False}
+    punctuation = {'translation':False, 'softcosine':False, 'kernel':False}
     kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.ranking'
-    feature_path = ''
-    run_ensemble(stop=False, lowercase=False, punctuation=False, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     ###############################################################################
 
 
     # WORD SIMILARITY EXPERIMENTS
+    ###############################################################################
     # ENSEMBLE
+    lower = {'translation':True, 'softcosine':True, 'kernel':False}
+    stop = {'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'translation':True, 'softcosine':True, 'kernel':True}
     # lowercase, stop, punctuation, alignments
     vector = {'translation':'alignments', 'softcosine':'alignments', 'kernel': 'alignments'}
-    kernel_path = 'kernel.alignments.lower.pickle'
+    kernel_path = 'kernel.alignments.pickle'
     path = 'ensemble.lower.stop.punct.alignments.ranking'
-    feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.8, sigma=0.2)
     # lowercase, stop, punctuation, word2vec
     vector = {'translation':'word2vec', 'softcosine':'word2vec', 'kernel': 'word2vec'}
-    kernel_path = 'kernel.word2vec.lower.pickle'
+    kernel_path = 'kernel.word2vec.pickle'
     path = 'ensemble.lower.stop.punct.word2vec.ranking'
-    feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
     # lowercase, stop, punctuation, fasttext
     vector = {'translation':'fasttext', 'softcosine':'fasttext', 'kernel': 'fasttext'}
-    kernel_path = 'kernel.fasttext.lower.pickle'
+    kernel_path = 'kernel.fasttext.pickle'
     path = 'ensemble.lower.stop.punct.fasttext.ranking'
-    feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
     # lowercase, stop, punctuation, word2vec+elmo
     vector = {'translation':'word2vec+elmo', 'softcosine':'word2vec+elmo', 'kernel': 'word2vec+elmo'}
-    kernel_path = 'kernel.word2vec+elmo.lower.pickle'
+    kernel_path = 'kernel.word2vec+elmo.pickle'
     path = 'ensemble.lower.stop.punct.word2vec+elmo.ranking'
-    feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
     # lowercase, stop, punctuation, fasttext+elmo
     vector = {'translation':'fasttext+elmo', 'softcosine':'fasttext+elmo', 'kernel': 'fasttext+elmo'}
-    kernel_path = 'kernel.fasttext+elmo.lower.pickle'
+    kernel_path = 'kernel.fasttext+elmo.pickle'
     path = 'ensemble.lower.stop.punct.fasttext+elmo.ranking'
-    feature_path = 'lower.stop.punct'
-    run_ensemble(stop=True, lowercase=True, punctuation=True, vector=vector, evaluation_path=path, feature_path=feature_path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=0.9, sigma=0.1)

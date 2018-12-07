@@ -21,11 +21,10 @@ if not os.path.exists(ENSEMBLE_PATH):
     os.mkdir(ENSEMBLE_PATH)
 
 class SemevalEnsemble:
-    def __init__(self, stop=True, lowercase=True, punctuation=True, vector={}, scale=True, path='', kernel_path='', alpha=0.8, sigma=0.2):
+    def __init__(self, stop={}, lowercase={}, punctuation={}, vector={}, scale=True, kernel_path='', alpha=0.8, sigma=0.2):
         self.stop = stop
         self.lowercase = lowercase
         self.punctuation = punctuation
-        self.path = path
         self.scale = scale
         self.vector = vector
         self.alpha = alpha
@@ -81,9 +80,10 @@ class SemevalEnsemble:
 
     def train_kernel(self):
         vector = self.vector['kernel']
+        lowercase = self.lowercase['kernel']
         path = os.path.join('ensemble', 'kernel.' + vector + '.' + self.path)
         if not os.path.exists(path):
-            self.kernel = SemevalTreeKernel(smoothed=True, vector=vector, lowercase=self.lowercase, tree='subj_tree', kernel_path=self.kernel_path)
+            self.kernel = SemevalTreeKernel(smoothed=True, vector=vector, lowercase=lowercase, tree='subj_tree', kernel_path=self.kernel_path)
             self.trainkernel, _, _, _ = self.format(self.kernel.test(self.kernel.traindata, self.kernel.trainidx, self.kernel.trainelmo, test_='train'))
             self.devkernel, _, _, _ = self.format(self.kernel.validate())
             self.test2016kernel, _, _, _ = self.format(self.kernel.test(self.kernel.test2016data, self.kernel.test2016idx, self.kernel.test2016elmo, test_='test2016'))
@@ -100,9 +100,10 @@ class SemevalEnsemble:
 
 
     def train_classifier(self):
-        path = os.path.join('ensemble', 'bm25.' + self.path)
+        lowercase, stop, punctuation = self.lowercase['bm25'], self.stop['bm25'], self.punctuation['bm25']
+        path = os.path.join('ensemble', 'bm25.' + lowercase + '.' + stop + '.' + punctuation)
         if not os.path.exists(path):
-            self.bm25 = SemevalBM25(stop=self.stop, lowercase=self.lowercase, punctuation=self.punctuation, proctrain=True)
+            self.bm25 = SemevalBM25(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=True)
             self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
             self.devbm25 = self.format(self.bm25.validate())
             self.test2016bm25 = self.format(self.bm25.test(self.bm25.test2016data))
@@ -119,9 +120,10 @@ class SemevalEnsemble:
             self.test2017bm25 = data['test2017']
 
         vector = self.vector['translation']
-        path = os.path.join('ensemble', 'translation.' + vector + '.' + self.path)
+        lowercase, stop, punctuation = self.lowercase['translation'], self.stop['translation'], self.punctuation['translation']
+        path = os.path.join('ensemble', 'translation.' + lowercase + '.' + stop + '.' + punctuation + '.' + vector)
         if not os.path.exists(path):
-            self.translation = SemevalTranslation(alpha=self.alpha, sigma=self.sigma, punctuation=self.punctuation, proctrain=True, vector=vector, stop=self.stop, lowercase=self.lowercase)
+            self.translation = SemevalTranslation(alpha=self.alpha, sigma=self.sigma, punctuation=punctuation, proctrain=True, vector=vector, stop=stop, lowercase=lowercase)
             self.traintranslation = self.format(self.translation.test(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo))
             self.devtranslation = self.format(self.translation.validate())
             self.test2016translation = self.format(self.translation.test(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo))
@@ -138,9 +140,10 @@ class SemevalEnsemble:
             self.test2017translation = data['test2017']
 
         vector = self.vector['softcosine']
-        path = os.path.join('ensemble', 'softcosine.' + vector + '.' + self.path)
+        lowercase, stop, punctuation = self.lowercase['softcosine'], self.stop['softcosine'], self.punctuation['softcosine']
+        path = os.path.join('ensemble', 'softcosine.' + lowercase + '.' + stop + '.' + punctuation + '.' + vector)
         if not os.path.exists(path):
-            self.softcosine = SemevalSoftCosine(stop=self.stop, vector=vector, lowercase=self.lowercase, punctuation=self.punctuation, proctrain=True)
+            self.softcosine = SemevalSoftCosine(stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation, proctrain=True)
             self.trainsoftcosine = self.format(self.softcosine.test(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo))
             self.devsoftcosine = self.format(self.softcosine.validate())
             self.test2016softcosine = self.format(self.softcosine.test(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo))
