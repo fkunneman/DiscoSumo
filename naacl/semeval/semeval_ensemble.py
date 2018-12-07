@@ -8,6 +8,7 @@ import _pickle as p
 import copy
 import os
 
+from operator import itemgetter
 from semeval_bm25 import SemevalBM25
 from semeval_translation import SemevalTranslation
 from semeval_cosine import SemevalSoftCosine
@@ -84,8 +85,8 @@ class SemevalEnsemble:
 
 
     def train(self):
-        self.train_classifier()
         self.train_kernel()
+        self.train_classifier()
 
         # finding theta in development set
         thetas = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -112,6 +113,9 @@ class SemevalEnsemble:
             map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
             if map_model > best_map:
                 best_map = copy.copy(map_model)
+                print('MAP baseline', map_baseline)
+                print('MAP: ', map_model)
+                print(10 * '-')
                 self.theta = theta
 
 
@@ -121,10 +125,17 @@ class SemevalEnsemble:
         path = os.path.join('ensemble', 'kernel.lower_' + str(lowercase) + '.vector_' + vector)
         if not os.path.exists(path):
             self.kernel = SemevalTreeKernel(smoothed=True, vector=vector, lowercase=lowercase, tree='subj_tree', kernel_path=self.kernel_path)
-            self.trainkernel, _, _, _ = self.format(self.kernel.test(self.kernel.traindata, self.kernel.trainidx, self.kernel.trainelmo, test_='train'))
-            self.devkernel, _, _, _ = self.format(self.kernel.validate())
-            self.test2016kernel, _, _, _ = self.format(self.kernel.test(self.kernel.test2016data, self.kernel.test2016idx, self.kernel.test2016elmo, test_='test2016'))
-            self.test2017kernel, _, _, _ = self.format(self.kernel.test(self.kernel.test2017data, self.kernel.test2017idx, self.kernel.test2017elmo, test_='test2017'))
+            self.trainkernel, _, _, _ = self.kernel.test(self.kernel.traindata, self.kernel.trainidx, self.kernel.trainelmo, test_='train')
+            self.trainkernel = self.format(self.trainkernel)
+
+            self.devkernel, _, _, _ = self.kernel.validate()
+            self.devkernel = self.format(self.devkernel)
+
+            self.test2016kernel, _, _, _ = self.kernel.test(self.kernel.test2016data, self.kernel.test2016idx, self.kernel.test2016elmo, test_='test2016')
+            self.test2016kernel = self.format(self.test2016kernel)
+
+            self.test2017kernel, _, _, _ = self.kernel.test(self.kernel.test2017data, self.kernel.test2017idx, self.kernel.test2017elmo, test_='test2017')
+            self.test2017kernel = self.format(self.test2017kernel)
 
             data = {'train': self.trainkernel, 'dev': self.devkernel, 'test2016': self.test2016kernel, 'test2017':self.test2017kernel}
             p.dump(data, open(path, 'wb'))
@@ -260,7 +271,7 @@ class SemevalEnsemble:
                 ranking[q1id].append((pred_label, score, q2id))
 
         parameter_settings = self.ensemble.return_parameter_settings(clf='regression')
-        parameter_settings = parameter_settings + ',' + str(self.theta)
+        parameter_settings = parameter_settings + ',gamma=' + str(self.theta) + ',alpha=' + str(self.alpha) + ',sigma=' + str(self.sigma)
         return ranking, y_real, y_pred, parameter_settings
 
 
