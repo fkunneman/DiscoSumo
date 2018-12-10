@@ -8,7 +8,9 @@ import os
 from semeval import Semeval
 from models.cosine import Cosine, SoftCosine
 
-DATA_PATH='data'
+import paths
+
+DATA_PATH=paths.DATA_PATH
 
 class SemevalCosine(Semeval):
     def __init__(self, stop=True, lowercase=True, punctuation=True, proctrain=True, path=DATA_PATH):

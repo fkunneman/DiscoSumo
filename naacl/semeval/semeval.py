@@ -9,6 +9,7 @@ logging.basicConfig(format=FORMAT)
 import _pickle as p
 import elmo.elmo as elmo
 import json
+import paths
 import numpy as np
 from nltk.corpus import stopwords
 stop_ = set(stopwords.words('english'))
@@ -20,13 +21,13 @@ import word2vec.fasttext as fasttext
 
 from gensim import corpora
 
-ALIGNMENTS_PATH='/roaming/tcastrof/semeval/alignments/align'
-WORD2VEC_PATH='/roaming/tcastrof/semeval/word2vec/word2vec.model'
-FASTTEXT_PATH='/roaming/tcastrof/semeval/word2vec/fasttext.model'
-ELMO_PATH='/roaming/tcastrof/semeval/elmo/'
+ALIGNMENTS_PATH=os.path.join(paths.ALIGNMENTS_PATH, 'align')
+WORD2VEC_PATH=paths.WORD2VEC_PATH
+FASTTEXT_PATH=paths.FASTTEXT_PATH
+ELMO_PATH=paths.ELMO_PATH
 
-ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec/word2vec'
-DATA_PATH='/home/tcastrof/DiscoSumo/naacl/semeval/data'
+ADDITIONAL_PATH=paths.ADDITIONAL_PATH
+DATA_PATH=paths.DATA_PATH
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')

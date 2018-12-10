@@ -1,17 +1,20 @@
 __author__='thiagocastroferreira'
 
+import sys
+sys.path.append('../')
 import json
+import paths
 import os
 import re
 
 from nltk.corpus import stopwords
 stop_ = set(stopwords.words('english'))
 
-DATA_PATH='../data'
+DATA_PATH=paths.DATA_PATH
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 
-ALIGNMENTS_PATH='/roaming/tcastrof/semeval/alignments'
+ALIGNMENTS_PATH=paths.ALIGNMENTS_PATH
 if not os.path.exists(ALIGNMENTS_PATH):
     os.mkdir(ALIGNMENTS_PATH)
 

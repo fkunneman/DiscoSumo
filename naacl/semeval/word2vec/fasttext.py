@@ -1,5 +1,7 @@
 __author__='thiagocastroferreira'
 
+import sys
+sys.path.append('../')
 import _pickle as p
 import json
 import gzip
@@ -12,14 +14,15 @@ FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
 
 import os
+import paths
 from gensim.models import FastText
 from multiprocessing import Pool
 
 from stanfordcorenlp import StanfordCoreNLP
 
-STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
-QATAR_PATH='/roaming/tcastrof/semeval/dataset/unannotated/dump_QL_all_question_subject_body.txt.gz'
-COMMENT_QATAR_PATH='/roaming/tcastrof/semeval/dataset/unannotated/dump_QL_all_comment_subject_body.txt.gz'
+STANFORD_PATH=paths.STANFORD_PATH
+QATAR_PATH=paths.QATAR_PATH
+COMMENT_QATAR_PATH=paths.COMMENT_QATAR_PATH
 
 def load():
     with gzip.open(QATAR_PATH, 'rb') as f:
@@ -75,7 +78,7 @@ def parse(thread_id, document, port, lowercase=True, punctuation=True, stop=True
     return doc
 
 def train(lowercase=True, punctuation=True, stop=True):
-    path = '/roaming/tcastrof/semeval/word2vec'
+    path = paths.WORD2VEC_DIR
     path = os.path.join(path, 'fasttext')
     if lowercase: path += '.lower'
     if stop: path += '.stop'
@@ -118,7 +121,7 @@ def train(lowercase=True, punctuation=True, stop=True):
     model.save(fname)
 
 def init_fasttext(lowercase=True, punctuation=True, stop=True):
-    path = '/roaming/tcastrof/semeval/word2vec'
+    path = paths.WORD2VEC_DIR
     path = os.path.join(path, 'fasttext')
     if lowercase: path += '.lower'
     if stop: path += '.stop'

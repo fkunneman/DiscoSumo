@@ -5,6 +5,7 @@ sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
 import copy
 import ev, metrics
 import os
+import paths
 
 from operator import itemgetter
 from semeval_bm25 import SemevalBM25
@@ -16,9 +17,9 @@ from semeval_ensemble import SemevalEnsemble
 
 from sklearn.metrics import f1_score, accuracy_score
 
-DEV_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
-TEST2016_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-test2016.xml.subtaskB.relevancy'
-TEST2017_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-test2017.xml.subtaskB.relevancy'
+DEV_GOLD_PATH=paths.DEV_GOLD_PATH
+TEST2016_GOLD_PATH=paths.TEST2016_GOLD_PATH
+TEST2017_GOLD_PATH=paths.TEST2017_GOLD_PATH
 
 FEATURE_PATH='feature'
 if not os.path.exists(FEATURE_PATH):
@@ -385,5 +386,24 @@ if __name__ == '__main__':
     vector = {'translation':'fasttext+elmo', 'softcosine':'fasttext+elmo', 'kernel': 'fasttext+elmo'}
     kernel_path = 'kernel.fasttext+elmo.pickle'
     path = 'ensemble.lower.stop.punct.fasttext+elmo.ranking'
+    alpha, sigma = run_translation(lowercase=lower['translation'], stop=stop['translation'], punctuation=punctuation['translation'], proctrain=True, vector=vector['translation'], evaluation_path='translation.tmp')
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=alpha, sigma=sigma)
+
+    # final
+    lower = {'bm25':True, 'translation':False, 'softcosine':True, 'kernel':False}
+    stop = {'bm25':False, 'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'bm25':True, 'translation':True, 'softcosine':True, 'kernel':True}
+    vector = {'translation':'word2vec', 'softcosine':'word2vec+elmo', 'kernel': 'word2vec+elmo'}
+    kernel_path = 'kernel.word2vec+elmo.pickle'
+    path = 'ensemble.final.ranking'
+    alpha, sigma = run_translation(lowercase=lower['translation'], stop=stop['translation'], punctuation=punctuation['translation'], proctrain=True, vector=vector['translation'], evaluation_path='translation.tmp')
+    run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=alpha, sigma=sigma)
+
+    lower = {'bm25':True, 'translation':True, 'softcosine':True, 'kernel':False}
+    stop = {'bm25':True, 'translation':True, 'softcosine':True, 'kernel':True}
+    punctuation = {'bm25':True, 'translation':True, 'softcosine':True, 'kernel':True}
+    vector = {'translation':'word2vec', 'softcosine':'word2vec+elmo', 'kernel': 'word2vec+elmo'}
+    kernel_path = 'kernel.word2vec+elmo.pickle'
+    path = 'ensemble.final2.ranking'
     alpha, sigma = run_translation(lowercase=lower['translation'], stop=stop['translation'], punctuation=punctuation['translation'], proctrain=True, vector=vector['translation'], evaluation_path='translation.tmp')
     run_ensemble(stop=stop, lowercase=lower, punctuation=punctuation, vector=vector, evaluation_path=path, kernel_path=kernel_path, alpha=alpha, sigma=sigma)
