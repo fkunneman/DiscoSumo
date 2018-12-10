@@ -12,11 +12,13 @@ import load
 import os
 import re
 
+import paths
+
 from stanfordcorenlp import StanfordCoreNLP
 
-STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
+STANFORD_PATH=paths.STANFORD_PATH
 
-DATA_PATH='data'
+DATA_PATH=paths.DATA_PATH
 WRITE_TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 WRITE_DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 WRITE_TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
