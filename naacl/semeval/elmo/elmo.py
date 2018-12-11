@@ -5,14 +5,15 @@ sys.path.append('../')
 import h5py
 import os
 import json
+import paths
 import re
 from nltk.corpus import stopwords
 stop_ = set(stopwords.words('english'))
 
 from allennlp.commands.elmo import ElmoEmbedder
 
-STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
-DATA_PATH='../data'
+STANFORD_PATH=paths.STANFORD_PATH
+DATA_PATH=paths.DATA_PATH
 TRAIN_PATH=os.path.join(DATA_PATH, 'trainset.data')
 DEV_PATH=os.path.join(DATA_PATH, 'devset.data')
 TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
@@ -186,7 +187,7 @@ if __name__ == '__main__':
     print('Initializing ELMo...')
     elmo = ElmoEmbedder(cuda_device=2)
 
-    path = '/roaming/tcastrof/semeval/elmo/'
+    path = paths.ELMO_PATH
     if not os.path.exists(path):
         os.mkdir(path)
 

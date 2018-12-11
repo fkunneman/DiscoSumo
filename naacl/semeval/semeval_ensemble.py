@@ -7,6 +7,7 @@ import ev, metrics
 import _pickle as p
 import copy
 import os
+import paths
 
 from operator import itemgetter
 from semeval_bm25 import SemevalBM25
@@ -17,7 +18,7 @@ from semeval_kernel import SemevalTreeKernel
 from models.svm import Model
 from sklearn.preprocessing import MinMaxScaler
 
-DEV_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
+DEV_GOLD_PATH=paths.DEV_GOLD_PATH
 
 DATA_PATH='data'
 ENSEMBLE_PATH='ensemble'
