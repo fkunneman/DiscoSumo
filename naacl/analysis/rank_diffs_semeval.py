@@ -3,14 +3,20 @@ import os
 import sys
 import json
 from collections import defaultdict
+import pickle
+import re
+import numpy
+from scipy import stats
 
 from nltk.corpus import stopwords
 
 predictions_system1_in = sys.argv[1]
 predictions_system2_in = sys.argv[2]
 prediction_type = sys.argv[3] # ranked or clf 
-data_in = sys.argv[4] # the file with full data stored in json, to get the question txt
-outdir = sys.argv[5]
+evaltype = sys.argv[4]
+traindata_in = sys.argv[5]
+data_in = sys.argv[6] # the file with full data stored in json, to get the question txt
+outdir = sys.argv[7]
 
 stop = set(stopwords.words('english'))
 
@@ -24,31 +30,30 @@ def make_assessments(system_predictions):
             # rank targets
             targets_ranked = sorted(system_predictions[query],key = lambda k : k[1],reverse=True)
             targets_ranked_numbered = [[i] + x for i,x in enumerate(targets_ranked)]
-            num_true = [x[3] for x in targets_ranked_numbered].count('true')
+            num_true = [x[3] for x in targets_ranked_numbered].count(1)
             # for each target
             for target in targets_ranked_numbered:
                 rank = target[0]
                 gs = target[3]
-                if rank < num_true and gs == 'true': # good call
+                if rank < num_true and gs == 1: # good call
                     target.extend(['true positive','-'])
-                elif rank < num_true and gs == 'false':
+                elif rank < num_true and gs == 0:
                     diff = num_true-rank
-                    print(diff)
                     target.extend(['false positive',str(diff)])
-                elif rank > num_true and gs == 'true':
+                elif rank >= num_true and gs == 1:
                     diff = rank-num_true
                     target.extend(['false negative',str(diff)])
                 else:
-                    target.extend(['false positive','-'])
+                    target.extend(['true negative','-'])
                 assessments.append(target)
         # if binary
         if prediction_type == 'binary':
             for target in system_predictions[query]:
-                if target[1] >= 0 and target[2] == 'true':
+                if target[1] >= 0 and target[2] == 1:
                     target.append('true positive')
-                elif target[1] >= 0 and target[2] == 'false':
+                elif target[1] >= 0 and target[2] == 0:
                     target.append('false positive')
-                elif target[1] < 0 and target[2] == 'true':
+                elif target[1] < 0 and target[2] == 1:
                     target.append('false negative')
                 else:
                     target.append('true negative')
@@ -56,19 +61,15 @@ def make_assessments(system_predictions):
         system_assessments[query] = assessments
     return system_assessments
 
-def parse_predictionfile(predictionfile):
-    # read in predictions of system
-    with open(predictionfile) as file_in:
-        predictionlines = file_in.read().strip().split('\n')[1:]
-
+def parse_predictionfile(predictionfile):    # read in predictions of system
+    file_in = pickle.load(open(predictionfile, 'rb'))
+    data = file_in[evaltype]
     question_predictions = defaultdict(list)
-    for prediction in predictionlines:
-        tokens = prediction.split('\t')
-        query_id = tokens[0]
-        target_id = tokens[1].split('_')[1]
-        score = tokens[3]
-        gold_standard = tokens[4]
-        question_predictions[query_id].append([target_id,float(score),gold_standard])
+    for query_id in data.keys():
+        for target_id in data[query_id].keys():
+            score = data[query_id][target_id][0]
+            gold_standard = data[query_id][target_id][1]
+            question_predictions[query_id].append([target_id,float(score),gold_standard])
     return question_predictions 
 
 def highlight_differences(assessments1,assessments2):
@@ -123,25 +124,82 @@ def return_num_stopwords(txt):
     sw = [w for w in txt if w in stop]
     return len(sw), round(len(sw)/len(txt),2)
 
-def write_out(outlines,qid_txt,outdir,outfilename):
+def return_punctuation_stats(txt):
+    p = [w for w in txt if re.search('[\W]',w)]
+    return len(p), round(len(p)/len(txt),2)
+
+def return_capitalization_stats(txt):
+    c = [w for w in ' '.join(txt) if w.isupper()]
+    return len(c), round(len(c)/len(txt),2)
+
+def return_type_token(txtlist):
+    all_words = sum([x.split() for x in txtlist],[])
+    unique_words = list(set(all_words))
+    return len(unique_words) / len(all_words)
+
+def return_oov(vocab,txt):
+    oov = len(txt.split()) - len(list(set(txt.split()) & vocab))
+    return oov, round(oov/len(txt.split())) 
+
+def summarize_stats(outlines):
+    avg_score_sys1 = numpy.mean([x[6] for x in outlines[1:]])
+    avg_score_sys2 = numpy.mean([x[10] for x in outlines[1:]])
+    avg_sw_query = numpy.mean([x[19] for x in outlines[1:]])
+    avg_sw_target = numpy.mean([x[21] for x in outlines[1:]])
+    avg_sw = numpy.mean([x[19] for x in outlines[1:]] + [x[21] for x in outlines[1:]])
+    avg_p_query = numpy.mean([x[23] for x in outlines[1:]])
+    avg_p_target = numpy.mean([x[25] for x in outlines[1:]])
+    avg_p = numpy.mean([x[23] for x in outlines[1:]] + [x[25] for x in outlines[1:]])
+    avg_c_query = numpy.mean([x[27] for x in outlines[1:]])
+    avg_c_target = numpy.mean([x[29] for x in outlines[1:]])
+    avg_c = numpy.mean([x[27] for x in outlines[1:]] + [x[29] for x in outlines[1:]])
+    return ['Average score system 1 -- ' + str(avg_score_sys1),'Average score system 2 -- ' + str(avg_score_sys2),'Average stopwords query -- ' + str(avg_sw_query),'Average stopwords target -- ' + str(avg_sw_target),'Average stopwords all -- ' + str(avg_sw),'Average punctuation query -- ' + str(avg_p_query),'Average punctuation target -- ' + str(avg_p_query),'Average punctuation all -- ' + str(avg_p),'Average capitalization query -- ' + str(avg_c_query),'Average capitalization target -- ' + str(avg_c_target),'Average capitalization all -- ' + str(avg_c)]
+
+def write_out(outlines,qid_txt,vocab):
     if prediction_type == 'ranked':
-        outlines_txt = [['Query ID','Target ID','Query text','Target text','Gold standard','S1 Rank','S1 score','S1 assessment','S1 performance','S2 Rank','S2 score','S2 assessment','S2 performance','#words query','#words','#matching','%matching_query','%matching_target','#stopwords_query','%stopwords_query','#stopwords_target','%stopwords_target']]
+        outlines_txt = [['Query ID','Target ID','Query text','Target text','Gold standard','S1 Rank','S1 score','S1 assessment','S1 performance','S2 Rank','S2 score','S2 assessment','S2 performance','#words query','#words','#matching','%matching_query','%matching_target','#stopwords_query','%stopwords_query','#stopwords_target','%stopwords_target','#punct_query','%punct_query','#punct_target','%punct_target','#caps_query','%caps_query','#caps_target','%caps_query']]
     else:
-        outlines_txt = [['Query ID','Target ID','Query text','Target text','Gold standard','S1 score','S1 assessment','S2 score','S2 assessment','#words query','#words','#matching','%matching_query','%matching_target','#stopwords_query','%stopwords_query','#stopwords_target','%stopwords_target']]
+        outlines_txt = [['Query ID','Target ID','Query text','Target text','Gold standard','S1 score','S1 assessment','S2 score','S2 assessment','#words query','#words','#matching','%matching_query','%matching_target','#stopwords_query','%stopwords_query','#stopwords_target','%stopwords_target','#punct_query','%punct_query','#punct_target','%punct_target','#caps_query','%caps_query','#caps_target','%caps_query']]
     for line in outlines:
         query_txt = qid_txt[line[0]]
-        target_txt = qid_txt[line[0] + '_' + line[1]]
+        target_txt = qid_txt[line[1]]
         num_matching, percent_matching_query, percent_matching_target = return_matching_words(query_txt,target_txt)
         num_stopwords_query, percent_stopwords_query = return_num_stopwords(query_txt)
         num_stopwords_target, percent_stopwords_target = return_num_stopwords(target_txt)
-        outline_txt = [query_txt,target_txt] + line + [len(query_txt),len(target_txt),num_matching,percent_matching_query,percent_matching_target,num_stopwords_query,percent_stopwords_query,num_stopwords_target,percent_stopwords_target]
+        num_punctuation_query, percent_punctuation_query = return_punctuation_stats(query_txt)
+        num_punctuation_target, percent_punctuation_target = return_punctuation_stats(target_txt)
+        num_capitals_query, percent_capitals_query = return_capitalization_stats(query_txt)
+        num_capitals_target, percent_capitals_target = return_capitalization_stats(target_txt)
+        num_oov_query, percent_oov_query = return_oov(vocab,query_txt)
+        num_oov_target, percent_oov_target = return_oov(vocab,target_txt)
+        outline_txt = [query_txt,target_txt] + line + [len(query_txt),len(target_txt),num_matching,percent_matching_query,percent_matching_target,num_stopwords_query,percent_stopwords_query,num_stopwords_target,percent_stopwords_target,num_punctuation_query,percent_punctuation_query,num_punctuation_target,percent_punctuation_target,num_capitals_query,percent_capitals_query,num_capitals_target,percent_capitals_target,num_oov_query, percent_oov_query,num_oov_target, percent_oov_target]
         if prediction_type == 'ranked':
-            outlines_txt.append([outline_txt[i] for i in [2,3,0,1,7,4,6,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24]])
+            outlines_txt.append([outline_txt[i] for i in [2,3,0,1,7,4,6,8,9,10,12,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32]])
         elif prediction_type == 'binary':
-            print(len(outline_txt))
-            outlines_txt.append([outline_txt[i] for i in [2,3,0,1,6,5,7,9,11,12,13,14,15,16,17,18,19,20]])
-    with open(outdir + '/' + outfilename,'w',encoding='utf-8') as out:
-        out.write('\n'.join(['\t'.join([str(col) for col in line]) for line in outlines_txt]))
+            outlines_txt.append([outline_txt[i] for i in [2,3,0,1,6,5,7,9,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28]])
+    return outlines_txt
+
+def return_comparison(l1,l2):
+    tpp, ppp = stats.ttest_ind(l1,l2)
+    return [str(len(l1)) + ' - ' + str(len(l2)),str(round(numpy.mean(l1),2)) + ' (' + str(round(numpy.std(l1),2)) + ')',str(round(numpy.mean(l2),2)) + ' (' + str(round(numpy.std(l2),2)) + ')',str(round(tpp,2)),str(round(ppp,2))]
+
+def compare_stats(pp,pn,np,nn,i):
+    comparison_out = []
+    if type(i) == list:
+        stats_pp = [x[i[0]] for x in pp[1:]] + [x[i[1]] for x in pp[1:]]
+        stats_pn = [x[i[0]] for x in pn[1:]] + [x[i[1]] for x in pn[1:]]
+        stats_np = [x[i[0]] for x in np[1:]] + [x[i[1]] for x in np[1:]]
+        stats_nn = [x[i[0]] for x in nn[1:]] + [x[i[1]] for x in nn[1:]]        
+    else:
+        stats_pp = [x[i] for x in pp[1:]]
+        stats_pn = [x[i] for x in pn[1:]]
+        stats_np = [x[i] for x in np[1:]]
+        stats_nn = [x[i] for x in nn[1:]]
+    comparison_out.append('\t'.join(['Pos-Pos'] + return_comparison(stats_pp,stats_pn + stats_np + stats_nn)))
+    comparison_out.append('\t'.join(['Pos-Neg'] + return_comparison(stats_pn,stats_pp + stats_np + stats_nn)))
+    comparison_out.append('\t'.join(['Neg-Pos'] + return_comparison(stats_np,stats_pn + stats_pp + stats_nn)))
+    comparison_out.append('\t'.join(['Neg-Neg'] + return_comparison(stats_nn,stats_pn + stats_np + stats_pp)))
+    return comparison_out
 
 ### MAIN ###
 
@@ -153,11 +211,7 @@ with open(data_in,'r',encoding='utf-8') as file_in:
 for question in data.keys():
     qid_txt[data[question]['id']] = ' '.join(data[question]['tokens'])
     for dup in data[question]['duplicates']:
-        if data[question]['id'] == 'Q270':
-            print(dup['rel_question'].keys())
-            print(dup['rel_question']['ranking'])
-            print(dup['rel_question']['tokens'])
-            print(data[question]['id'],dup['rel_question']['id'],dup['rel_question']['relevance'],data[question]['subject'],dup['rel_question']['subject'])              
+ #           print(data[question]['id'],dup['rel_question']['id'],dup['rel_question']['relevance'],data[question]['subject'],dup['rel_question']['subject'])              
         qid_txt[dup['rel_question']['id']] = ' '.join(dup['rel_question']['tokens'])
          
 # parse predictions for both files
@@ -176,9 +230,31 @@ positive1_positive2, positive1_negative2, negative1_positive2, negative1_negativ
 
 # write output
 print('WRITE OUTPUT')
-if not os.path.exists(outdir):
-    os.mkdir(outdir)
-write_out(positive1_positive2,qid_txt,outdir,'positive_positive.txt')
-write_out(positive1_negative2,qid_txt,outdir,'positive_negative.txt')
-write_out(negative1_positive2,qid_txt,outdir,'negative_positive.txt')
-write_out(negative1_negative2,qid_txt,outdir,'negative_negative.txt')
+outdir_full = outdir + '/' + predictions_system1_in.split('/')[-1] + '---' + predictions_system2_in.split('/')[-1]
+if not os.path.exists(outdir_full):
+    os.mkdir(outdir_full)
+pp_outlines = write_out(positive1_positive2,qid_txt)
+pp_summarization = summarize_stats(pp_outlines)
+with open(outdir_full + '/positive_positive.txt','w',encoding='utf-8') as out:
+    out.write('\n'.join(pp_summarization) + '\n' + '\n'.join(['\t'.join([str(col) for col in line]) for line in pp_outlines]))
+pn_outlines = write_out(positive1_negative2,qid_txt)
+pn_summarization = summarize_stats(pn_outlines)
+with open(outdir_full + '/positive_negative.txt','w',encoding='utf-8') as out:
+    out.write('\n'.join(pn_summarization) + '\n' + '\n'.join(['\t'.join([str(col) for col in line]) for line in pn_outlines]))
+np_outlines = write_out(negative1_positive2,qid_txt)
+np_summarization = summarize_stats(np_outlines)
+with open(outdir_full + '/negative_positive.txt','w',encoding='utf-8') as out:
+    out.write('\n'.join(np_summarization) + '\n' + '\n'.join(['\t'.join([str(col) for col in line]) for line in np_outlines]))
+nn_outlines = write_out(negative1_negative2,qid_txt)
+nn_summarization = summarize_stats(nn_outlines)
+with open(outdir_full + '/negative_negative.txt','w',encoding='utf-8') as out:
+    out.write('\n'.join(nn_summarization) + '\n' + '\n'.join(['\t'.join([str(col) for col in line]) for line in nn_outlines]))
+
+all_targets1 = sum([x[1] for x in system_assessments1.items()],[])
+all_targets2 = sum([x[1] for x in system_assessments2.items()],[])
+comparisons = ['Average scores system 1 -- ' + str(round(numpy.mean([x[2] for x in all_targets1]),2)),'Average scores system 2 -- ' + str(round(numpy.mean([x[2] for x in all_targets2]),2))]
+for i,t in [[6,'Scores system1'],[10,'Scores system2'],[19,'Percent stopwords query'],[21,'Percent stopwords target'],[[19,21],'Percent stopwords_all'],[23,'Percent punctuation query'],[25,'Percent punctuation target'],[[23,25],'Percent punctuation all'],[27,'Percent capitals query'],[29,'Percent capitals target'],[[27,29],'Percent capitals all']]:
+    comparisons.extend([t] + compare_stats(pp_outlines,pn_outlines,np_outlines,nn_outlines,i))
+
+with open(outdir_full + '/summary.txt','w',encoding='utf-8') as out:
+    out.write('\n'.join(comparisons))
