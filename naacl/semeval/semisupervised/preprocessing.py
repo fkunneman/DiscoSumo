@@ -8,7 +8,7 @@ import json
 import gzip
 import re
 from nltk.corpus import stopwords
-stop = set(stopwords.words('english'))
+stop_ = set(stopwords.words('english'))
 import string
 punctuation = string.punctuation
 import logging
@@ -34,11 +34,11 @@ def load():
 
     return questions
 
-def parse(thread_id, document, port):
+def parse(thread_id, document, port, lower=True, stop=False, punct=True):
     props = {'annotators': 'tokenize,ssplit','pipelineLanguage':'en','outputFormat':'json'}
     corenlp = StanfordCoreNLP(r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27', port=port, memory='8g', timeout=5500)
 
-    doc, stopdoc = [], []
+    doc, procdoc = [], []
     print('Thread id: ', thread_id, 'Doc length:', len(document))
     for i, q in enumerate(document):
         idx, question = q
@@ -51,23 +51,29 @@ def parse(thread_id, document, port):
             question = re.sub(r'^https?:\/\/.*[\r\n]*', 'url', question)
             # remove html
             question = re.sub(r'<.*?>', ' . ', question)
-            # # separate punctuation
-            # question = ' '.join(re.split(r'([!\"#$%&\'()*+,-./:;<=>?@\[\\\]^_`{|}~])', question))
+            # separate punctuation
+            question = ' '.join(re.split(r'([!\"#$%&\'()*+,-./:;<=>?@\[\\\]^_`{|}~])', question))
             out_ = corenlp.annotate(question.strip(), properties=props)
             out = json.loads(out_)
 
-            tokens, tokens_stop = [], []
+            tokens, tokens_proc = [], []
             for snt in out['sentences']:
-                words = [w for w in map(lambda x: x['originalText'].lower(), snt['tokens']) if w not in stop and w not in punctuation]
-                tokens_stop.extend(words)
-                words = [w for w in map(lambda x: x['originalText'].lower(), snt['tokens'])]
+                # proc tokens
+                words = list(map(lambda x: x['originalText'].lower(), snt['tokens']))
+                words = [w.lower() for w in words] if lower else words
+                words = [w for w in words if w not in stop_] if stop else words
+                words = [w for w in words if w not in punctuation] if punct else words
+                tokens_proc.extend(words)
+
+                # original tokens
+                words = [w for w in map(lambda x: x['originalText'], snt['tokens'])]
                 tokens.extend(words)
                 tokens.append('<SENTENCE>')
 
             doc.append((idx, ' '.join(tokens)))
 
-            tokens_stop = ' '.join(tokens_stop).strip()
-            stopdoc.append((idx, tokens_stop))
+            tokens_proc = ' '.join(tokens_proc).strip()
+            procdoc.append((idx, tokens_proc))
         except Exception as e:
             print('parsing error...')
             print(e)
@@ -75,10 +81,10 @@ def parse(thread_id, document, port):
             print(10 * '-')
 
             doc.append((idx, ''))
-            stopdoc.append((idx, ''))
+            procdoc.append((idx, ''))
 
     corenlp.close()
-    return doc, stopdoc
+    return doc, procdoc
 
 def parse_tree(thread_id, document, port):
     props = {'annotators': 'tokenize,ssplit,pos,lemma,parse','pipelineLanguage':'en','outputFormat':'json'}
@@ -129,11 +135,11 @@ def run():
         print('Process id: ', i+1, 'Doc length:', len(chunk))
         processes.append(pool.apply_async(parse, [i + 1, chunk, 9010 + i]))
 
-    document, stopdocument = [], []
+    document, procdocument = [], []
     for process in processes:
-        doc, stopdoc = process.get()
+        doc, procdoc = process.get()
         document.extend(doc)
-        stopdocument.extend(stopdoc)
+        procdocument.extend(procdoc)
 
     pool.close()
     pool.join()
@@ -146,32 +152,32 @@ def run():
         questions = [q[1] for q in document]
         f.write('\n'.join(questions))
 
-    with open(os.path.join(SEMI_PATH, 'question.stop.txt'), 'w') as f:
-        questions = [q[1] for q in stopdocument]
+    with open(os.path.join(SEMI_PATH, 'question.proc.txt'), 'w') as f:
+        questions = [q[1] for q in procdocument]
         f.write('\n'.join(questions))
 
-    time.sleep(60)
+    # time.sleep(60)
 
     # Parse the trees
-    n = int(len(document) / THREADS)
-    chunks = [document[i:i+n] for i in range(0, len(document), n)]
-    pool = Pool(processes=len(chunks))
-    logging.info('Parsing corpus for tree...')
-    processes = []
-    for i, chunk in enumerate(chunks):
-        print('Process id: ', i+1, 'Doc length:', len(chunk))
-        processes.append(pool.apply_async(parse_tree, [i + 1, chunk, 9100 + i]))
-
-    treedocument = []
-    for process in processes:
-        treedoc = process.get()
-        treedocument.extend(treedoc)
-
-    pool.close()
-    pool.join()
-
-    with open('question.tree', 'w') as f:
-        f.write('\n'.join(treedocument))
+    # n = int(len(document) / THREADS)
+    # chunks = [document[i:i+n] for i in range(0, len(document), n)]
+    # pool = Pool(processes=len(chunks))
+    # logging.info('Parsing corpus for tree...')
+    # processes = []
+    # for i, chunk in enumerate(chunks):
+    #     print('Process id: ', i+1, 'Doc length:', len(chunk))
+    #     processes.append(pool.apply_async(parse_tree, [i + 1, chunk, 9100 + i]))
+    #
+    # treedocument = []
+    # for process in processes:
+    #     treedoc = process.get()
+    #     treedocument.extend(treedoc)
+    #
+    # pool.close()
+    # pool.join()
+    #
+    # with open('question.tree', 'w') as f:
+    #     f.write('\n'.join(treedocument))
 
 if __name__ == '__main__':
     logging.info('Loading corpus...')
