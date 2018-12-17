@@ -3,6 +3,7 @@ __author__='thiagocastroferreira'
 import sys
 sys.path.append('../')
 import paths
+import os
 import json
 import gzip
 import re
@@ -22,6 +23,10 @@ from stanfordcorenlp import StanfordCoreNLP
 STANFORD_PATH=paths.STANFORD_PATH
 QATAR_PATH=paths.QATAR_PATH
 COMMENT_QATAR_PATH=paths.COMMENT_QATAR_PATH
+SEMI_PATH=paths.SEMI_PATH
+
+if not os.path.exists(SEMI_PATH):
+    os.mkdir(SEMI_PATH)
 
 def load():
     with gzip.open(QATAR_PATH, 'rb') as f:
@@ -46,8 +51,8 @@ def parse(thread_id, document, port):
             question = re.sub(r'^https?:\/\/.*[\r\n]*', 'url', question)
             # remove html
             question = re.sub(r'<.*?>', ' . ', question)
-            # separate punctuation
-            question = ' '.join(re.split(r'([!\"#$%&\'()*+,-./:;<=>?@\[\\\]^_`{|}~])', question))
+            # # separate punctuation
+            # question = ' '.join(re.split(r'([!\"#$%&\'()*+,-./:;<=>?@\[\\\]^_`{|}~])', question))
             out_ = corenlp.annotate(question.strip(), properties=props)
             out = json.loads(out_)
 
@@ -112,7 +117,7 @@ def run():
     # indexing
     questions = [(i, q) for i, q in enumerate(questions)]
 
-    THREADS = 20
+    THREADS = 10
     n = int(len(questions) / THREADS)
     chunks = [questions[i:i+n] for i in range(0, len(questions), n)]
 
@@ -133,15 +138,15 @@ def run():
     pool.close()
     pool.join()
 
-    with open('index.txt', 'w') as f:
+    with open(os.path.join(SEMI_PATH, 'index.txt'), 'w') as f:
         idx = [str(q[0]) for q in document]
         f.write('\n'.join(idx))
 
-    with open('question.txt', 'w') as f:
+    with open(os.path.join(SEMI_PATH, 'question.txt'), 'w') as f:
         questions = [q[1] for q in document]
         f.write('\n'.join(questions))
 
-    with open('question.stop.txt', 'w') as f:
+    with open(os.path.join(SEMI_PATH, 'question.stop.txt'), 'w') as f:
         questions = [q[1] for q in stopdocument]
         f.write('\n'.join(questions))
 

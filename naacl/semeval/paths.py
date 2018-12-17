@@ -18,3 +18,5 @@ COMMENT_QATAR_PATH='/roaming/tcastrof/semeval/dataset/unannotated/dump_QL_all_co
 DEV_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-dev.xml.subtaskB.relevancy'
 TEST2016_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-test2016.xml.subtaskB.relevancy'
 TEST2017_GOLD_PATH='/roaming/tcastrof/semeval/evaluation/SemEval2016-Task3-CQA-QL-test2017.xml.subtaskB.relevancy'
+
+SEMI_PATH='/roaming/tcastrof/semeval/semisupervised'
