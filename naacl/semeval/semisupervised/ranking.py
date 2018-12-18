@@ -39,8 +39,8 @@ def retrieve(thread_id, corpus, mbm25, average_idf, n=30):
     return result
 
 
-def save(result):
-    with open(os.path.join(SEMI_PATH, 'bm25_result.txt'), 'w') as f:
+def save(result, fname):
+    with open(os.path.join(SEMI_PATH, fname), 'w') as f:
         for qid in result:
             row = [qid]
             for question in result[qid]:
@@ -50,11 +50,11 @@ def save(result):
 
 
 def run(corpus, mbm25, average_idf, n):
-    THREADS = 10
-    n = int(len(corpus) / THREADS)
-    chunks = [corpus[i:i+n] for i in range(0, len(corpus), n)]
+    THREADS = 25
+    threadnum = int(len(corpus) / THREADS)
+    chunks = [corpus[i:i+n] for i in range(0, len(corpus), threadnum)]
 
-    pool = Pool(processes=len(chunks))
+    pool = Pool(processes=10)
 
     processes = []
     for i, chunk in enumerate(chunks):
@@ -62,8 +62,9 @@ def run(corpus, mbm25, average_idf, n):
         processes.append(pool.apply_async(retrieve, [i + 1, corpus, mbm25, average_idf, n]))
 
     ranking = {}
-    for process in processes:
+    for i, process in enumerate(processes):
         result = process.get()
+        save(result, 'ranking_'+str(i+1))
         ranking.update(result)
 
     pool.close()
@@ -79,4 +80,4 @@ if __name__ == '__main__':
     print('Retrieving...\n')
     ranking = run(corpus, model, avg_idf, 30)
     print('Saving...\n')
-    save(ranking)
+    save(ranking, 'ranking')

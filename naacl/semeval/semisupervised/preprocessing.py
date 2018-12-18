@@ -123,7 +123,7 @@ def run():
     # indexing
     questions = [(i, q) for i, q in enumerate(questions)]
 
-    THREADS = 10
+    THREADS = 20
     n = int(len(questions) / THREADS)
     chunks = [questions[i:i+n] for i in range(0, len(questions), n)]
 
@@ -156,28 +156,28 @@ def run():
         questions = [q[1] for q in procdocument]
         f.write('\n'.join(questions))
 
-    # time.sleep(60)
+    time.sleep(60)
 
     # Parse the trees
-    # n = int(len(document) / THREADS)
-    # chunks = [document[i:i+n] for i in range(0, len(document), n)]
-    # pool = Pool(processes=len(chunks))
-    # logging.info('Parsing corpus for tree...')
-    # processes = []
-    # for i, chunk in enumerate(chunks):
-    #     print('Process id: ', i+1, 'Doc length:', len(chunk))
-    #     processes.append(pool.apply_async(parse_tree, [i + 1, chunk, 9100 + i]))
-    #
-    # treedocument = []
-    # for process in processes:
-    #     treedoc = process.get()
-    #     treedocument.extend(treedoc)
-    #
-    # pool.close()
-    # pool.join()
-    #
-    # with open('question.tree', 'w') as f:
-    #     f.write('\n'.join(treedocument))
+    n = int(len(document) / THREADS)
+    chunks = [document[i:i+n] for i in range(0, len(document), n)]
+    pool = Pool(processes=len(chunks))
+    logging.info('Parsing corpus for tree...')
+    processes = []
+    for i, chunk in enumerate(chunks):
+        print('Process id: ', i+1, 'Doc length:', len(chunk))
+        processes.append(pool.apply_async(parse_tree, [i + 1, chunk, 9100 + i]))
+
+    treedocument = []
+    for process in processes:
+        treedoc = process.get()
+        treedocument.extend(treedoc)
+
+    pool.close()
+    pool.join()
+
+    with open(os.path.join(SEMI_PATH, 'question.tree'), 'w') as f:
+        f.write('\n'.join(treedocument))
 
 if __name__ == '__main__':
     logging.info('Loading corpus...')
