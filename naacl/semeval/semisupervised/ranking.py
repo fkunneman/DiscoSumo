@@ -29,7 +29,8 @@ def init_bm25(corpus):
 
 def retrieve(thread_id, corpus, mbm25, average_idf, n=30):
     result = {}
-    for i, query in enumerate(corpus):
+    for i, row in enumerate(corpus):
+        idx, query = row
         p = round(float(i) / len(corpus), 3)
         if i % 10 == 0:
             print('Thread id: ', thread_id, 'Progress: ', p, i, sep='\t', end='\n')
@@ -37,7 +38,7 @@ def retrieve(thread_id, corpus, mbm25, average_idf, n=30):
 
         questions = [(j, scores[j]) for j in range(len(scores))]
         questions = sorted(questions, key=lambda x: x[1], reverse=True)[:n]
-        result[i] = questions
+        result[idx] = questions
     return result
 
 
@@ -52,7 +53,7 @@ def save(result, fname):
 
 
 def run(corpus, mbm25, average_idf, n):
-    THREADS = 25
+    THREADS = 50
     threadnum = int(len(corpus) / THREADS)
     chunks = [corpus[i:i+threadnum] for i in range(0, len(corpus), threadnum)]
 
@@ -81,6 +82,6 @@ if __name__ == '__main__':
     print('Initializing BM25...')
     model, avg_idf = init_bm25(corpus)
     print('Retrieving...\n')
-    ranking = run(corpus, model, avg_idf, 30)
+    ranking = run(zip(indexes, corpus), model, avg_idf, 30)
     print('Saving...\n')
     save(ranking, 'ranking')
