@@ -10,6 +10,7 @@ from multiprocessing import Pool
 
 SEMI_PATH=paths.SEMI_PATH
 
+
 def load():
     with open(os.path.join(SEMI_PATH, 'index.txt')) as f:
         indexes = f.read().split('\n')
@@ -18,6 +19,7 @@ def load():
         questions_proc = [text.split() for text in f.read().split('\n')]
 
     return indexes, questions_proc
+
 
 def init_bm25(corpus):
     model = bm25.BM25(corpus)
@@ -29,7 +31,7 @@ def retrieve(thread_id, corpus, mbm25, average_idf, n=30):
     result = {}
     for i, query in enumerate(corpus):
         p = round(float(i) / len(corpus), 3)
-        if i % 100 == 0:
+        if i % 10 == 0:
             print('Thread id: ', thread_id, 'Progress: ', p, i, sep='\t', end='\n')
         scores = mbm25.get_scores(query, average_idf)
 
@@ -52,14 +54,14 @@ def save(result, fname):
 def run(corpus, mbm25, average_idf, n):
     THREADS = 25
     threadnum = int(len(corpus) / THREADS)
-    chunks = [corpus[i:i+n] for i in range(0, len(corpus), threadnum)]
+    chunks = [corpus[i:i+threadnum] for i in range(0, len(corpus), threadnum)]
 
-    pool = Pool(processes=10)
+    pool = Pool(processes=THREADS)
 
     processes = []
     for i, chunk in enumerate(chunks):
         print('Process id: ', i+1, 'Doc length:', len(chunk))
-        processes.append(pool.apply_async(retrieve, [i + 1, corpus, mbm25, average_idf, n]))
+        processes.append(pool.apply_async(retrieve, [i + 1, chunk, mbm25, average_idf, n]))
 
     ranking = {}
     for i, process in enumerate(processes):
@@ -71,6 +73,7 @@ def run(corpus, mbm25, average_idf, n):
     pool.join()
 
     return ranking
+
 
 if __name__ == '__main__':
     print('Loading...')
