@@ -82,6 +82,6 @@ if __name__ == '__main__':
     print('Initializing BM25...')
     model, avg_idf = init_bm25(corpus)
     print('Retrieving...\n')
-    ranking = run(zip(indexes, corpus), model, avg_idf, 30)
+    ranking = run(list(zip(indexes, corpus)), model, avg_idf, 30)
     print('Saving...\n')
     save(ranking, 'ranking')
