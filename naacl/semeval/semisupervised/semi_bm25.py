@@ -6,7 +6,7 @@ sys.path.append('../../')
 from semi import Semi
 from models.bm25 import BM25
 
-class SemilBM25(Semi):
+class SemiBM25(Semi):
     def __init__(self, stop=True, lowercase=True, punctuation=True):
         Semi.__init__(self, stop=stop, lowercase=lowercase, punctuation=punctuation)
         self.train()
