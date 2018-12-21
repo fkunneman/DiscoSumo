@@ -1,7 +1,7 @@
 __author='thiagocastroferreira'
 
 import sys
-sys.path.append('../')
+sys.path.append('../../')
 sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
 import ev, metrics
 import _pickle as p
