@@ -10,7 +10,7 @@ import paths
 import re
 
 from operator import itemgetter
-from semeval_bm25 import SemevalBM25
+from semi_bm25 import SemilBM25
 from semi_translation import SemiTranslation
 from semi_softcosine import SemiSoftCosine
 
@@ -74,7 +74,7 @@ class Rerank:
         self.alpha = alpha
         self.sigma = sigma
 
-        self.THREADS = 50
+        self.THREADS = 40
 
         self.questions, self.ranking = self.load()
         self.ensemble = Model()
@@ -117,7 +117,7 @@ class Rerank:
         lowercase, stop, punctuation = self.lowercase['bm25'], self.stop['bm25'], self.punctuation['bm25']
         path = os.path.join(SEMI_PATH, 'bm25.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation))
         if not os.path.exists(path):
-            self.bm25 = SemevalBM25(stop=stop, lowercase=lowercase, punctuation=punctuation, proctrain=True)
+            self.bm25 = SemilBM25(stop=stop, lowercase=lowercase, punctuation=punctuation)
             self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
             self.devbm25 = self.format(self.bm25.validate())
             print('Testing BM25...')

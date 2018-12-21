@@ -36,6 +36,14 @@ class Semi:
         self.stop = stop
         self.punctuation = punctuation
 
+        logging.info('Preparing test set 2016...')
+        self.testset2016 = json.load(open(TEST2016_PATH))
+        self.test2016data, _, _, _ = self.format_data(self.testset2016)
+
+        logging.info('Preparing test set 2017...')
+        self.testset2017 = json.load(open(TEST2017_PATH))
+        self.test2017data, _, _, _ = self.format_data(self.testset2017)
+
         logging.info('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
         self.devdata, _, _, _ = self.format_data(self.devset)
