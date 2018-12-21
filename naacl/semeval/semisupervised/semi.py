@@ -1,6 +1,7 @@
 __author__='thiagocastroferreira'
 
 import sys
+sys.path.append('../')
 sys.path.append('../../')
 import logging
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
@@ -38,19 +39,19 @@ class Semi:
 
         logging.info('Preparing test set 2016...')
         self.testset2016 = json.load(open(TEST2016_PATH))
-        self.test2016data, _, _, _ = self.format_data(self.testset2016)
+        self.test2016data = self.format_data(self.testset2016)
 
         logging.info('Preparing test set 2017...')
         self.testset2017 = json.load(open(TEST2017_PATH))
-        self.test2017data, _, _, _ = self.format_data(self.testset2017)
+        self.test2017data = self.format_data(self.testset2017)
 
         logging.info('Preparing development set...')
         self.devset = json.load(open(DEV_PATH))
-        self.devdata, _, _, _ = self.format_data(self.devset)
+        self.devdata = self.format_data(self.devset)
 
         logging.info('Preparing trainset...')
         self.trainset = json.load(open(TRAIN_PATH))
-        self.traindata, self.voc2id, self.id2voc, self.vocabulary = self.format_data(self.trainset)
+        self.traindata = self.format_data(self.trainset)
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
 

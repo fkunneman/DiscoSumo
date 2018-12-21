@@ -9,7 +9,9 @@ from semeval import Semeval
 from gensim.corpora import Dictionary
 from models.translation import TRLM, compute_w_C
 
-DATA_PATH='data'
+import paths
+
+DATA_PATH=paths.DATA_PATH
 TRANSLATION_PATH='alignments/model/lex.f2e'
 
 class SemevalTranslation(Semeval):

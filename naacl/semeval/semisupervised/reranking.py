@@ -1,6 +1,7 @@
 __author='thiagocastroferreira'
 
 import sys
+sys.path.append('../')
 sys.path.append('../../')
 sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
 import ev, metrics
@@ -24,7 +25,7 @@ from sklearn.preprocessing import MinMaxScaler
 DEV_GOLD_PATH=paths.DEV_GOLD_PATH
 SEMI_PATH=paths.SEMI_PATH
 
-DATA_PATH='../data'
+DATA_PATH=paths.DATA_PATH
 
 def prepare_gold(path):
     ir = ev.read_res_file_aid(path, 'trec')
