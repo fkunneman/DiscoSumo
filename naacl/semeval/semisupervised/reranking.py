@@ -62,8 +62,73 @@ def evaluate(ranking, gold):
     return map_gold, map_pred
 
 
-def run(model, testdata):
-    return model.test(testdata)
+def run_translation(lowercase, stop, punctuation, alpha, sigma, data):
+    translation = SemiTranslation(alpha=alpha, sigma=sigma, punctuation=punctuation, stop=stop, lowercase=lowercase)
+    return translation.test(data)
+
+def run_translation_thread(lowercase, stop, punctuation, alpha, sigma, testdata):
+    def format(ranking):
+        new_ranking = {}
+        for q1id in ranking:
+            new_ranking[q1id] = {}
+            for question in ranking[q1id]:
+                real_label, score, q2id = question
+                new_ranking[q1id][q2id] = (score, real_label)
+        return new_ranking
+
+    THREADS = 15
+    pool = Pool(processes=THREADS)
+
+    n = int(len(testdata) / THREADS)
+    chunks = [testdata[i:i+n] for i in range(0, len(testdata), n)]
+
+    processes = []
+    for i, chunk in enumerate(chunks):
+        print('Process id: ', i+1, 'Doc length:', len(chunk))
+        processes.append(pool.apply_async(run_translation, [lowercase, stop, punctuation, alpha, sigma, dict(chunk)]))
+
+    test = {}
+    for i, process in enumerate(processes):
+        result = process.get()
+        test.update(format(result))
+
+    pool.close()
+    pool.join()
+    return test
+
+def run_softcosine(lowercase, stop, punctuation, data):
+    softcosine = SemiSoftCosine(stop=stop, lowercase=lowercase, punctuation=punctuation)
+    return softcosine.test(data)
+
+def run_softcosine_thread(lowercase, stop, punctuation, testdata):
+    def format(ranking):
+        new_ranking = {}
+        for q1id in ranking:
+            new_ranking[q1id] = {}
+            for question in ranking[q1id]:
+                real_label, score, q2id = question
+                new_ranking[q1id][q2id] = (score, real_label)
+        return new_ranking
+
+    THREADS = 15
+    pool = Pool(processes=THREADS)
+
+    n = int(len(testdata) / THREADS)
+    chunks = [testdata[i:i+n] for i in range(0, len(testdata), n)]
+
+    processes = []
+    for i, chunk in enumerate(chunks):
+        print('Process id: ', i+1, 'Doc length:', len(chunk))
+        processes.append(pool.apply_async(run_softcosine, [lowercase, stop, punctuation, dict(chunk)]))
+
+    test = {}
+    for i, process in enumerate(processes):
+        result = process.get()
+        test.update(format(result))
+
+    pool.close()
+    pool.join()
+    return test
 
 class Rerank:
     def __init__(self, stop={}, lowercase={}, punctuation={}, vector={}, scale=True, alpha=0.9, sigma=0.1):
@@ -74,8 +139,6 @@ class Rerank:
         self.vector = vector
         self.alpha = alpha
         self.sigma = sigma
-
-        self.THREADS = 40
 
         self.questions, self.ranking = self.load()
         self.ensemble = Model()
@@ -113,8 +176,6 @@ class Rerank:
 
 
     def train(self):
-        pool = Pool(processes=self.THREADS)
-
         lowercase, stop, punctuation = self.lowercase['bm25'], self.stop['bm25'], self.punctuation['bm25']
         path = os.path.join(SEMI_PATH, 'bm25.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation))
         if not os.path.exists(path):
@@ -142,26 +203,14 @@ class Rerank:
         lowercase, stop, punctuation = self.lowercase['translation'], self.stop['translation'], self.punctuation['translation']
         path = os.path.join(SEMI_PATH, 'translation.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation) + '.vector_' + str(vector))
         if not os.path.exists(path):
-            self.translation = SemiTranslation(alpha=self.alpha, sigma=self.sigma, punctuation=punctuation, stop=stop, lowercase=lowercase)
-            self.traintranslation = self.format(self.translation.test(self.translation.traindata))
-            self.devtranslation = self.format(self.translation.validate())
+            translation = SemiTranslation(alpha=self.alpha, sigma=self.sigma, punctuation=punctuation, stop=stop, lowercase=lowercase)
+            self.traintranslation = self.format(translation.test(translation.traindata))
+            self.devtranslation = self.format(translation.validate())
+            del translation
 
             print('Testing Translation...')
-            testdata = self.format_input(lowercase, stop, punctuation)
-            n = int(len(testdata) / self.THREADS)
-            chunks = [testdata[i:i+n] for i in range(0, len(testdata), n)]
-
-            processes = []
-            for i, chunk in enumerate(chunks):
-                print('Process id: ', i+1, 'Doc length:', len(chunk))
-                processes.append(pool.apply_async(run, [self.translation, chunk]))
-
-            self.testtranslation = {}
-            for i, process in enumerate(processes):
-                result = process.get()
-                self.testtranslation.update(self.format(result))
-
-            del self.translation
+            testdata = list(self.format_input(lowercase, stop, punctuation).items())
+            self.testtranslation = run_translation_thread(lowercase=lowercase, stop=stop, punctuation=punctuation, alpha=self.alpha, sigma=self.sigma, testdata=testdata)
 
             data = {'train': self.traintranslation, 'dev': self.devtranslation, 'test':self.testtranslation}
             p.dump(data, open(path, 'wb'))
@@ -175,25 +224,14 @@ class Rerank:
         lowercase, stop, punctuation = self.lowercase['softcosine'], self.stop['softcosine'], self.punctuation['softcosine']
         path = os.path.join(SEMI_PATH, 'softcosine.lower_' + str(lowercase) + '.stop_' + str(stop) + '.punct_' + str(punctuation) + '.vector_' + str(vector))
         if not os.path.exists(path):
-            self.softcosine = SemiSoftCosine(stop=stop, lowercase=lowercase, punctuation=punctuation)
-            self.trainsoftcosine = self.format(self.softcosine.test(self.softcosine.traindata))
-            self.devsoftcosine = self.format(self.softcosine.validate())
+            softcosine = SemiSoftCosine(stop=stop, lowercase=lowercase, punctuation=punctuation)
+            self.trainsoftcosine = self.format(softcosine.test(softcosine.traindata))
+            self.devsoftcosine = self.format(softcosine.validate())
+            del softcosine
 
             print('Testing Softcosine...')
-            testdata = self.format_input(lowercase, stop, punctuation)
-            n = int(len(testdata) / self.THREADS)
-            chunks = [testdata[i:i+n] for i in range(0, len(testdata), n)]
-
-            processes = []
-            for i, chunk in enumerate(chunks):
-                print('Process id: ', i+1, 'Doc length:', len(chunk))
-                processes.append(pool.apply_async(run, [self.softcosine, chunk]))
-
-            self.testsoftcosine = {}
-            for i, process in enumerate(processes):
-                result = process.get()
-                self.testsoftcosine.update(self.format(result))
-            del self.softcosine
+            testdata = list(self.format_input(lowercase, stop, punctuation).items())
+            self.testsoftcosine = run_softcosine_thread(lowercase=lowercase, stop=stop, punctuation=punctuation, testdata=testdata)
 
             data = { 'train': self.trainsoftcosine, 'dev': self.devsoftcosine, 'test': self.testsoftcosine }
             p.dump(data, open(path, 'wb'))
@@ -201,9 +239,6 @@ class Rerank:
             data = p.load(open(path, 'rb'))
             self.trainsoftcosine = data['train']
             self.devsoftcosine = data['dev']
-
-        pool.close()
-        pool.join()
 
         self.X, self.y = [], []
 

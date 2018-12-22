@@ -101,7 +101,8 @@ class SemiTranslation(Semi):
         for j, q1id in enumerate(self.testdata):
             ranking[q1id] = []
             percentage = round(float(j+1) / len(self.testdata), 2)
-            print('Progress: ', percentage, j+1, sep='\t', end='\r')
+            if j % 20 == 0:
+                print('Progress: ', percentage, j+1, sep='\t')
 
             for q2id in self.testdata[q1id]:
                 pair = self.testdata[q1id][q2id]
