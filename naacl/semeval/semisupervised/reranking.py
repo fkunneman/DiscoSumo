@@ -76,7 +76,7 @@ def run_translation_thread(lowercase, stop, punctuation, alpha, sigma, testdata)
                 new_ranking[q1id][q2id] = (score, real_label)
         return new_ranking
 
-    THREADS = 15
+    THREADS = 12
     pool = Pool(processes=THREADS)
 
     n = int(len(testdata) / THREADS)
@@ -110,7 +110,7 @@ def run_softcosine_thread(lowercase, stop, punctuation, testdata):
                 new_ranking[q1id][q2id] = (score, real_label)
         return new_ranking
 
-    THREADS = 15
+    THREADS = 12
     pool = Pool(processes=THREADS)
 
     n = int(len(testdata) / THREADS)
@@ -182,13 +182,14 @@ class Rerank:
             self.bm25 = SemiBM25(stop=stop, lowercase=lowercase, punctuation=punctuation)
             self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
             self.devbm25 = self.format(self.bm25.validate())
+
             print('Testing BM25...')
             self.testbm25 = {}
             for q1id in self.ranking:
                 self.testbm25[q1id] = {}
-                for question in self.ranking[q1id]:
+                for question in self.ranking[q1id][1:11]:
                     q2id, score = question
-                    self.testbm25[q1id][q2id] = float(score)
+                    self.testbm25[q1id][q2id] = (float(score), 0)
             del self.bm25
 
             data = {'train': self.trainbm25, 'dev': self.devbm25, 'test': self.testbm25}
@@ -239,6 +240,7 @@ class Rerank:
             data = p.load(open(path, 'rb'))
             self.trainsoftcosine = data['train']
             self.devsoftcosine = data['dev']
+            self.testsoftcosine = data['test']
 
         self.X, self.y = [], []
 
