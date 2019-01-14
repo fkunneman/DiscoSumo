@@ -4,7 +4,7 @@ import _pickle as p
 import sys
 sys.path.append('../')
 sys.path.append('../../')
-sys.path.append('/home/tcastrof/Question/semeval/evaluation/MAP_scripts')
+sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
 import copy
 import dynet as dy
 import ev, metrics
