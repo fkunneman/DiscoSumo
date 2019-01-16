@@ -77,9 +77,9 @@ def parse(thread_id, document, port, lowercase=True, punctuation=True, stop=True
     corenlp.close()
     return doc
 
-def train(lowercase=True, punctuation=True, stop=True):
+def train(lowercase=True, punctuation=True, stop=True, dim=300):
     path = paths.WORD2VEC_DIR
-    path = os.path.join(path, 'fasttext')
+    path = os.path.join(path, 'fasttext.'+str(dim))
     if lowercase: path += '.lower'
     if stop: path += '.stop'
     if punctuation: path += '.punct'
@@ -117,12 +117,12 @@ def train(lowercase=True, punctuation=True, stop=True):
 
     logging.info('Training...')
     fname = os.path.join(path, 'fasttext.model')
-    model = FastText(document, size=300, window=10, min_count=1, workers=10, iter=5)
+    model = FastText(document, size=dim, window=10, min_count=1, workers=10, iter=5)
     model.save(fname)
 
-def init_fasttext(lowercase=True, punctuation=True, stop=True):
+def init_fasttext(lowercase=True, punctuation=True, stop=True, dim=300):
     path = paths.WORD2VEC_DIR
-    path = os.path.join(path, 'fasttext')
+    path = os.path.join(path, 'fasttext.'+str(dim))
     if lowercase: path += '.lower'
     if stop: path += '.stop'
     if punctuation: path += '.punct'
@@ -131,13 +131,13 @@ def init_fasttext(lowercase=True, punctuation=True, stop=True):
     return FastText.load(fname)
 
 
-def encode(question, w2vec):
+def encode(question, w2vec, dim=300):
     emb = []
     for w in question:
         try:
             emb.append(w2vec[w])
         except:
-            emb.append(300 * [0])
+            emb.append(dim * [0])
     return emb
 
 if __name__ == '__main__':

@@ -34,13 +34,14 @@ TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
 TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 class Semeval():
-    def __init__(self, stop=True, vector='', lowercase=True, punctuation=True, proctrain=True, elmo_layer='top'):
+    def __init__(self, stop=True, vector='', lowercase=True, punctuation=True, proctrain=True, elmo_layer='top', w2vdim=300):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
         self.lowercase = lowercase
         self.stop = stop
         self.punctuation = punctuation
+        self.w2vdim = w2vdim
         self.proctrain = proctrain
         self.vector = vector
         self.elmo_layer = elmo_layer
@@ -65,11 +66,11 @@ class Semeval():
 
         self.word2vec = None
         if 'word2vec' in self.vector:
-            self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop)
+            self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop, dim=self.w2vdim)
 
         self.fasttext = None
         if 'fasttext' in self.vector:
-            self.fasttext = fasttext.init_fasttext(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop)
+            self.fasttext = fasttext.init_fasttext(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop, dim=self.w2vdim)
 
         self.trainidx = self.trainelmo = self.devidx = self.develmo = self.test2016idx = self.test2016elmo = self.test2017idx = self.test2017elmo = None
         if 'elmo' in self.vector:
@@ -126,7 +127,7 @@ class Semeval():
                 try:
                     emb.append(self.word2vec[w])
                 except:
-                    emb.append(300 * [0])
+                    emb.append(self.w2vdim * [0])
             return emb
 
         def fasttext():
@@ -135,7 +136,7 @@ class Semeval():
                 try:
                     emb.append(self.fasttext[w])
                 except:
-                    emb.append(300 * [0])
+                    emb.append(self.w2vdim * [0])
             return emb
 
         def elmo():

@@ -116,8 +116,8 @@ class SemevalCosine(Semeval):
 
 
 class SemevalSoftCosine(Semeval):
-    def __init__(self, stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', path=DATA_PATH):
-        Semeval.__init__(self, stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, proctrain=proctrain)
+    def __init__(self, stop=True, lowercase=True, punctuation=True, proctrain=True, vector='word2vec', w2vdim=300, path=DATA_PATH):
+        Semeval.__init__(self, stop=stop, lowercase=lowercase, punctuation=punctuation, vector=vector, proctrain=proctrain, w2vdim=w2vdim)
         self.path = path
         self.train()
 

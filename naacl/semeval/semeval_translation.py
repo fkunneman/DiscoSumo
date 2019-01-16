@@ -15,8 +15,8 @@ DATA_PATH=paths.DATA_PATH
 TRANSLATION_PATH='alignments/model/lex.f2e'
 
 class SemevalTranslation(Semeval):
-    def __init__(self, alpha, sigma, stop=True, lowercase=True, punctuation=True, vector='word2vec', proctrain=True, path=DATA_PATH):
-        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain)
+    def __init__(self, alpha, sigma, stop=True, lowercase=True, punctuation=True, vector='word2vec', w2vdim=300, proctrain=True, path=DATA_PATH):
+        Semeval.__init__(self, stop=stop, vector=vector, lowercase=lowercase, punctuation=punctuation, proctrain=proctrain, w2vdim=w2vdim)
         self.alpha = alpha
         self.sigma = sigma
         self.path = path
