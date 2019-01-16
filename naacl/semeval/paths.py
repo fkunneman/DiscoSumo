@@ -9,7 +9,7 @@ FASTTEXT_PATH='/roaming/tcastrof/semeval/word2vec/fasttext.model'
 ELMO_PATH='/roaming/tcastrof/semeval/elmo/'
 
 ADDITIONAL_PATH= '/roaming/tcastrof/semeval/word2vec/word2vec'
-DATA_PATH='/home/tcastrof/DiscoSumo/naacl/semeval/data'
+DATA_PATH='/roaming/tcastrof/semeval/data'
 
 STANFORD_PATH=r'/home/tcastrof/workspace/stanford/stanford-corenlp-full-2018-02-27'
 QATAR_PATH='/roaming/tcastrof/semeval/dataset/unannotated/dump_QL_all_question_subject_body.txt.gz'

@@ -33,11 +33,14 @@ def load():
 
     return questions, comments
 
+
 def remove_punctuation(tokens):
     return re.sub(r'[\W]+',' ', ' '.join(tokens)).strip().split()
 
+
 def remove_stopwords(tokens):
     return [w for w in tokens if w.lower() not in stop]
+
 
 def parse(thread_id, document, port, lowercase=True, punctuation=True, stop=True):
     props = {'annotators': 'tokenize,ssplit','pipelineLanguage':'en','outputFormat':'json'}
@@ -76,6 +79,7 @@ def parse(thread_id, document, port, lowercase=True, punctuation=True, stop=True
 
     corenlp.close()
     return doc
+
 
 def train(lowercase=True, punctuation=True, stop=True, dim=300):
     path = paths.WORD2VEC_DIR
@@ -119,6 +123,7 @@ def train(lowercase=True, punctuation=True, stop=True, dim=300):
     model = Word2Vec(document, size=dim, window=10, min_count=1, workers=10, iter=5)
     model.save(fname)
 
+
 def init_word2vec(lowercase=True, punctuation=True, stop=True, dim=300):
     path = paths.WORD2VEC_DIR
     path = os.path.join(path, 'word2vec.'+str(dim))
@@ -138,6 +143,7 @@ def encode(question, w2vec, dim=300):
         except:
             emb.append(dim * [0])
     return emb
+
 
 if __name__ == '__main__':
     logging.info('Loading corpus...')
