@@ -10,6 +10,7 @@ import os
 stopwords = load.load_stopwords()
 import string
 punctuation = string.punctuation
+import pandas as pd
 import numpy as np
 import spacy
 
@@ -21,7 +22,7 @@ from gensim.models import TfidfModel
 from sklearn.metrics.pairwise import cosine_similarity
 
 DATA_PATH='/roaming/fkunnema/goeievraag/parsed/'
-WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/goeievraag/word2vec/word2vec.model'
+WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/goeievraag/word2vec'
 QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed.json'
 NEW_QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed_proc.json'
 
@@ -29,7 +30,8 @@ ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed.json'
 NEW_ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed_proc.json'
 
 class GoeieVraag():
-    def __init__(self):
+    def __init__(self, w2v_dim=300, alpha=0.8, sigma=0.2):
+        self.w2v_dim = w2v_dim
         self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
         print('Parsing questions and answers...')
         if not os.path.exists(NEW_QUESTIONS):
@@ -37,6 +39,14 @@ class GoeieVraag():
         else:
             self.questions = json.load(open(NEW_QUESTIONS))
             self.answers = json.load(open(NEW_ANSWERS))
+
+            self.corpus = []
+            for question in self.questions.values():
+                self.corpus.append(question['tokens'])
+            for answer in self.answers.values():
+                self.corpus.append(answer['tokens'])
+
+            self.dict = Dictionary.load(os.path.join(DATA_PATH, 'dict.model'))
 
         print('Filter seed questions...')
         self.seeds = self.filter(self.questions.values())
@@ -46,6 +56,9 @@ class GoeieVraag():
         # word2vec
         print('Initializing Word2Vec...')
         self.init_word2vec()
+        # translation
+        print('Initializing Translation...')
+        self.init_translation(alpha, sigma)
         # softcosine
         print('Initializing Softcosine...')
         self.init_sofcos()
@@ -77,28 +90,36 @@ class GoeieVraag():
         for i, question in enumerate(self.questions):
             if i % 1000 == 0:
                 percentage = round(float(i+1) / len(self.questions), 2)
-                print('Question Progress: ', percentage, end='\r')
+                # print('Question Progress: ', percentage, end='\r')
             text = question['questiontext']
             text = list(map(lambda token: str(token).lower(), self.nlp(text)))
 
             question['tokens'] = text
             question['tokens_proc'] = [w for w in text if w not in stopwords and w not in punctuation]
         self.questions = dict([(question['id'], question) for question in self.questions])
-        print('\n')
+
         self.answers = json.load(open(ANSWERS))
         for i, answer in enumerate(self.answers):
             if i % 1000 == 0:
                 percentage = round(float(i+1) / len(self.answers), 2)
-                print('Answer Progress: ', percentage, end='\r')
+                # print('Answer Progress: ', percentage, end='\r')
             text = answer['answertext']
             text = list(map(lambda token: str(token).lower(), self.nlp(text)))
 
             answer['tokens'] = text
             answer['tokens_proc'] = [w for w in text if w not in stopwords and w not in punctuation]
         self.answers = dict([(answer['id'], answer) for answer in self.answers])
-        print('\n')
+
+        self.corpus = []
+        for question in self.questions.values():
+            self.corpus.append(question['tokens'])
+        for answer in self.answers.values():
+            self.corpus.append(answer['tokens'])
+        self.dict = Dictionary(self.corpus)  # fit dictionary
+
         json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
         json.dump(self.answers, open(NEW_ANSWERS, 'w'))
+        self.dict.save(os.path.join(DATA_PATH, 'dict.model'))
         return self.questions, self.answers
 
 
@@ -131,7 +152,9 @@ class GoeieVraag():
 
     # WORD2VEC
     def init_word2vec(self):
-        self.word2vec = Word2Vec.load(WORD2VEC_PATH)
+        fname = 'wordvec.' + str(self.w2v_dim) + '.model'
+        path = os.path.join(WORD2VEC_PATH, fname)
+        self.word2vec = Word2Vec.load(path)
 
 
     def encode(self, question):
@@ -140,30 +163,34 @@ class GoeieVraag():
             try:
                 emb.append(self.word2vec[w.lower()])
             except:
-                emb.append(300 * [0])
+                emb.append(self.w2v_dim * [0])
         return emb
+
+
+    # Preprocessing
+    def preprocess(self, q1, q2):
+        if type(q1) == str:
+            q1 = q1.split()
+        if type(q2) == str:
+            q2 = q2.split()
+
+        q1emb = self.encode(q1)
+        q2emb = self.encode(q2)
+
+        return q1, q1emb, q2, q2emb
 
 
     # Softcosine
     def init_sofcos(self):
         if not os.path.exists(os.path.join(DATA_PATH,'tfidf.model')):
-            corpus = []
-            for question in self.questions.values():
-                corpus.append(question['tokens'])
-            for answer in self.answers.values():
-                corpus.append(answer['tokens'])
-
-            self.dict = Dictionary(corpus)  # fit dictionary
-            corpus = [self.dict.doc2bow(line) for line in corpus]  # convert corpus to BoW format
+            corpus = [self.dict.doc2bow(line) for line in self.corpus]  # convert corpus to BoW format
             self.tfidf = TfidfModel(corpus)  # fit model
-            self.dict.save(os.path.join(DATA_PATH, 'dict.model'))
             self.tfidf.save(os.path.join(DATA_PATH, 'tfidf.model'))
         else:
-            self.dict = Dictionary.load(os.path.join(DATA_PATH, 'dict.model'))
             self.tfidf = TfidfModel.load(os.path.join(DATA_PATH, 'tfidf.model'))
 
 
-    def softcos(self, q1, q2):
+    def softcos(self, q1, q1emb, q2, q2emb):
         def dot(q1tfidf, q1emb, q2tfidf, q2emb):
             cos = 0.0
             for i, w1 in enumerate(q1tfidf):
@@ -175,14 +202,6 @@ class GoeieVraag():
                         cos += (w1[1] * m_ij * w2[1])
             return cos
 
-        if type(q1) == str:
-            q1 = q1.split()
-        if type(q2) == str:
-            q2 = q2.split()
-
-        q1emb = self.encode(q1)
-        q2emb = self.encode(q2)
-
         q1tfidf = self.tfidf[self.dict.doc2bow(q1)]
         q2tfidf = self.tfidf[self.dict.doc2bow(q2)]
 
@@ -192,9 +211,65 @@ class GoeieVraag():
         return sofcosine
 
 
+    # Translation
+    def init_translation(self, alpha, sigma):
+        tokens = []
+        for question in list(self.corpus):
+            for token in question:
+                tokens.append(token)
+
+        Q_len = float(len(tokens))
+        aux_w_Q = self.dict.doc2bow(tokens)
+        aux_w_Q = dict([(self.dict[w[0]], (w[1]+1.0)/(Q_len+len(self.dict))) for w in aux_w_Q])
+
+        w_Q = {}
+        for w in aux_w_Q:
+            if w[0] not in w_Q:
+                w_Q[w[0]] = {}
+            w_Q[w[0]][w] = aux_w_Q[w]
+
+        self.prob_w_C = w_Q
+        self.alpha = alpha
+        self.sigma = sigma
+
+
+    def translate(self, q1, q1emb, q2, q2emb):
+        score = 0.0
+        if len(q1) == 0 or len(q2) == 0: return 0.0
+
+        Q = pd.Series(q2)
+        Q_count = Q.count()
+
+        t_Qs = []
+        for t in q2:
+            t_Q = float(Q[Q == t].count()) / Q_count
+            t_Qs.append(t_Q)
+
+        for i, w in enumerate(q1):
+            try:
+                w_C = self.prob_w_C[w[0]][w]
+            except:
+                w_C = 1.0 / len(self.dict)
+
+            ml_w_Q = float(Q[Q == w].count()) / Q_count
+            mx_w_Q = 0.0
+
+            for j, t in enumerate(q2):
+                w_t = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0]) ** 2
+
+                t_Q = t_Qs[j]
+                mx_w_Q += (w_t * t_Q)
+            w_Q = (self.sigma * mx_w_Q) + ((1-self.sigma) * ml_w_Q)
+            score += np.log(((1-self.alpha) * w_Q) + (self.alpha * w_C))
+
+        return score
+
+
     def rerank(self, query, questions, n=10):
         for i, question in enumerate(questions):
-            questions[i] = (question[0], question[1], self.softcos(query, question[1]))
+            q1, q1emb, q2, q2emb = self.preprocess(query, question[1])
+
+            questions[i] = (question[0], question[1], self.softcos(q1, q1emb, q2, q2emb))
 
         questions = sorted(questions, key=lambda x: x[2], reverse=True)[:n]
         return questions
