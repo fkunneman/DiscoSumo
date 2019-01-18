@@ -29,10 +29,11 @@ TEST2016_PATH=os.path.join(DATA_PATH, 'testset2016.data')
 TEST2017_PATH=os.path.join(DATA_PATH, 'testset2017.data')
 
 class Semi:
-    def __init__(self, stop=True, lowercase=True, punctuation=True):
+    def __init__(self, stop=True, lowercase=True, punctuation=True, w2v_dim=300):
         if not os.path.exists(DEV_PATH):
             preprocessing.run()
 
+        self.w2v_dim = w2v_dim
         self.lowercase = lowercase
         self.stop = stop
         self.punctuation = punctuation
@@ -55,7 +56,7 @@ class Semi:
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
 
-        self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop)
+        self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop, w2v_dim=self.w2v_dim)
 
         # additional data
         self.init_additional()
@@ -64,6 +65,7 @@ class Semi:
     def init_additional(self):
         path = ADDITIONAL_PATH
 
+        path += '.' + str(self.w2v_dim)
         if self.lowercase: path += '.lower'
         if self.stop: path += '.stop'
         if self.punctuation: path += '.punct'
@@ -78,7 +80,7 @@ class Semi:
             try:
                 emb.append(self.word2vec[w])
             except:
-                emb.append(300 * [0])
+                emb.append(self.w2v_dim * [0])
         return emb
 
 

@@ -9,10 +9,10 @@ import copy
 import dynet as dy
 import ev, metrics
 import os
+import numpy as np
 import time
 import paths
 from sklearn.metrics import f1_score
-
 from operator import itemgetter
 from semi import Semi
 
@@ -56,29 +56,76 @@ def evaluate(ranking, gold):
 
 
 def load_additional():
-    with open(os.path.join(paths.SEMI_PATH, 'index.txt')) as f:
-        index = f.read().split('\n')
+    path = os.path.join(paths.SEMI_PATH, 'training.pickle')
 
-    with open(os.path.join(paths.SEMI_PATH, 'question.txt')) as f:
-        questions = f.read().split('\n')
-        questions = [snt.replace('<SENTENCE>', ' ').split() for snt in questions]
+    if not os.path.exists(path):
+        with open(os.path.join(paths.SEMI_PATH, 'index.txt')) as f:
+            index = f.read().split('\n')
 
-    idx2question = dict(zip(index, questions))
-    additional = p.load(open(os.path.join(paths.SEMI_PATH, 'reranking'), 'rb'))
-    for q1id in additional:
-        q1 = idx2question[q1id]
-        for q2id in additional[q1id]:
-            q2 = idx2question[q2id]
+        with open(os.path.join(paths.SEMI_PATH, 'question.txt')) as f:
+            questions = f.read().split('\n')
+            questions = [snt.replace('<SENTENCE>', ' ').split() for snt in questions]
 
-            additional[q1id][q2id]['q1_full'] = q1[:80]
-            additional[q1id][q2id]['q2_full'] = q2[:80]
-    return additional
+        idx2question = dict(zip(index, questions))
+        additional = p.load(open(os.path.join(paths.SEMI_PATH, 'reranking'), 'rb'))
+        for q1id in additional:
+            q1 = idx2question[q1id]
+            for q2id in additional[q1id]:
+                q2 = idx2question[q2id]
+
+                additional[q1id][q2id]['q1_full'] = ['EOS'] + q1[:80] + ['EOS']
+                additional[q1id][q2id]['q2_full'] = ['EOS'] + q2[:80] + ['EOS']
+
+        # select queries that have at least one negative question. Select the proportional number of positive examples
+        new_additional = {}
+        for q1id in additional:
+            labels = [(q1id, q2id, additional[q1id][q2id]['label'], additional[q1id][q2id]['score']) for q2id in additional[q1id]]
+
+            negative = [w for w in labels if w[2] == 0]
+            if 0 < len(negative) <= 5:
+                new_additional[q1id] = {}
+                positive = sorted([w for w in labels if w[2] == 1], key=lambda x: x[-1], reverse=True)[:len(negative)]
+
+                for row in negative:
+                    _, q2id, label, score = row
+                    new_additional[q1id][q2id] = additional[q1id][q2id]
+                for row in positive:
+                    _, q2id, label, score = row
+                    new_additional[q1id][q2id] = additional[q1id][q2id]
+
+        p.dump(new_additional, open(path, 'wb'))
+    else:
+        new_additional = p.load(open(path, 'rb'))
+
+    vocab = ['UNK']
+    questions = []
+    negative, positive = 0, 0
+    for q1id in new_additional:
+        questions += [len(list(new_additional[q1id].keys()))]
+
+        for q2id in new_additional[q1id]:
+            vocab.extend(new_additional[q1id][q2id]['q1_full'])
+            vocab.extend(new_additional[q1id][q2id]['q2_full'])
+
+            if new_additional[q1id][q2id]['label'] == 0:
+                negative += 1
+            else:
+                positive += 1
+
+    vocab = list(set(vocab))
+    voc2id = dict([(w, i) for i, w in enumerate(vocab)])
+
+    mean = round(sum(questions) / float(len(questions)), 2)
+    print('Training data -', 'Average number of pairs: ', mean, 'Positive examples: ', positive, 'Negative examples: ', negative, sep='\t')
+    return new_additional, voc2id
+
 
 class SemiSiamese(Semi):
     def __init__(self, properties):
-        Semi.__init__(self, stop=False, lowercase=False, punctuation=False)
+        Semi.__init__(self, stop=False, lowercase=False, punctuation=False, w2v_dim=properties['EMB_DIM'])
 
-        self.additional = load_additional()
+        print('Load additional data...')
+        self.additional, self.voc2id = load_additional()
 
         self.MODEL = properties['MODEL']
         self.EPOCH = properties['EPOCH']
@@ -96,7 +143,20 @@ class SemiSiamese(Semi):
         dy.renew_cg()
         self.model = dy.Model()
 
-        if self.MODEL[:4] == 'conv':
+        # VOCAB_SIZE = len(self.voc2id)
+        # self.lp = self.model.add_lookup_parameters((VOCAB_SIZE, self.EMB_DIM))
+
+        vocab = list(self.word2vec.wv.vocab)
+        embeddings = []
+        for w in vocab:
+            embeddings.append(self.word2vec[w])
+
+        vocab.append('UNK')
+        embeddings.append(np.random.uniform(-0.1, 0.1, (300)))
+        self.voc2id = dict([(w, i) for i, w in enumerate(vocab)])
+        self.lp = self.model.lookup_parameters_from_numpy(np.array(embeddings))
+
+        if self.MODEL == 'conv':
             self.init_conv()
         elif self.MODEL == 'lstm':
             self.init_lstm()
@@ -107,18 +167,14 @@ class SemiSiamese(Semi):
 
     def init_conv(self):
         # QUERY
-        self.F_query = self.model.add_parameters((5, self.EMB_DIM, 1, 2))
-        self.b_query = self.model.add_parameters((2, ))
-        dy.dropout(self.F_query, self.DROPOUT)
-        dy.dropout(self.b_query, self.DROPOUT)
+        self.F_query = self.model.add_parameters((5, self.EMB_DIM, 1, 100))
+        self.b_query = self.model.add_parameters((100, ))
 
         # CANDIDATE QUESTION
-        self.F_question = self.model.add_parameters((5, self.EMB_DIM, 1, 2))
-        self.b_question = self.model.add_parameters((2, ))
-        dy.dropout(self.F_question, self.DROPOUT)
-        dy.dropout(self.b_question, self.DROPOUT)
+        self.F_question = self.model.add_parameters((5, self.EMB_DIM, 1, 100))
+        self.b_question = self.model.add_parameters((100, ))
 
-        input_size = 1 * (self.EMB_DIM * 2)
+        input_size = 1 * (self.EMB_DIM * 100)
         self.W1_query = self.model.add_parameters((self.HIDDEN_DIM, input_size))
         self.bW1_query = self.model.add_parameters((self.HIDDEN_DIM))
         dy.dropout(self.W1_query, self.DROPOUT)
@@ -144,16 +200,23 @@ class SemiSiamese(Semi):
         input_size = 2 * 512
         self.W1_query = self.model.add_parameters((self.HIDDEN_DIM, input_size))
         self.bW1_query = self.model.add_parameters((self.HIDDEN_DIM))
-        dy.dropout(self.W1_query, self.DROPOUT)
 
         self.W1_question = self.model.add_parameters((self.HIDDEN_DIM, input_size))
         self.bW1_question = self.model.add_parameters((self.HIDDEN_DIM))
-        dy.dropout(self.W1_question, self.DROPOUT)
 
 
     def __embed__(self, text):
-        embeddings = self.encode(text)
-        embeddings = list(map(lambda w: dy.inputTensor(w), embeddings))
+        question = []
+        index = []
+        for w in text:
+            question.append(w)
+            try:
+                _id = self.voc2id[w]
+            except:
+                _id = self.voc2id['UNK']
+            index.append(_id)
+
+        embeddings = list(map(lambda idx: self.lp[idx], index))
         return embeddings
 
 
@@ -164,7 +227,9 @@ class SemiSiamese(Semi):
         x = dy.conv2d_bias(emb, F, b, [1, 1], is_valid=False)
         x = dy.maxpooling2d(x, [1, sntlen], [1, 1], is_valid=True)
         x = dy.rectify(x)
-        f = dy.reshape(x, (self.EMB_DIM * 1 * 2,))
+        if self.DROPOUT > 0:
+            dy.dropout(x, self.DROPOUT)
+        f = dy.reshape(x, (self.EMB_DIM * 1 * 100,))
 
         return W1 * f + bW1
 
@@ -254,69 +319,6 @@ class SemiSiamese(Semi):
                          str(self.DROPOUT)])
 
 
-    def test(self, testset):
-        ranking = {}
-        y_real, y_pred = [], []
-        for i, q1id in enumerate(testset):
-            ranking[q1id] = []
-            percentage = round(float(i+1) / len(testset), 2)
-            print('Progress: ', percentage, sep='\t', end='\r')
-
-            q2id = list(testset[q1id].keys())[0]
-            q1 = testset[q1id][q2id]['q1_full']
-            query_embedding = self.__embed__(q1)
-
-            query_vec = None
-            if self.MODEL == 'conv':
-                query_vec = self.__convolve__(query_embedding,
-                                              self.F_query,
-                                              self.b_query,
-                                              self.W1_query,
-                                              self.bW1_query)
-            elif self.MODEL == 'lstm':
-                query_vec = self.__recur__(query_embedding,
-                                           self.fwd_lstm_query,
-                                           self.bwd_lstm_query,
-                                           self.W1_query,
-                                           self.bW1_query)
-
-            for q2id in testset[q1id]:
-                q2 = testset[q1id][q2id]['q2_full']
-
-                question_embedding = self.__embed__(q2)
-
-                question_vec = None
-                if self.MODEL == 'conv':
-                    question_vec = self.__convolve__(question_embedding,
-                                                     self.F_question,
-                                                     self.b_query,
-                                                     self.W1_question,
-                                                     self.bW1_question)
-                elif self.MODEL == 'lstm':
-                    question_vec = self.__recur__(question_embedding,
-                                                  self.fwd_lstm_question,
-                                                  self.bwd_lstm_question,
-                                                  self.W1_question,
-                                                  self.bW1_question)
-
-                x = dy.concatenate([query_vec, question_vec])
-                probs = dy.softmax(self.W * x + self.bW)
-                score = dy.pick(probs, 1).value()
-                if score > 0.5:
-                    pred_label = 1
-                else:
-                    pred_label = 0
-                y_pred.append(pred_label)
-
-                y_real = testset[q1id][q2id]['label']
-                ranking[q1id].append((pred_label, score, q2id))
-                dy.renew_cg()
-
-        map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
-        f1score = f1_score(y_real, y_pred)
-        return map_baseline, map_model, f1score
-
-
     def tepoch(self, epoch_timing):
         time_epoch = sum(epoch_timing)
         if time_epoch > 3600:
@@ -328,12 +330,12 @@ class SemiSiamese(Semi):
         return time_epoch
 
 
-    def train(self):
+    def train(self, traindata, lr=1e-5):
         dy.renew_cg()
-        trainer = dy.AdamTrainer(self.model)
+        trainer = dy.AdamTrainer(self.model, alpha=lr)
 
         # Loggin
-        path = self.fname() + '.log'
+        path = self.fname() + '.log' if len(traindata) > 5000 else self.fname() + 'tuning.log'
         f = open(os.path.join(EVALUATION_PATH, path), 'w')
 
         epoch_timing = []
@@ -345,12 +347,12 @@ class SemiSiamese(Semi):
             losses = []
             closs = 0
             batch_timing = []
-            for i, q1id in self.additional:
-                for q2id in self.additional[q1id]:
+            for i, q1id in enumerate(traindata):
+                for q2id in traindata[q1id]:
                     start = time.time()
-                    query = self.additional[q1id][q2id]['q1_full']
-                    question = self.additional[q1id][q2id]['q2_full']
-                    label = self.additional[q1id][q2id]['label']
+                    query = traindata[q1id][q2id]['q1_full']
+                    question = traindata[q1id][q2id]['q2_full']
+                    label = traindata[q1id][q2id]['label']
 
                     loss = self.get_loss(query, question, label)
                     losses.append(loss)
@@ -364,9 +366,9 @@ class SemiSiamese(Semi):
                         dy.renew_cg()
 
                         # percentage of trainset processed
-                        percentage = str(round((float(i+1) / len(self.traindata)) * 100,2)) + '%'
+                        percentage = str(round((float(i+1) / len(traindata)) * 100,2)) + '%'
                         # time of epoch processing
-                        self.tepoch(epoch_timing)
+                        time_epoch = self.tepoch(epoch_timing)
                         print("Epoch: {0} \t\t Loss: {1} \t\t Epoch time: {2} \t\t Trainset: {3}".format(epoch+1, round(_loss, 2), time_epoch, percentage), end='       \r')
                         losses = []
                         batch_timing = []
@@ -400,6 +402,68 @@ class SemiSiamese(Semi):
                 break
         f.close()
 
+
+    def test(self, testset):
+        ranking = {}
+        y_real, y_pred = [], []
+        for i, q1id in enumerate(testset):
+            ranking[q1id] = []
+            percentage = round(float(i+1) / len(testset), 2)
+            print('Progress: ', percentage, sep='\t', end='\r')
+
+            q2id = list(testset[q1id].keys())[0]
+            q1 = ['EOS'] + testset[q1id][q2id]['q1_full'] + ['EOS']
+            query_embedding = self.__embed__(q1)
+
+            query_vec = None
+            if self.MODEL == 'conv':
+                query_vec = self.__convolve__(query_embedding,
+                                              self.F_query,
+                                              self.b_query,
+                                              self.W1_query,
+                                              self.bW1_query)
+            elif self.MODEL == 'lstm':
+                query_vec = self.__recur__(query_embedding,
+                                           self.fwd_lstm_query,
+                                           self.bwd_lstm_query,
+                                           self.W1_query,
+                                           self.bW1_query)
+
+            for q2id in testset[q1id]:
+                q2 = ['EOS'] + testset[q1id][q2id]['q2_full'] + ['EOS']
+
+                question_embedding = self.__embed__(q2)
+
+                question_vec = None
+                if self.MODEL == 'conv':
+                    question_vec = self.__convolve__(question_embedding,
+                                                     self.F_question,
+                                                     self.b_query,
+                                                     self.W1_question,
+                                                     self.bW1_question)
+                elif self.MODEL == 'lstm':
+                    question_vec = self.__recur__(question_embedding,
+                                                  self.fwd_lstm_question,
+                                                  self.bwd_lstm_question,
+                                                  self.W1_question,
+                                                  self.bW1_question)
+
+                x = dy.concatenate([query_vec, question_vec])
+                probs = dy.softmax(self.W * x + self.bW)
+                score = dy.pick(probs, 1).value()
+
+                probs = probs.vec_value()
+                pred_label = probs.index(max(probs))
+                y_pred.append(pred_label)
+
+                ranking[q1id].append((pred_label, score, q2id))
+                y_real.append(testset[q1id][q2id]['label'])
+            dy.renew_cg()
+
+        map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
+        f1score = f1_score(y_real, y_pred)
+        return map_baseline, map_model, f1score
+
 if __name__ == '__main__':
     if not os.path.exists(EVALUATION_PATH):
         os.mkdir(EVALUATION_PATH)
@@ -407,27 +471,29 @@ if __name__ == '__main__':
     # CONV
     properties = {
         'EPOCH': 30,
-        'BATCH': 16,
-        'EMB_DIM': 300,
-        'HIDDEN_DIM': 256,
-        'DROPOUT': 0.2,
+        'BATCH': 50,
+        'EMB_DIM': 100,
+        'HIDDEN_DIM': 128,
+        'DROPOUT': 0.0,
         'EARLY_STOP': 5,
         'MODEL': 'conv',
     }
 
     siamese = SemiSiamese(properties)
-    siamese.train()
+    siamese.train(siamese.additional, lr=1e-4)
+    siamese.train(siamese.traindata, lr=1e-5)
 
     ## LSTMs
     properties = {
         'EPOCH': 30,
-        'BATCH': 64,
-        'EMB_DIM': 300,
-        'HIDDEN_DIM': 512,
+        'BATCH': 32,
+        'EMB_DIM': 100,
+        'HIDDEN_DIM': 128,
         'DROPOUT': 0.2,
         'EARLY_STOP': 5,
         'MODEL': 'lstm'
     }
 
     siamese = SemiSiamese(properties)
-    siamese.train()
+    siamese.train(siamese.additional, lr=1e-4)
+    siamese.train(siamese.traindata, lr=1e-5)
