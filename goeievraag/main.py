@@ -14,11 +14,14 @@ import pandas as pd
 import numpy as np
 import spacy
 
+from classifier import Model
+
 from gensim.summarization import bm25
 from gensim.models import Word2Vec
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 
 DATA_PATH='/roaming/fkunnema/goeievraag/parsed/'
@@ -137,14 +140,14 @@ class GoeieVraag():
 
     # BM25
     def init_bm25(self, corpus):
-        self.model = bm25.BM25(corpus)
+        self.bm25 = bm25.BM25(corpus)
 
         # get average idf
-        self.average_idf = sum(map(lambda k: float(self.model.idf[k]), self.model.idf.keys())) / len(self.model.idf.keys())
+        self.average_idf = sum(map(lambda k: float(self.bm25.idf[k]), self.bm25.idf.keys())) / len(self.bm25.idf.keys())
 
 
     def retrieve(self, query, n=30):
-        scores = self.model.get_scores(query, self.average_idf)
+        scores = self.bm25.get_scores(query, self.average_idf)
         questions = [(self.seeds[i][0], self.seeds[i][1], scores[i]) for i in range(len(self.seeds))]
         questions = sorted(questions, key=lambda x: x[2], reverse=True)[:n]
         return questions
@@ -263,6 +266,44 @@ class GoeieVraag():
             score += np.log(((1-self.alpha) * w_Q) + (self.alpha * w_C))
 
         return score
+
+    # Ensemble
+    def init_ensemble(self, traindata):
+        self.ensemble = Model()
+
+        X, y = [], []
+        for q1id in traindata:
+            for q2id in traindata[q1id]:
+                pair = traindata[q1id][q2id]
+                q1 = pair['q1']
+                q2 = pair['q2']
+                label = pair['label']
+
+                q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
+
+                # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
+                bm25 = self.bm25.get_score(q1, q2id, self.average_idf)
+                translation = self.translate(q1, q1emb, q2, q2emb)
+                softcosine = self.softcos(q1, q1emb, q2, q2emb)
+
+                X.append([bm25, translation, softcosine])
+                y.append(label)
+
+        self.scaler = MinMaxScaler(feature_range=(-1, 1))
+        self.scaler.fit(self.X)
+        self.X = self.scaler.transform(self.X)
+        self.ensemble.train_regression(trainvectors=X, labels=y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
+
+
+    def ensembling(self, q1, q1emb, q2id, q2, q2emb):
+        bm25 = self.bm25.get_score(q1, q2id, self.average_idf)
+        translation = self.translate(q1, q1emb, q2, q2emb)
+        softcosine = self.softcos(q1, q1emb, q2, q2emb)
+
+        X = [bm25, translation, softcosine]
+        X = self.scaler.transform([X])[0]
+        clfscore, pred_label = self.ensemble.score(X)
+        return clfscore, pred_label
 
 
     def rerank(self, query, questions, n=10):
