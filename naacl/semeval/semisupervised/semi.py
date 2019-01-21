@@ -56,7 +56,7 @@ class Semi:
         info = 'TRAIN DATA SIZE: ' + str(len(self.traindata))
         logging.info(info)
 
-        self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop, w2v_dim=self.w2v_dim)
+        self.word2vec = word2vec.init_word2vec(lowercase=self.lowercase, punctuation=self.punctuation, stop=self.stop, dim=self.w2v_dim)
 
         # additional data
         self.init_additional()
@@ -97,6 +97,7 @@ class Semi:
             question = indexset[qid]
             q1_full = question['tokens']
             q1 = question['tokens']
+            q1_tree = question['tree']
 
             if self.lowercase:
                 q1_full = [w.lower() for w in q1_full]
@@ -114,6 +115,7 @@ class Semi:
                 q2id = rel_question['id']
                 q2_full = rel_question['tokens']
                 q2 = rel_question['tokens']
+                q2_tree = rel_question['tree']
 
                 if self.lowercase:
                     q2_full = [w.lower() for w in q2_full]
@@ -154,9 +156,11 @@ class Semi:
                     'q1_id': qid,
                     'q1': q1,
                     'q1_full': q1_full,
+                    'q1_tree': q1_tree,
                     'q2_id': rel_question['id'],
                     'q2': q2,
                     'q2_full': q2_full,
+                    'q2_tree': q2_tree,
                     'comments': comments,
                     'label':label
                 }

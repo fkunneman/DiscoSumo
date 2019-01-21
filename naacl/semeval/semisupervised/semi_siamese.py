@@ -12,7 +12,7 @@ import os
 import numpy as np
 import time
 import paths
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, accuracy_score
 from operator import itemgetter
 from semi import Semi
 
@@ -152,7 +152,7 @@ class SemiSiamese(Semi):
             embeddings.append(self.word2vec[w])
 
         vocab.append('UNK')
-        embeddings.append(np.random.uniform(-0.1, 0.1, (300)))
+        embeddings.append(np.random.uniform(-0.1, 0.1, (self.w2v_dim)))
         self.voc2id = dict([(w, i) for i, w in enumerate(vocab)])
         self.lp = self.model.lookup_parameters_from_numpy(np.array(embeddings))
 
@@ -185,19 +185,19 @@ class SemiSiamese(Semi):
 
 
     def init_lstm(self):
-        self.fwd_lstm_query = dy.LSTMBuilder(1, self.EMB_DIM, 512, self.model)
-        self.bwd_lstm_query = dy.LSTMBuilder(1, self.EMB_DIM, 512, self.model)
+        self.fwd_lstm_query = dy.LSTMBuilder(1, self.EMB_DIM, self.HIDDEN_DIM, self.model)
+        self.bwd_lstm_query = dy.LSTMBuilder(1, self.EMB_DIM, self.HIDDEN_DIM, self.model)
 
         self.fwd_lstm_query.set_dropout(self.DROPOUT)
         self.bwd_lstm_query.set_dropout(self.DROPOUT)
 
-        self.fwd_lstm_question = dy.LSTMBuilder(1, self.EMB_DIM, 512, self.model)
-        self.bwd_lstm_question = dy.LSTMBuilder(1, self.EMB_DIM, 512, self.model)
+        self.fwd_lstm_question = dy.LSTMBuilder(1, self.EMB_DIM, self.HIDDEN_DIM, self.model)
+        self.bwd_lstm_question = dy.LSTMBuilder(1, self.EMB_DIM, self.HIDDEN_DIM, self.model)
 
         self.fwd_lstm_question.set_dropout(self.DROPOUT)
         self.bwd_lstm_question.set_dropout(self.DROPOUT)
 
-        input_size = 2 * 512
+        input_size = 2 * self.HIDDEN_DIM
         self.W1_query = self.model.add_parameters((self.HIDDEN_DIM, input_size))
         self.bW1_query = self.model.add_parameters((self.HIDDEN_DIM))
 
@@ -225,8 +225,8 @@ class SemiSiamese(Semi):
         emb = dy.concatenate_cols(embeddings)
 
         x = dy.conv2d_bias(emb, F, b, [1, 1], is_valid=False)
-        x = dy.maxpooling2d(x, [1, sntlen], [1, 1], is_valid=True)
         x = dy.rectify(x)
+        x = dy.maxpooling2d(x, [1, sntlen], [1, 1], is_valid=True)
         if self.DROPOUT > 0:
             dy.dropout(x, self.DROPOUT)
         f = dy.reshape(x, (self.EMB_DIM * 1 * 100,))
@@ -384,10 +384,11 @@ class SemiSiamese(Semi):
             log = 'Dev evaluation...'
             print(log)
             f.write(log + '\n')
-            map_baseline, map_model, f1score = self.test(self.devdata)
+            map_baseline, map_model, f1score, accuracy = self.test(self.devdata)
 
-            print('MAP Model: ', round(map_model, 2), 'MAP baseline: ', round(map_baseline, 2), 'F1 score: ', str(round(f1score, 2)), sep='\t', end='\n')
-            f.write('\t'.join(['MAP Model: ', str(round(map_model, 2)), 'MAP baseline: ', str(round(map_baseline, 2)), 'F1 score: ', str(round(f1score, 2)), '\n']))
+            results = 'MAP Model: {0} \t MAP baseline: {1} \t F1 score: {2} \t Accuracy: {3}'.format(round(map_model, 2), round(map_baseline, 2), round(f1score, 2), round(accuracy, 2))
+            print(results)
+            f.write(results)
 
             epoch_timing = []
             if map_model > best:
@@ -396,6 +397,7 @@ class SemiSiamese(Semi):
                 path = self.fname() + '.dy'
                 self.model.save(os.path.join(EVALUATION_PATH, path))
             else:
+                trainer.learning_rate *= 0.5
                 early += 1
 
             if early == self.EARLY_STOP:
@@ -462,7 +464,9 @@ class SemiSiamese(Semi):
 
         map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
         f1score = f1_score(y_real, y_pred)
-        return map_baseline, map_model, f1score
+        accuracy = accuracy_score(y_real, y_pred)
+        return map_baseline, map_model, f1score, accuracy
+
 
 if __name__ == '__main__':
     if not os.path.exists(EVALUATION_PATH):
@@ -480,8 +484,8 @@ if __name__ == '__main__':
     }
 
     siamese = SemiSiamese(properties)
-    siamese.train(siamese.additional, lr=1e-4)
-    siamese.train(siamese.traindata, lr=1e-5)
+    siamese.train(siamese.additional, lr=1e-5)
+    siamese.train(siamese.traindata, lr=1e-6)
 
     ## LSTMs
     properties = {
