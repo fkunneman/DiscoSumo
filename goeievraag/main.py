@@ -21,6 +21,8 @@ from gensim.models import Word2Vec
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 
+from random import shuffle
+
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -32,8 +34,11 @@ NEW_QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed_proc.json'
 ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed.json'
 NEW_ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed_proc.json'
 
+TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled.json'
+NEW_TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled_proc.json'
+
 class GoeieVraag():
-    def __init__(self, w2v_dim=300, alpha=0.8, sigma=0.2):
+    def __init__(self, w2v_dim=100, alpha=0.8, sigma=0.2):
         self.w2v_dim = w2v_dim
         self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
         print('Parsing questions and answers...')
@@ -42,10 +47,14 @@ class GoeieVraag():
         else:
             self.questions = json.load(open(NEW_QUESTIONS))
             self.answers = json.load(open(NEW_ANSWERS))
+            procdata = json.load(open(NEW_TRAINDATA))
+            self.traindata, self.testdata = procdata['train'], procdata['test']
 
             self.corpus = []
-            for question in self.questions.values():
-                self.corpus.append(question['tokens'])
+            for qid in self.questions:
+                if qid not in self.testdata:
+                    question = self.questions[qid]
+                    self.corpus.append(question['tokens'])
             for answer in self.answers.values():
                 self.corpus.append(answer['tokens'])
 
@@ -65,6 +74,9 @@ class GoeieVraag():
         # softcosine
         print('Initializing Softcosine...')
         self.init_sofcos()
+        # ensemble
+        print('Initializing Ensemble...')
+        self.init_ensemble()
 
 
     def __call__(self, query):
@@ -89,39 +101,88 @@ class GoeieVraag():
 
 
     def parse(self):
+        # QUESTIONS
         self.questions = json.load(open(QUESTIONS))
         for i, question in enumerate(self.questions):
             if i % 1000 == 0:
                 percentage = round(float(i+1) / len(self.questions), 2)
                 # print('Question Progress: ', percentage, end='\r')
             text = question['questiontext']
-            text = list(map(lambda token: str(token).lower(), self.nlp(text)))
+            text = list(map(lambda token: str(token), self.nlp(text)))
 
             question['tokens'] = text
-            question['tokens_proc'] = [w for w in text if w not in stopwords and w not in punctuation]
+            question['tokens_proc'] = [w.lower() for w in text]
+            question['tokens_proc'] = [w for w in question['tokens_proc'] if w not in stopwords and w not in punctuation]
         self.questions = dict([(question['id'], question) for question in self.questions])
 
+        # ANSWERS
         self.answers = json.load(open(ANSWERS))
         for i, answer in enumerate(self.answers):
             if i % 1000 == 0:
                 percentage = round(float(i+1) / len(self.answers), 2)
                 # print('Answer Progress: ', percentage, end='\r')
             text = answer['answertext']
-            text = list(map(lambda token: str(token).lower(), self.nlp(text)))
+            text = list(map(lambda token: str(token), self.nlp(text)))
 
             answer['tokens'] = text
-            answer['tokens_proc'] = [w for w in text if w not in stopwords and w not in punctuation]
+            answer['tokens_proc'] = [w.lower() for w in text]
+            answer['tokens_proc'] = [w for w in answer['tokens_proc'] if w not in stopwords and w not in punctuation]
         self.answers = dict([(answer['id'], answer) for answer in self.answers])
 
+        # TRAINDATA
+        procdata = json.load(open(TRAINDATA))
+        self.procdata = {}
+        for i, row in enumerate(procdata):
+            if i % 1000 == 0:
+                percentage = round(float(i+1) / len(procdata), 2)
+                # print('Answer Progress: ', percentage, end='\r')
+            q1id = row['id']
+            q1_tokens = self.questions[q1id]['tokens']
+            q1_tokens_proc = self.questions[q1id]['tokens_proc']
+
+            self.procdata[q1id] = {}
+            for row2 in row[q1id]:
+                score = float(row2['BM25-score'])
+                label = 1 if row2['Lax'] == 'Similar' else 0
+                q2id = row2['id']
+
+                q2_tokens = self.questions[q2id]['tokens']
+                q2_tokens_proc = self.questions[q2id]['tokens_proc']
+
+                self.procdata[q1id][q2id] = {
+                    'q1': q1_tokens_proc,
+                    'q1_full': q1_tokens,
+                    'q2': q2_tokens_proc,
+                    'q2_full': q2_tokens,
+                    'score': score,
+                    'label': label
+                }
+        qids = shuffle(self.procdata.keys())
+        trainsize = int(0.8 * len(qids))
+
+        trainids = qids[:trainsize]
+        self.traindata = {}
+        for qid in trainids:
+            self.traindata[qid] = self.procdata[qid]
+
+        testids = qids[trainsize:]
+        self.testdata = {}
+        for qid in testids:
+            self.testdata[qid] = self.procdata[qid]
+        del self.procdata
+
         self.corpus = []
-        for question in self.questions.values():
-            self.corpus.append(question['tokens'])
+        for qid in self.questions:
+            if qid not in self.testdata:
+                question = self.questions[qid]
+                self.corpus.append(question['tokens'])
         for answer in self.answers.values():
             self.corpus.append(answer['tokens'])
         self.dict = Dictionary(self.corpus)  # fit dictionary
 
         json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
         json.dump(self.answers, open(NEW_ANSWERS, 'w'))
+        json.dump({'train': self.traindata, 'test': self.testdata}, open(NEW_TRAINDATA, 'w'))
         self.dict.save(os.path.join(DATA_PATH, 'dict.model'))
         return self.questions, self.answers
 
@@ -140,7 +201,14 @@ class GoeieVraag():
 
     # BM25
     def init_bm25(self, corpus):
-        self.bm25 = bm25.BM25(corpus)
+        ids, questions = [], []
+        for row in corpus:
+            ids.append(row[0])
+            questions.append(row[1])
+
+        self.idx2id = [(i, qid) for i, qid in enumerate(ids)]
+        self.id2idx = [(qid, i) for i, qid in enumerate(ids)]
+        self.bm25 = bm25.BM25(questions)
 
         # get average idf
         self.average_idf = sum(map(lambda k: float(self.bm25.idf[k]), self.bm25.idf.keys())) / len(self.bm25.idf.keys())
@@ -148,8 +216,8 @@ class GoeieVraag():
 
     def retrieve(self, query, n=30):
         scores = self.bm25.get_scores(query, self.average_idf)
-        questions = [(self.seeds[i][0], self.seeds[i][1], scores[i]) for i in range(len(self.seeds))]
-        questions = sorted(questions, key=lambda x: x[2], reverse=True)[:n]
+        questions = [(self.seeds[i][0], self.seeds[i][1], self.idx2id[i], scores[i]) for i in range(len(self.seeds))]
+        questions = sorted(questions, key=lambda x: x[3], reverse=True)[:n]
         return questions
 
 
@@ -267,8 +335,10 @@ class GoeieVraag():
 
         return score
 
+
     # Ensemble
-    def init_ensemble(self, traindata):
+    def init_ensemble(self):
+        traindata = self.traindata
         self.ensemble = Model()
 
         X, y = [], []
@@ -282,7 +352,7 @@ class GoeieVraag():
                 q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
 
                 # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
-                bm25 = self.bm25.get_score(q1, q2id, self.average_idf)
+                bm25 = self.bm25.get_score(q1, self.id2idx[q2id], self.average_idf)
                 translation = self.translate(q1, q1emb, q2, q2emb)
                 softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
@@ -296,7 +366,7 @@ class GoeieVraag():
 
 
     def ensembling(self, q1, q1emb, q2id, q2, q2emb):
-        bm25 = self.bm25.get_score(q1, q2id, self.average_idf)
+        bm25 = self.bm25.get_score(q1, self.id2idx[q2id], self.average_idf)
         translation = self.translate(q1, q1emb, q2, q2emb)
         softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
@@ -310,9 +380,9 @@ class GoeieVraag():
         for i, question in enumerate(questions):
             q1, q1emb, q2, q2emb = self.preprocess(query, question[1])
 
-            questions[i] = (question[0], question[1], self.softcos(q1, q1emb, q2, q2emb))
+            questions[i] = (question[0], question[1], question[2], self.softcos(q1, q1emb, q2, q2emb))
 
-        questions = sorted(questions, key=lambda x: x[2], reverse=True)[:n]
+        questions = sorted(questions, key=lambda x: x[3], reverse=True)[:n]
         return questions
 
 if __name__ == '__main__':
