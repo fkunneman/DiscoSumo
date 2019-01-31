@@ -37,14 +37,15 @@ def eval_retrieval(goeie):
         auxid = list(testdata[q1id].keys())[0]
         q1 = testdata[q1id][auxid]['q1']
 
-        categories = [c[1] for c in goeie.question2cat(q1)]
+        categories = [c[1] for c in goeie.question2cat(' '.join(q1)) if c[1] != '15']
+        print(categories)
         start = time.time()
         questions = goeie.retrieve(q1, categories)
         end = time.time()
         bm25time.append(end-start)
 
-        questions = sorted(questions, key=lambda x: x[3])
-        qids = [q[0] for q in questions]
+        questions = sorted(questions, key=lambda x: x['score'])
+        qids = [q['id'] for q in questions]
 
         all = [qid for qid in testdata[q1id] if qid in qids]
         acc30_ = [qid for qid in testdata[q1id] if qid in qids and testdata[q1id][qid]['label'] == 1]

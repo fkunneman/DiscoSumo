@@ -22,7 +22,7 @@ class QCat:
             for line in file_in.read().strip().split('\n'):
                 tokens = line.split('\t')
                 self.cat2id[tokens[0]] = tokens[1]
-                if tokens[3] == '1':
+                if tokens[3] == '1' and tokens[1] != '15':
                     self.cat2parent[tokens[0]] = tokens[0]
                 else:
                     self.cat2parent[tokens[0]] = tokens[2]

@@ -1,6 +1,6 @@
-import sys
 
-from goeievraag.category.qcat import QCat
+from qcat import QCat
+import sys
 
 model_file = sys.argv[1]
 label_encoder_file = sys.argv[2]

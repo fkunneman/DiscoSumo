@@ -60,15 +60,15 @@ class GoeieVraag():
 
         print('Filter seed questions...')
         if evaluation:
-            seeds = [(question['id'], question['tokens_proc'], self.category2parent[question['cid']]) for question in self.questions.values()]
+            seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in self.questions.values()]
         else:
             seeds = self.filter(self.questions.values())
-        self.seeds = dict([(cid, [seed for seed in seeds if seed[2] == cid]) for cid in self.categories])
+        self.seeds = dict([(cid, [seed for seed in seeds if seed['category'] == cid]) for cid in self.categories])
 
         # bm25
         print('Initializing BM25...')
         self.init_bm25(self.seeds)
-        # word2vec
+        word2vec
         print('Initializing Word2Vec...')
         self.init_word2vec()
         # translation
@@ -83,11 +83,11 @@ class GoeieVraag():
 
 
     def __call__(self, query):
-        query_proc = list(map(lambda token: str(token).lower(), self.nlp(query)))
-        query_proc = [w for w in query_proc if w not in stopwords and w not in punctuation]
+        tokens = list(map(lambda token: str(token).lower(), self.nlp(query)))
+        query_proc = [w for w in tokens if w not in stopwords and w not in punctuation]
 
         # retrieve the 5 most likely categories of the query
-        categories = [c[1] for c in self.question2cat(query)]
+        categories = [c[1] for c in self.question2cat(' '.join(tokens))]
         # retrieve 30 candidates with bm25
         questions = self.retrieve(query_proc, categories)
         # reranking with softcosine
@@ -95,7 +95,7 @@ class GoeieVraag():
 
         result = { 'query': query, 'questions': [] }
         for question in questions:
-            question_id, _, score = question
+            question_id, score = question['id'], question['rescore']
             q = self.questions[question_id]
             q['score'] = score
             result['questions'].append(q)
@@ -208,7 +208,7 @@ class GoeieVraag():
         avganswer = sum(answercounts) / len(answercounts)
 
         seeds = [question for question in questions if int(question['answercount']) >= int(avganswer)]
-        seeds = [(question['id'], question['tokens_proc'], self.category2parent[question['cid']]) for question in seeds if int(question['starcount']) > avgstar]
+        seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in seeds if int(question['starcount']) > avgstar]
         return seeds
 
 
@@ -222,8 +222,8 @@ class GoeieVraag():
         for cid in corpus:
             ids, questions = [], []
             for row in corpus[cid]:
-                ids.append(row[0])
-                questions.append(row[1])
+                ids.append(row['id'])
+                questions.append(row['tokens'])
 
             self.idx2id[cid] = dict([(i, qid) for i, qid in enumerate(ids)])
             self.id2idx[cid] = dict([(qid, i) for i, qid in enumerate(ids)])
@@ -237,8 +237,16 @@ class GoeieVraag():
         result = []
         for cid in categories:
             scores = self.bm25[cid].get_scores(query, self.average_idf[cid])
-            questions = [(self.seeds[cid][i][0], self.seeds[cid][i][1], self.idx2id[cid][i], scores[i]) for i in range(len(self.seeds[cid]))]
-            questions = sorted(questions, key=lambda x: x[3], reverse=True)[:n/5]
+            questions = []
+            for i in range(len(self.seeds[cid])):
+                questions.append({
+                    'id': self.seeds[cid][i]['id'],
+                    'tokens': self.seeds[cid][i]['tokens'],
+                    'score': scores[i]
+                })
+            # questions = [(self.seeds[cid][i][0], self.seeds[cid][i][1], self.idx2id[cid][i], scores[i]) for i in range(len(self.seeds[cid]))]
+            n_ = int(n / 5)
+            questions = sorted(questions, key=lambda x: x['score'], reverse=True)[:n_]
             result.extend(questions)
         return result
 
@@ -400,11 +408,11 @@ class GoeieVraag():
 
     def rerank(self, query, questions, n=10):
         for i, question in enumerate(questions):
-            q1, q1emb, q2, q2emb = self.preprocess(query, question[1])
+            q1, q1emb, q2, q2emb = self.preprocess(query, question['tokens'])
 
-            questions[i] = (question[0], question[1], question[2], self.softcos(q1, q1emb, q2, q2emb))
+            questions[i]['rescore'] = self.softcos(q1, q1emb, q2, q2emb)
 
-        questions = sorted(questions, key=lambda x: x[3], reverse=True)[:n]
+        questions = sorted(questions, key=lambda x: x['rescore'], reverse=True)[:n]
         return questions
 
 
