@@ -273,7 +273,7 @@ class GoeieVraag():
     def retrieve(self, query, categories, n=30):
         result = []
         for cid in categories:
-            scores = self.bm25[cid].get_scores(query, self.average_idf[cid])
+            scores = self.bm25[cid].get_scores(query)
             questions = []
             for i in range(len(self.seeds[cid])):
                 questions.append({
@@ -419,11 +419,11 @@ class GoeieVraag():
                 q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
 
                 # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
-                bm25 = self.bm25_.get_score(q1, self.id2idx_[q2id], self.average_idf_)
+                bm25score = self.bm25_.get_score(q1, self.id2idx_[q2id])
                 translation = self.translate(q1, q1emb, q2, q2emb)
                 softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
-                X.append([bm25, translation, softcosine])
+                X.append([bm25score, translation, softcosine])
                 y.append(label)
 
         self.scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -433,11 +433,11 @@ class GoeieVraag():
 
 
     def ensembling(self, q1, q1emb, q2id, q2, q2emb):
-        bm25 = self.bm25_.get_score(q1, self.id2idx_[q2id], self.average_idf_)
+        bm25score = self.bm25_.get_score(q1, self.id2idx_[q2id])
         translation = self.translate(q1, q1emb, q2, q2emb)
         softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
-        X = [bm25, translation, softcosine]
+        X = [bm25score, translation, softcosine]
         X = self.scaler.transform([X])[0]
         clfscore, pred_label = self.ensemble.score(X)
         return clfscore, pred_label
