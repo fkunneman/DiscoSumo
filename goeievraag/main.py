@@ -121,8 +121,8 @@ class GoeieVraag():
             q['score'] = score
             result['questions'].append(q)
 
-        bestanswer_id = self.questions[questions[0][0]]['bestanswer']
-        result['bestanswer'] = self.answers[bestanswer_id]
+        # bestanswer_id = self.questions[questions[0][0]]['bestanswer']
+        # result['bestanswer'] = self.answers[bestanswer_id]
         return result
 
 
