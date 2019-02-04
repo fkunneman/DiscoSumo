@@ -28,25 +28,46 @@ from random import shuffle
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 
-DATA_PATH='/roaming/fkunnema/goeievraag/parsed/'
-WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/goeievraag/word2vec'
-QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed.json'
-NEW_QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed_proc.json'
+# DATA_PATH='/roaming/fkunnema/goeievraag/parsed/'
+# WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/goeievraag/word2vec'
+# QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed.json'
+# NEW_QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed_proc.json'
+#
+# ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed.json'
+# NEW_ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed_proc.json'
+#
+# TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled.json'
+# NEW_TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled_proc.json'
+#
+# DICT_PATH='/roaming/fkunnema/goeievraag/parsed/dict.model'
+#
+# CATEGORY2PARENT_PATH='/roaming/fkunnema/goeievraag/qcat/catid2parent.json'
+# CATEGORY_MODEL_PATH='/roaming/fkunnema/goeievraag/qcat/questions.model.pkl'
+# LABEL_ENCODER_PATH='/roaming/fkunnema/goeievraag/qcat/questions.le'
+# CATEGORY2ID_PATH='/roaming/fkunnema/goeievraag/qcat/cat2id_dict.txt'
+# VOCABULARY_PATH='/roaming/fkunnema/goeievraag/qcat/questions.featureselection.txt'
 
-ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed.json'
-NEW_ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed_proc.json'
+DATA_PATH='data/'
+WORD2VEC_PATH='data/word2vec/'
+QUESTIONS='data/question_parsed.json'
+NEW_QUESTIONS='data/question_parsed_proc.json'
 
-TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled.json'
-NEW_TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled_proc.json'
+ANSWERS='data/answer_parsed.json'
+NEW_ANSWERS='data/answer_parsed_proc.json'
 
-CATEGORY2PARENT_PATH='/roaming/fkunnema/goeievraag/qcat/catid2parent.json'
-CATEGORY_MODEL_PATH='/roaming/fkunnema/goeievraag/qcat/questions.model.pkl'
-LABEL_ENCODER_PATH='/roaming/fkunnema/goeievraag/qcat/questions.le'
-CATEGORY2ID_PATH='/roaming/fkunnema/goeievraag/qcat/cat2id_dict.txt'
-VOCABULARY_PATH='/roaming/fkunnema/goeievraag/qcat/questions.featureselection.txt'
+TRAINDATA='data/ranked_questions_labeled.json'
+NEW_TRAINDATA='data/ranked_questions_labeled_proc.json'
+
+DICT_PATH='data/dict.model'
+
+CATEGORY2PARENT_PATH='data/qcat/catid2parent.json'
+CATEGORY_MODEL_PATH='data/qcat/questions.model.pkl'
+LABEL_ENCODER_PATH='data/qcat/questions.le'
+CATEGORY2ID_PATH='data/qcat/cat2id_dict.txt'
+VOCABULARY_PATH='data/qcat/questions.featureselection.txt'
 
 class GoeieVraag():
-    def __init__(self, w2v_dim=100, alpha=0.7, sigma=0.3, evaluation=False):
+    def __init__(self, w2v_dim=300, alpha=0.7, sigma=0.3, evaluation=False):
         self.w2v_dim = w2v_dim
         self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
         print('Parsing questions and answers...')
@@ -60,15 +81,15 @@ class GoeieVraag():
 
         print('Filter seed questions...')
         if evaluation:
-            seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in self.questions.values()]
+            self.seeds_ = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in self.questions.values()]
         else:
-            seeds = self.filter(self.questions.values())
-        self.seeds = dict([(cid, [seed for seed in seeds if seed['category'] == cid]) for cid in self.categories])
+            self.seeds_ = self.filter(self.questions.values())
+        self.seeds = dict([(cid, [seed for seed in self.seeds_ if seed['category'] == cid]) for cid in self.categories])
 
         # bm25
         print('Initializing BM25...')
         self.init_bm25(self.seeds)
-        word2vec
+        # word2vec
         print('Initializing Word2Vec...')
         self.init_word2vec()
         # translation
@@ -197,7 +218,11 @@ class GoeieVraag():
                 self.corpus.append(question['tokens_proc'])
         for answer in self.answers.values():
             self.corpus.append(answer['tokens_proc'])
-        self.dict = Dictionary(self.corpus)  # fit dictionary
+        if not os.path.exists(DICT_PATH):
+            self.dict = Dictionary(self.corpus)  # fit dictionary
+            self.dict.save(DICT_PATH)
+        else:
+            self.dict = Dictionary.load(DICT_PATH)
 
 
     def filter(self, questions):
@@ -231,6 +256,18 @@ class GoeieVraag():
 
             # get average idf
             self.average_idf[cid] = sum(map(lambda k: float(self.bm25[cid].idf[k]), self.bm25[cid].idf.keys())) / len(self.bm25[cid].idf.keys())
+
+        ids, questions = [], []
+        for row in self.seeds_:
+            ids.append(row['id'])
+            questions.append(row['tokens'])
+
+        self.idx2id_ = dict([(i, qid) for i, qid in enumerate(ids)])
+        self.id2idx_ = dict([(qid, i) for i, qid in enumerate(ids)])
+        self.bm25_ = bm25.BM25(questions)
+
+        # get average idf
+        self.average_idf_ = sum(map(lambda k: float(self.bm25_.idf[k]), self.bm25_.idf.keys())) / len(self.bm25_.idf.keys())
 
 
     def retrieve(self, query, categories, n=30):
@@ -283,12 +320,12 @@ class GoeieVraag():
 
     # Softcosine
     def init_sofcos(self):
-        # if not os.path.exists(os.path.join(DATA_PATH,'tfidf.model')):
-        corpus = [self.dict.doc2bow(line) for line in self.corpus]  # convert corpus to BoW format
-        self.tfidf = TfidfModel(corpus)  # fit model
-        #     self.tfidf.save(os.path.join(DATA_PATH, 'tfidf.model'))
-        # else:
-        #     self.tfidf = TfidfModel.load(os.path.join(DATA_PATH, 'tfidf.model'))
+        if not os.path.exists(os.path.join(DATA_PATH,'tfidf.model')):
+            corpus = [self.dict.doc2bow(line) for line in self.corpus]  # convert corpus to BoW format
+            self.tfidf = TfidfModel(corpus)  # fit model
+            self.tfidf.save(os.path.join(DATA_PATH, 'tfidf.model'))
+        else:
+            self.tfidf = TfidfModel.load(os.path.join(DATA_PATH, 'tfidf.model'))
 
 
     def softcos(self, q1, q1emb, q2, q2emb):
@@ -382,7 +419,7 @@ class GoeieVraag():
                 q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
 
                 # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
-                bm25 = self.bm25.get_score(q1, self.id2idx[q2id], self.average_idf)
+                bm25 = self.bm25_.get_score(q1, self.id2idx_[q2id], self.average_idf_)
                 translation = self.translate(q1, q1emb, q2, q2emb)
                 softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
@@ -396,7 +433,7 @@ class GoeieVraag():
 
 
     def ensembling(self, q1, q1emb, q2id, q2, q2emb):
-        bm25 = self.bm25.get_score(q1, self.id2idx[q2id], self.average_idf)
+        bm25 = self.bm25_.get_score(q1, self.id2idx_[q2id], self.average_idf_)
         translation = self.translate(q1, q1emb, q2, q2emb)
         softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
@@ -410,7 +447,7 @@ class GoeieVraag():
         for i, question in enumerate(questions):
             q1, q1emb, q2, q2emb = self.preprocess(query, question['tokens'])
 
-            questions[i]['rescore'] = self.softcos(q1, q1emb, q2, q2emb)
+            questions[i]['rescore'], _ = self.ensembling(q1, q1emb, question['id'], q2, q2emb)
 
         questions = sorted(questions, key=lambda x: x['rescore'], reverse=True)[:n]
         return questions

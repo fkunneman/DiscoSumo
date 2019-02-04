@@ -41,8 +41,8 @@ def run():
         documents.append(text)
 
     logging.info('Training...')
-    fname = 'word2vec.model'
-    model = Word2Vec(documents, size=100, window=10, min_count=1, workers=10)
+    fname = 'word2vec.' + str(300) + '.model'
+    model = Word2Vec(documents, size=300, window=10, min_count=1, workers=10)
     model.save(fname)
 
 if __name__ == '__main__':

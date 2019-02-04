@@ -156,3 +156,7 @@ if __name__ == '__main__':
     goeie = GoeieVraag(evaluation=True, w2v_dim=300)
     eval_retrieval(goeie)
 
+    print(10 * '*')
+
+    eval_reranking(goeie)
+
