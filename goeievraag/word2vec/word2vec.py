@@ -15,9 +15,9 @@ import spacy
 
 from gensim.models import Word2Vec
 
-QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed.json'
+QUESTIONS='../data/question_parsed.json'
 
-ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed.json'
+ANSWERS='../data/answer_parsed.json'
 
 
 def run():

@@ -4,7 +4,7 @@ import time
 
 from main import GoeieVraag
 
-TRAINING_DATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled_proc.json'
+TRAINING_DATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
 
 def map(ranking, n=10):
     map_ = 0.0

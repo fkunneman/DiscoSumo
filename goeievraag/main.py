@@ -48,7 +48,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # VOCABULARY_PATH='/roaming/fkunnema/goeievraag/qcat/questions.featureselection.txt'
 
 DATA_PATH='data/'
-WORD2VEC_PATH='data/word2vec/'
+WORD2VEC_PATH='word2vec/'
 QUESTIONS='data/question_parsed.json'
 NEW_QUESTIONS='data/question_parsed_proc.json'
 
