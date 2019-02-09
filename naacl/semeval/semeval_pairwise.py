@@ -10,6 +10,9 @@ import os
 import paths
 
 from semeval import Semeval
+from semeval_bm25 import SemevalBM25
+from semeval_translation import SemevalTranslation
+from semeval_cosine import SemevalSoftCosine
 
 from operator import itemgetter
 from models.svm import Model
@@ -72,10 +75,40 @@ class SemevalPairwise(Semeval):
         self.train()
 
 
+    def format(self, ranking):
+        new_ranking = {}
+        for q1id in ranking:
+            new_ranking[q1id] = {}
+            for question in ranking[q1id]:
+                real_label, score, q2id = question
+                new_ranking[q1id][q2id] = (score, real_label)
+        return new_ranking
+
+
     def train_bm25(self):
         path = os.path.join('pairwise', 'bm25.lower_' + str(True) + '.stop_' + str(False) + '.punct_' + str(True))
         if not os.path.exists(path):
-            pass
+            self.bm25 = SemevalBM25(stop=True, lowercase=False, punctuation=True, proctrain=True)
+            self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
+            self.trainpairbm25 = self.bm25.pairs(self.bm25.traindata)
+
+            self.devbm25 = self.format(self.bm25.validate())
+            self.devpairbm25 = self.bm25.pairs(self.bm25.devdata)
+
+            self.test2016bm25 = self.format(self.bm25.test(self.bm25.test2016data))
+            self.test2016pairbm25 = self.bm25.pairs(self.bm25.test2016data)
+
+            self.test2017bm25 = self.format(self.bm25.test(self.bm25.test2017data))
+            self.test2017pairbm25 = self.bm25.pairs(self.bm25.test2017data)
+            del self.bm25
+
+            data = {
+                'train': self.trainbm25, 'trainpair': self.trainpairbm25,
+                'dev': self.devbm25, 'devpair': self.devpairbm25,
+                'test2016': self.test2016bm25, 'test2016pair': self.test2016pairbm25,
+                'test2017':self.test2017bm25, 'test2017pair': self.test2017pairbm25
+            }
+            p.dump(data, open(path, 'wb'))
         else:
             data = p.load(open(path, 'rb'))
             self.trainbm25 = data['train']
@@ -94,7 +127,27 @@ class SemevalPairwise(Semeval):
     def train_translation(self):
         path = os.path.join('pairwise', 'translation.lower_' + str(False) + '.stop_' + str(True) + '.punct_' + str(True) + '.vector_' + str('word2vec') + '.vecdim_' + str(self.w2vdim))
         if not os.path.exists(path):
-            pass
+            self.translation = SemevalTranslation(alpha=0.8, sigma=0.2, punctuation=True, proctrain=True, vector='word2vec', stop=True, lowercase=False, w2vdim=self.w2vdim)
+            self.traintranslation = self.format(self.translation.test(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo))
+            self.trainpairtranslation = self.translation.pairs(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo)
+
+            self.devtranslation = self.format(self.translation.validate())
+            self.devpairtranslation = self.translation.pairs(self.translation.devdata, self.translation.devidx, self.translation.develmo)
+
+            self.test2016translation = self.format(self.translation.test(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo))
+            self.test2016pairtranslation = self.translation.pairs(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo)
+
+            self.test2017translation = self.format(self.translation.test(self.translation.test2017data, self.translation.test2017idx, self.translation.test2017elmo))
+            self.test2017pairtranslation = self.translation.pairs(self.translation.test2017data, self.translation.test2017idx, self.translation.test2017elmo)
+            del self.translation
+
+            data = {
+                'train': self.traintranslation, 'trainpair': self.trainpairtranslation,
+                'dev': self.devtranslation, 'devpair': self.devpairtranslation,
+                'test2016': self.test2016translation, 'test2016pair': self.test2016pairtranslation,
+                'test2017':self.test2017translation, 'test2017pair': self.test2017pairtranslation
+            }
+            p.dump(data, open(path, 'wb'))
         else:
             data = p.load(open(path, 'rb'))
             self.traintranslation = data['train']
@@ -113,7 +166,28 @@ class SemevalPairwise(Semeval):
     def train_softcosine(self):
         path = os.path.join('pairwise', 'softcosine.lower_' + str(True) + '.stop_' + str(True) + '.punct_' + str(True) + '.vector_' + str('word2vec+elmo') + '.vecdim_' + str(self.w2vdim))
         if not os.path.exists(path):
-            pass
+            self.softcosine = SemevalSoftCosine(stop=True, vector='word2vec+elmo', lowercase=True, punctuation=True, proctrain=True, w2vdim=self.w2vdim)
+
+            self.trainsoftcosine = self.format(self.softcosine.test(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo))
+            self.trainpairsoftcosine = self.softcosine.pairs(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo)
+
+            self.devsoftcosine = self.format(self.softcosine.validate())
+            self.devpairsoftcosine = self.softcosine.pairs(self.softcosine.devdata, self.softcosine.devidx, self.softcosine.develmo)
+
+            self.test2016softcosine = self.format(self.softcosine.test(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo))
+            self.test2016pairsoftcosine = self.softcosine.pairs(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo)
+
+            self.test2017softcosine = self.format(self.softcosine.test(self.softcosine.test2017data, self.softcosine.test2017idx, self.softcosine.test2017elmo))
+            self.test2017pairsoftcosine = self.softcosine.pairs(self.softcosine.test2017data, self.softcosine.test2017idx, self.softcosine.test2017elmo)
+            del self.softcosine
+
+            data = {
+                'train': self.trainsoftcosine, 'trainpair': self.trainpairsoftcosine,
+                'dev': self.devsoftcosine, 'devpair': self.devpairsoftcosine,
+                'test2016': self.test2016softcosine, 'test2016pair': self.test2016pairsoftcosine,
+                'test2017':self.test2017softcosine, 'test2017pair': self.test2017pairsoftcosine
+            }
+            p.dump(data, open(path, 'wb'))
         else:
             data = p.load(open(path, 'rb'))
             self.trainsoftcosine = data['train']
@@ -240,7 +314,6 @@ class SemevalPairwise(Semeval):
     def test(self, set_='dev'):
         if set_ == 'train':
             procdata = self.traindata
-            pairdata = self.trainpairdata
 
             bm25 = self.trainbm25
             bm25pair = self.trainpairbm25
@@ -252,7 +325,6 @@ class SemevalPairwise(Semeval):
             softcosinepair = self.trainpairsoftcosine
         elif set_ == 'dev':
             procdata = self.devdata
-            pairdata = self.devpairdata
 
             bm25 = self.devbm25
             bm25pair = self.devpairbm25
@@ -264,7 +336,6 @@ class SemevalPairwise(Semeval):
             softcosinepair = self.devpairsoftcosine
         elif set_ == 'test2016':
             procdata = self.test2016data
-            pairdata = self.test2016pairdata
 
             bm25 = self.test2016bm25
             bm25pair = self.test2016pairbm25
@@ -276,7 +347,6 @@ class SemevalPairwise(Semeval):
             softcosinepair = self.test2016pairsoftcosine
         else:
             procdata = self.test2017data
-            pairdata = self.test2017pairdata
 
             bm25 = self.test2017bm25
             bm25pair = self.test2017pairbm25
@@ -326,8 +396,8 @@ class SemevalPairwise(Semeval):
             return question_ids
 
         half = int(len(question_ids) / 2)
-        group1 = self.sort(question_ids[:half], questions)
-        group2 = self.sort(question_ids[half:], questions)
+        group1 = self.sort(question_ids[:half], questions, pairs)
+        group2 = self.sort(question_ids[half:], questions, pairs)
 
         result = []
         i1, i2 = 0, 0
