@@ -186,3 +186,23 @@ class SemevalBM25(Semeval):
                 real_label = pair['label']
                 ranking[q1id].append((real_label, q2score, q2id))
         return ranking
+
+
+    def pairs(self, testdata):
+        self.testdata = testdata
+
+        ranking = {}
+        for i, q1id in enumerate(self.testdata):
+            ranking[q1id] = {}
+            percentage = round(float(i + 1) / len(self.testdata), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
+
+            for q2id in self.testdata[q1id]:
+                ranking[q1id][q2id] = {}
+                q2 = self.testdata[q1id][q2id]['q2']
+
+                for q3id in self.testdata[q1id]:
+                    score = self.model(q2, q3id)
+                    ranking[q1id][q2id][q3id] = score
+
+        return ranking
