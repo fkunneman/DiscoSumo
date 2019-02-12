@@ -1,8 +1,11 @@
 __author__='thiagocastroferreira'
 
+import _pickle as p
 import time
 
 from main import GoeieVraag
+from gensim.corpora import Dictionary
+from sklearn.model_selection import KFold
 
 TRAINING_DATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
 
@@ -20,7 +23,7 @@ def map(ranking, n=10):
 
         map_ += sum(precision) / len(precision)
 
-    return map_ / n
+    return map_ / 20
 
 
 def eval_retrieval(goeie):
@@ -64,93 +67,138 @@ def eval_retrieval(goeie):
 
 
 def eval_reranking(goeie):
-    testdata = goeie.testdata
+    procdata = {}
+    for qid in goeie.traindata:
+        procdata[qid] = goeie.traindata[qid]
+    for qid in goeie.testdata:
+        procdata[qid] = goeie.testdata[qid]
 
-    best, best_map = {'alpha':0.0, 'sigma':0.0}, -1
-    transranking = {}
-    for alpha in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
-        sigma = 1 - alpha
-        goeie.init_translation(alpha=alpha, sigma=sigma)
+    folds = []
 
+    procids = list(procdata.keys())
+    kf = KFold(n_splits=5)
+    for trainids, testids in kf.split(procids):
+        traindata = {}
+        for i in trainids:
+            qid = procids[i]
+            traindata[qid] = procdata[qid]
+        goeie.traindata = traindata
+
+        testdata = {}
+        for i in testids:
+            qid = procids[i]
+            testdata[qid] = procdata[qid]
+        goeie.testdata = testdata
+
+        goeie.corpus = []
+        for qid in goeie.questions:
+            if qid not in goeie.testdata:
+                question = goeie.questions[qid]
+                goeie.corpus.append(question['tokens_proc'])
+        for answer in goeie.answers.values():
+            goeie.corpus.append(answer['tokens_proc'])
+        goeie.dict = Dictionary(goeie.corpus)  # fit dictionary
+
+        goeie.seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':goeie.category2parent[question['cid']]} for question in goeie.questions.values()]
+
+        goeie.init_bm25(goeie.seeds)
+        goeie.init_sofcos()
+
+        best, best_map = {'alpha':0.0, 'sigma':0.0}, -1
+        transranking = {}
+        for alpha in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+            sigma = 1 - alpha
+            goeie.init_translation(alpha=alpha, sigma=sigma)
+
+            for q1id in list(traindata.keys())[:20]:
+                transranking[q1id] = []
+
+                for q2id in traindata[q1id]:
+                    score, label = traindata[q1id][q2id]['score'], traindata[q1id][q2id]['label']
+
+                    q1, q2 = traindata[q1id][q2id]['q1'], traindata[q1id][q2id]['q2']
+                    q1, q1emb, q2, q2emb = goeie.preprocess(q1=q1, q2=q2)
+                    transcore = goeie.translate(q1, q1emb, q2, q2emb)
+                    transranking[q1id].append((q2id, transcore, label))
+
+            map_ = map(transranking)
+            print('Translation - alpha: {0} \t sigma: {1} \t MAP: {2}'.format(alpha, sigma, map_))
+            if map_ > best_map:
+                best_map = map_
+                best = {'alpha':alpha, 'sigma':sigma}
+
+        goeie.init_translation(alpha=best['alpha'], sigma=best['sigma'])
+        goeie.init_ensemble()
+
+        bm25time, transtime, softtime, enstime = [], [], [], []
+        ranking = {}
+        bm25ranking, transranking, softranking, ensranking = {}, {}, {}, {}
         for q1id in testdata:
+            bm25ranking[q1id] = []
             transranking[q1id] = []
+            softranking[q1id] = []
+            ensranking[q1id] = []
+            ranking[q1id] = []
 
             for q2id in testdata[q1id]:
                 score, label = testdata[q1id][q2id]['score'], testdata[q1id][q2id]['label']
+                bm25ranking[q1id].append((q2id, score, label))
 
                 q1, q2 = testdata[q1id][q2id]['q1'], testdata[q1id][q2id]['q2']
                 q1, q1emb, q2, q2emb = goeie.preprocess(q1=q1, q2=q2)
+
+                start = time.time()
                 transcore = goeie.translate(q1, q1emb, q2, q2emb)
+                end = time.time()
+                transtime.append(end-start)
                 transranking[q1id].append((q2id, transcore, label))
 
-        map_ = map(transranking)
-        print('Translation - alpha: {0} \t sigma: {1} \t MAP: {2}'.format(alpha, sigma, map_))
-        if map_ > best_map:
-            best_map = map_
-            best = {'alpha':alpha, 'sigma':sigma}
+                start = time.time()
+                softscore = goeie.softcos(q1, q1emb, q2, q2emb)
+                end = time.time()
+                softtime.append(end-start)
+                softranking[q1id].append((q2id, softscore, label))
 
-    goeie.init_translation(alpha=best['alpha'], sigma=best['sigma'])
+                start = time.time()
+                enscore = goeie.ensembling(q1, q1emb, q2id, q2, q2emb)
+                end = time.time()
+                enstime.append(end-start)
+                ensranking[q1id].append((q2id, enscore, label))
 
-    # BM25
-    bm25time, transtime, softtime, enstime = [], [], [], []
-    ranking = {}
-    bm25ranking, transranking, softranking, ensranking = {}, {}, {}, {}
-    for q1id in testdata:
-        bm25ranking[q1id] = []
-        transranking[q1id] = []
-        softranking[q1id] = []
-        ensranking[q1id] = []
-        ranking[q1id] = []
+                ranking[q1id].append((q2id, label, label))
 
-        for q2id in testdata[q1id]:
-            score, label = testdata[q1id][q2id]['score'], testdata[q1id][q2id]['label']
-            bm25ranking[q1id].append((q2id, score, label))
+        folds.append({
+            'upper': ranking,
+            'bm25': bm25ranking,
+            'translation': transranking,
+            'softcosine': softranking,
+            'ensemble': ensranking
+        })
 
-            q1, q2 = testdata[q1id][q2id]['q1'], testdata[q1id][q2id]['q2']
-            q1, q1emb, q2, q2emb = goeie.preprocess(q1=q1, q2=q2)
+        print('Upper bound: Evaluation')
+        print('MAP:', round(map(ranking), 4))
+        print(10 * '-')
 
-            start = time.time()
-            transcore = goeie.translate(q1, q1emb, q2, q2emb)
-            end = time.time()
-            transtime.append(end-start)
-            transranking[q1id].append((q2id, transcore, label))
+        print('BM25: Evaluation')
+        print('MAP:', round(map(bm25ranking), 4))
+        print(10 * '-')
 
-            start = time.time()
-            softscore = goeie.softcos(q1, q1emb, q2, q2emb)
-            end = time.time()
-            softtime.append(end-start)
-            softranking[q1id].append((q2id, softscore, label))
+        print('Translation: Evaluation')
+        print('MAP:', round(map(transranking), 4))
+        print('Time: ', round(sum(transtime) / len(transtime), 4))
+        print(10 * '-')
 
-            start = time.time()
-            enscore = goeie.ensembling(q1, q1emb, q2id, q2, q2emb)
-            end = time.time()
-            enstime.append(end-start)
-            ensranking[q1id].append((q2id, enscore, label))
+        print('Softcosine: Evaluation')
+        print('MAP:', round(map(softranking), 4))
+        print('Time: ', round(sum(softtime) / len(softtime), 4))
+        print(10 * '-')
 
-            ranking[q1id].append((q2id, label, label))
-
-    print('Upper bound: Evaluation')
-    print('MAP:', round(map(ranking), 4))
-    print(10 * '-')
-
-    print('BM25: Evaluation')
-    print('MAP:', round(map(bm25ranking), 4))
-    print(10 * '-')
-
-    print('Translation: Evaluation')
-    print('MAP:', round(map(transranking), 4))
-    print('Time: ', round(sum(transtime) / len(transtime), 4))
-    print(10 * '-')
-
-    print('Softcosine: Evaluation')
-    print('MAP:', round(map(softranking), 4))
-    print('Time: ', round(sum(softtime) / len(softtime), 4))
-    print(10 * '-')
-
-    print('Ensembling: Evaluation')
-    print('MAP:', round(map(ensranking), 4))
-    print('Time: ', round(sum(enstime) / len(enstime), 4))
-    print(10 * '-')
+        print('Ensembling: Evaluation')
+        print('MAP:', round(map(ensranking), 4))
+        print('Time: ', round(sum(enstime) / len(enstime), 4))
+        print(10 * '-')
+        print(50 * '*')
+    p.dump(folds, open('folds.pickle', 'wb'))
 
 if __name__ == '__main__':
     goeie = GoeieVraag(evaluation=True, w2v_dim=300)
