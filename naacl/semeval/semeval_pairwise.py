@@ -3,60 +3,20 @@ __author__='thiagocastroferreira'
 import sys
 sys.path.append('../')
 sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
-import ev, metrics
 import _pickle as p
 import copy
 import os
-import paths
+import utils
 
 from semeval import Semeval
 from semeval_bm25 import SemevalBM25
 from semeval_translation import SemevalTranslation
 from semeval_cosine import SemevalSoftCosine
 
-from operator import itemgetter
 from models.svm import Model
 from sklearn.preprocessing import MinMaxScaler
 
 from sklearn.metrics import f1_score, accuracy_score
-
-DEV_GOLD_PATH=paths.DEV_GOLD_PATH
-TEST2016_GOLD_PATH=paths.TEST2016_GOLD_PATH
-TEST2017_GOLD_PATH=paths.TEST2017_GOLD_PATH
-
-def prepare_gold(path):
-    ir = ev.read_res_file_aid(path, 'trec')
-    return ir
-
-
-def evaluate(ranking, gold):
-    for qid in gold:
-        gold_sorted = sorted(gold[qid], key = itemgetter(2), reverse = True)
-        pred_sorted = ranking[qid]
-        pred_sorted = sorted(pred_sorted, key = itemgetter(2), reverse = True)
-
-        gold[qid], ranking[qid] = [], []
-        for i, row in enumerate(gold_sorted):
-            relevant, gold_score, aid = row
-            gold[qid].append((relevant, gold_score, aid))
-
-            pred_score = pred_sorted[i][1]
-            ranking[qid].append((relevant, pred_score, aid))
-
-    for qid in gold:
-        # Sort by IR score.
-        gold_sorted = sorted(gold[qid], key = itemgetter(1), reverse = True)
-
-        # Sort by SVM prediction score.
-        pred_sorted = ranking[qid]
-        pred_sorted = sorted(pred_sorted, key = itemgetter(1), reverse = True)
-
-        gold[qid] = [rel for rel, score, aid in gold_sorted]
-        ranking[qid] = [rel for rel, score, aid in pred_sorted]
-
-    map_gold = metrics.map(gold, 10)
-    map_pred = metrics.map(ranking, 10)
-    return map_gold, map_pred
 
 class SemevalPairwise(Semeval):
     def __init__(self, stop=True, lowercase=True, punctuation=True, vector='word2vec', w2vdim=300, proctrain=True):
@@ -500,20 +460,20 @@ if __name__ == '__main__':
     semeval.validate(semeval.devpairdata, 'dev')
 
     ranking = semeval.test('dev')
-    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(DEV_GOLD_PATH))
+    map_baseline, map_model = utils.evaluate(copy.copy(ranking), utils.prepare_gold(utils.DEV_GOLD_PATH))
 
     print('Dev:')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
 
     ranking = semeval.test('test2016')
-    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(TEST2016_GOLD_PATH))
+    map_baseline, map_model = utils.evaluate(copy.copy(ranking), utils.prepare_gold(utils.TEST2016_GOLD_PATH))
     print('\nTest2016:')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)
 
     ranking = semeval.test('test2017')
-    map_baseline, map_model = evaluate(copy.copy(ranking), prepare_gold(TEST2017_GOLD_PATH))
+    map_baseline, map_model = utils.evaluate(copy.copy(ranking), utils.prepare_gold(utils.TEST2017_GOLD_PATH))
     print('\nTest2017:')
     print('MAP baseline: ', map_baseline)
     print('MAP model: ', map_model)

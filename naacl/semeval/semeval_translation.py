@@ -4,7 +4,7 @@ import sys
 sys.path.append('../')
 
 import copy
-import evaluate
+import utils as evaluate
 import os
 from semeval import Semeval
 from gensim.corpora import Dictionary
