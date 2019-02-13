@@ -80,7 +80,7 @@ class SemevalTranslation(Semeval):
 
 
     def choose_parameters(self):
-        best = {}
+        best = { 'map': 0.0 }
         alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         for alpha in alphas:
             sigma = abs(1-alpha)
