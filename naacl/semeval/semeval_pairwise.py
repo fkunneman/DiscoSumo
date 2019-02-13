@@ -91,37 +91,45 @@ class SemevalPairwise(Semeval):
             self.bm25 = SemevalBM25(stop=True, lowercase=False, punctuation=True, proctrain=True)
             self.trainbm25 = self.format(self.bm25.test(self.bm25.traindata))
             self.trainpairbm25 = self.bm25.pairs(self.bm25.traindata)
+            self.traincommentbm25 = self.bm25.comments(self.bm25.traindata)
 
             self.devbm25 = self.format(self.bm25.validate())
             self.devpairbm25 = self.bm25.pairs(self.bm25.devdata)
+            self.devcommentbm25 = self.bm25.comments(self.bm25.devdata)
 
             self.test2016bm25 = self.format(self.bm25.test(self.bm25.test2016data))
             self.test2016pairbm25 = self.bm25.pairs(self.bm25.test2016data)
+            self.test2016commentbm25 = self.bm25.comments(self.bm25.test2016data)
 
             self.test2017bm25 = self.format(self.bm25.test(self.bm25.test2017data))
             self.test2017pairbm25 = self.bm25.pairs(self.bm25.test2017data)
+            self.test2017commentbm25 = self.bm25.comments(self.bm25.test2017data)
             del self.bm25
 
             data = {
-                'train': self.trainbm25, 'trainpair': self.trainpairbm25,
-                'dev': self.devbm25, 'devpair': self.devpairbm25,
-                'test2016': self.test2016bm25, 'test2016pair': self.test2016pairbm25,
-                'test2017':self.test2017bm25, 'test2017pair': self.test2017pairbm25
+                'train': self.trainbm25, 'trainpair': self.trainpairbm25, 'traincomment': self.traincommentbm25,
+                'dev': self.devbm25, 'devpair': self.devpairbm25, 'devcomment': self.devcommentbm25,
+                'test2016': self.test2016bm25, 'test2016pair': self.test2016pairbm25, 'test2016comment': self.test2016commentbm25,
+                'test2017':self.test2017bm25, 'test2017pair': self.test2017pairbm25, 'test2017comment': self.test2017commentbm25,
             }
             p.dump(data, open(path, 'wb'))
         else:
             data = p.load(open(path, 'rb'))
             self.trainbm25 = data['train']
             self.trainpairbm25 = data['trainpair']
+            self.traincommentbm25 = data['traincomment']
 
             self.devbm25 = data['dev']
             self.devpairbm25 = data['devpair']
+            self.devcommentbm25 = data['devcomment']
 
             self.test2016bm25 = data['test2016']
             self.test2016pairbm25 = data['test2016pair']
+            self.test2016commentbm25 = data['test2016comment']
 
             self.test2017bm25 = data['test2017']
             self.test2017pairbm25 = data['test2017pair']
+            self.test2017commentbm25 = data['test2017comment']
 
 
     def train_translation(self):
@@ -130,37 +138,49 @@ class SemevalPairwise(Semeval):
             self.translation = SemevalTranslation(alpha=0.8, sigma=0.2, punctuation=True, proctrain=True, vector='word2vec', stop=True, lowercase=False, w2vdim=self.w2vdim)
             self.traintranslation = self.format(self.translation.test(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo))
             self.trainpairtranslation = self.translation.pairs(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo)
+            self.traincommenttranslation = self.translation.comments(self.translation.traindata, self.translation.trainidx, self.translation.trainelmo)
 
             self.devtranslation = self.format(self.translation.validate())
             self.devpairtranslation = self.translation.pairs(self.translation.devdata, self.translation.devidx, self.translation.develmo)
+            self.devcommenttranslation = self.translation.comments(self.translation.devdata, self.translation.devidx, self.translation.develmo)
 
             self.test2016translation = self.format(self.translation.test(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo))
             self.test2016pairtranslation = self.translation.pairs(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo)
+            self.test2016commenttranslation = self.translation.comments(self.translation.test2016data, self.translation.test2016idx, self.translation.test2016elmo)
 
             self.test2017translation = self.format(self.translation.test(self.translation.test2017data, self.translation.test2017idx, self.translation.test2017elmo))
             self.test2017pairtranslation = self.translation.pairs(self.translation.test2017data, self.translation.test2017idx, self.translation.test2017elmo)
+            self.test2017commenttranslation = self.translation.comments(self.translation.test2017data, self.translation.test2017idx, self.translation.test2017elmo)
             del self.translation
 
             data = {
                 'train': self.traintranslation, 'trainpair': self.trainpairtranslation,
+                'traincomment': self.traincommenttranslation,
                 'dev': self.devtranslation, 'devpair': self.devpairtranslation,
+                'devcomment': self.devcommenttranslation,
                 'test2016': self.test2016translation, 'test2016pair': self.test2016pairtranslation,
-                'test2017':self.test2017translation, 'test2017pair': self.test2017pairtranslation
+                'test2016comment': self.test2016commenttranslation,
+                'test2017':self.test2017translation, 'test2017pair': self.test2017pairtranslation,
+                'test2017comment': self.test2017commenttranslation
             }
             p.dump(data, open(path, 'wb'))
         else:
             data = p.load(open(path, 'rb'))
             self.traintranslation = data['train']
             self.trainpairtranslation = data['trainpair']
+            self.traincommenttranslation = data['traincomment']
 
             self.devtranslation = data['dev']
             self.devpairtranslation = data['devpair']
+            self.devcommenttranslation = data['devcomment']
 
             self.test2016translation = data['test2016']
             self.test2016pairtranslation = data['test2016pair']
+            self.test2016commenttranslation = data['test2016comment']
 
             self.test2017translation = data['test2017']
             self.test2017pairtranslation = data['test2017pair']
+            self.test2017commenttranslation = data['test2017comment']
 
 
     def train_softcosine(self):
@@ -170,62 +190,84 @@ class SemevalPairwise(Semeval):
 
             self.trainsoftcosine = self.format(self.softcosine.test(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo))
             self.trainpairsoftcosine = self.softcosine.pairs(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo)
+            self.traincommentsoftcosine = self.softcosine.comments(self.softcosine.traindata, self.softcosine.trainidx, self.softcosine.trainelmo)
 
             self.devsoftcosine = self.format(self.softcosine.validate())
             self.devpairsoftcosine = self.softcosine.pairs(self.softcosine.devdata, self.softcosine.devidx, self.softcosine.develmo)
+            self.devcommentsoftcosine = self.softcosine.comments(self.softcosine.devdata, self.softcosine.devidx, self.softcosine.develmo)
 
             self.test2016softcosine = self.format(self.softcosine.test(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo))
             self.test2016pairsoftcosine = self.softcosine.pairs(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo)
+            self.test2016commentsoftcosine = self.softcosine.comments(self.softcosine.test2016data, self.softcosine.test2016idx, self.softcosine.test2016elmo)
 
             self.test2017softcosine = self.format(self.softcosine.test(self.softcosine.test2017data, self.softcosine.test2017idx, self.softcosine.test2017elmo))
             self.test2017pairsoftcosine = self.softcosine.pairs(self.softcosine.test2017data, self.softcosine.test2017idx, self.softcosine.test2017elmo)
+            self.test2017commentsoftcosine = self.softcosine.comments(self.softcosine.test2017data, self.softcosine.test2017idx, self.softcosine.test2017elmo)
             del self.softcosine
 
             data = {
                 'train': self.trainsoftcosine, 'trainpair': self.trainpairsoftcosine,
+                'traincomment': self.traincommentsoftcosine,
                 'dev': self.devsoftcosine, 'devpair': self.devpairsoftcosine,
+                'devcomment': self.devcommentsoftcosine,
                 'test2016': self.test2016softcosine, 'test2016pair': self.test2016pairsoftcosine,
-                'test2017':self.test2017softcosine, 'test2017pair': self.test2017pairsoftcosine
+                'test2016comment': self.test2016commentsoftcosine,
+                'test2017':self.test2017softcosine, 'test2017pair': self.test2017pairsoftcosine,
+                'test2017comment': self.test2017commentsoftcosine
             }
             p.dump(data, open(path, 'wb'))
         else:
             data = p.load(open(path, 'rb'))
             self.trainsoftcosine = data['train']
             self.trainpairsoftcosine = data['trainpair']
+            self.traincommentsoftcosine = data['traincomment']
 
             self.devsoftcosine = data['dev']
             self.devpairsoftcosine = data['devpair']
+            self.devcommentsoftcosine = data['devcomment']
 
             self.test2016softcosine = data['test2016']
             self.test2016pairsoftcosine = data['test2016pair']
+            self.test2016commentsoftcosine = data['test2016comment']
 
             self.test2017softcosine = data['test2017']
             self.test2017pairsoftcosine = data['test2017pair']
+            self.test2017commentsoftcosine = data['test2017comment']
 
 
-    def get_features(self, q1id, q2id, q3id, bm25, bm25pair, translation, translationpair, softcosine, softcosinepair):
+    def get_features(self, q1id, q2id, q3id, bm25, bm25comment, translation, translationcomment, softcosine, softcosinecomment):
         bm25q1q2 = bm25[q1id][q2id][0]
         translationq1q2 = translation[q1id][q2id][0]
         softcosineq1q2 = softcosine[q1id][q2id][0]
+
+        bm25commentq1q2 = bm25comment[q1id][q2id]
+        translationcommentq1q2 = translationcomment[q1id][q2id]
+        softcosinecommentq1q2 = softcosinecomment[q1id][q2id]
 
         bm25q1q3 = bm25[q1id][q3id][0]
         translationq1q3 = translation[q1id][q3id][0]
         softcosineq1q3 = softcosine[q1id][q3id][0]
 
-        bm25q2q3 = bm25pair[q1id][q2id][q3id]
-        translationq2q3 = translationpair[q1id][q2id][q3id]
-        softcosineq2q3 = softcosinepair[q1id][q2id][q3id]
+        bm25commentq1q3 = bm25comment[q1id][q3id]
+        translationcommentq1q3 = translationcomment[q1id][q3id]
+        softcosinecommentq1q3 = softcosinecomment[q1id][q3id]
 
         X = []
         X.append(bm25q1q2)
         X.append(translationq1q2)
         X.append(softcosineq1q2)
+
+        X.extend(bm25commentq1q2)
+        X.extend(translationcommentq1q2)
+        X.extend(softcosinecommentq1q2)
+
         X.append(bm25q1q3)
         X.append(translationq1q3)
         X.append(softcosineq1q3)
-        X.append(bm25q2q3)
-        X.append(translationq2q3)
-        X.append(softcosineq2q3)
+
+        X.extend(bm25commentq1q3)
+        X.extend(translationcommentq1q3)
+        X.extend(softcosinecommentq1q3)
         return X
 
 
@@ -246,9 +288,9 @@ class SemevalPairwise(Semeval):
                 q3id = pair['q3_id']
 
                 X = self.get_features(q1id, q2id, q3id,
-                                      self.trainbm25, self.trainpairbm25,
-                                      self.traintranslation, self.trainpairtranslation,
-                                      self.trainsoftcosine, self.trainpairsoftcosine)
+                                      self.trainbm25, self.traincommentbm25,
+                                      self.traintranslation, self.traincommenttranslation,
+                                      self.trainsoftcosine, self.traincommentsoftcosine)
                 self.X.append(X)
 
                 self.y.append(pair['label'])
@@ -262,31 +304,31 @@ class SemevalPairwise(Semeval):
     def validate(self, procdata, set_='dev'):
         if set_ == 'dev':
             bm25 = self.devbm25
-            bm25pair = self.devpairbm25
+            bm25comment = self.devcommentbm25
 
             translation = self.devtranslation
-            translationpair = self.devpairtranslation
+            translationcomment = self.devcommenttranslation
 
             softcosine = self.devsoftcosine
-            softcosinepair = self.devpairsoftcosine
+            softcosinecomment = self.devcommentsoftcosine
         elif set_ == 'test2016':
             bm25 = self.test2016bm25
-            bm25pair = self.test2016pairbm25
+            bm25comment = self.test2016commentbm25
 
             translation = self.test2016translation
-            translationpair = self.test2016pairtranslation
+            translationcomment = self.test2016commenttranslation
 
             softcosine = self.test2016softcosine
-            softcosinepair = self.test2016pairsoftcosine
+            softcosinecomment = self.test2016commentsoftcosine
         else:
             bm25 = self.test2017bm25
-            bm25pair = self.test2017pairbm25
+            bm25comment = self.test2017commentbm25
 
             translation = self.test2017translation
-            translationpair = self.test2017pairtranslation
+            translationcomment = self.test2017commenttranslation
 
             softcosine = self.test2017softcosine
-            softcosinepair = self.test2017pairsoftcosine
+            softcosinecomment = self.test2017commentsoftcosine
 
         y_real, y_pred = [], []
         for q1id in procdata:
@@ -295,9 +337,9 @@ class SemevalPairwise(Semeval):
                 q3id = pair['q3_id']
 
                 X = self.get_features(q1id, q2id, q3id,
-                                      bm25, bm25pair,
-                                      translation, translationpair,
-                                      softcosine, softcosinepair)
+                                      bm25, bm25comment,
+                                      translation, translationcomment,
+                                      softcosine, softcosinecomment)
 
                 X = self.scaler.transform([X])[0]
                 clfscore, pred_label = self.ensemble.score(X)
@@ -316,46 +358,46 @@ class SemevalPairwise(Semeval):
             procdata = self.traindata
 
             bm25 = self.trainbm25
-            bm25pair = self.trainpairbm25
+            bm25comment = self.traincommentbm25
 
             translation = self.traintranslation
-            translationpair = self.trainpairtranslation
+            translationcomment = self.traincommenttranslation
 
             softcosine = self.trainsoftcosine
-            softcosinepair = self.trainpairsoftcosine
+            softcosinecomment = self.traincommentsoftcosine
         elif set_ == 'dev':
             procdata = self.devdata
 
             bm25 = self.devbm25
-            bm25pair = self.devpairbm25
+            bm25comment = self.devcommentbm25
 
             translation = self.devtranslation
-            translationpair = self.devpairtranslation
+            translationcomment = self.devcommenttranslation
 
             softcosine = self.devsoftcosine
-            softcosinepair = self.devpairsoftcosine
+            softcosinecomment = self.devcommentsoftcosine
         elif set_ == 'test2016':
             procdata = self.test2016data
 
             bm25 = self.test2016bm25
-            bm25pair = self.test2016pairbm25
+            bm25comment = self.test2016commentbm25
 
             translation = self.test2016translation
-            translationpair = self.test2016pairtranslation
+            translationcomment = self.test2016commenttranslation
 
             softcosine = self.test2016softcosine
-            softcosinepair = self.test2016pairsoftcosine
+            softcosinecomment = self.test2016commentsoftcosine
         else:
             procdata = self.test2017data
 
             bm25 = self.test2017bm25
-            bm25pair = self.test2017pairbm25
+            bm25comment = self.test2017commentbm25
 
             translation = self.test2017translation
-            translationpair = self.test2017pairtranslation
+            translationcomment = self.test2017commenttranslation
 
             softcosine = self.test2017softcosine
-            softcosinepair = self.test2017pairsoftcosine
+            softcosinecomment = self.test2017commentsoftcosine
 
         ranking = {}
         for q1id in procdata:
@@ -373,31 +415,27 @@ class SemevalPairwise(Semeval):
                     'bm25': bm25[q1id][q2id][0],
                     'translation': translation[q1id][q2id][0],
                     'softcosine': softcosine[q1id][q2id][0],
+                    'bm25comment': bm25comment[q1id][q2id],
+                    'translationcomment': translationcomment[q1id][q2id],
+                    'softcosinecomment': softcosinecomment[q1id][q2id],
                     'q1_full': procdata[q1id][q2id]['q1_full'],
                     'q2_full': procdata[q1id][q2id]['q2_full'],
                 }
 
-                for q3id in procdata[q1id]:
-                    pairs[q2id][q3id] = {
-                        'bm25': bm25pair[q1id][q2id][q3id],
-                        'translation': translationpair[q1id][q2id][q3id],
-                        'softcosine': softcosinepair[q1id][q2id][q3id],
-                    }
 
-
-            qids = self.sort(question_ids, questions, pairs)
+            qids = self.sort(question_ids, questions)
             for i, q2id in enumerate(qids):
                 ranking[q1id].append((1, 10-i, q2id))
         return ranking
 
 
-    def sort(self, question_ids, questions, pairs):
+    def sort(self, question_ids, questions):
         if len(question_ids) <= 1:
             return question_ids
 
         half = int(len(question_ids) / 2)
-        group1 = self.sort(question_ids[:half], questions, pairs)
-        group2 = self.sort(question_ids[half:], questions, pairs)
+        group1 = self.sort(question_ids[:half], questions)
+        group2 = self.sort(question_ids[half:], questions)
 
         result = []
         i1, i2 = 0, 0
@@ -415,24 +453,34 @@ class SemevalPairwise(Semeval):
                 translationq1q2 = questions[q2id]['translation']
                 softcosineq1q2 = questions[q2id]['softcosine']
 
+                bm25commentq1q2 = questions[q2id]['bm25comment']
+                translationcommentq1q2 = questions[q2id]['translationcomment']
+                softcosinecommentq1q2 = questions[q2id]['softcosinecomment']
+
                 bm25q1q3 = questions[q3id]['bm25']
                 translationq1q3 = questions[q3id]['translation']
                 softcosineq1q3 = questions[q3id]['softcosine']
 
-                bm25q2q3 = questions[q2id][q3id]['bm25']
-                translationq2q3 = questions[q2id][q3id]['translation']
-                softcosineq2q3 = questions[q2id][q3id]['softcosine']
+                bm25commentq1q3 = questions[q3id]['bm25comment']
+                translationcommentq1q3 = questions[q3id]['translationcomment']
+                softcosinecommentq1q3 = questions[q3id]['softcosinecomment']
 
                 X = []
                 X.append(bm25q1q2)
                 X.append(translationq1q2)
                 X.append(softcosineq1q2)
+
+                X.extend(bm25commentq1q2)
+                X.extend(translationcommentq1q2)
+                X.extend(softcosinecommentq1q2)
+
                 X.append(bm25q1q3)
                 X.append(translationq1q3)
                 X.append(softcosineq1q3)
-                X.append(bm25q2q3)
-                X.append(translationq2q3)
-                X.append(softcosineq2q3)
+
+                X.extend(bm25commentq1q3)
+                X.extend(translationcommentq1q3)
+                X.extend(softcosinecommentq1q3)
 
                 X = self.scaler.transform([X])[0]
                 clfscore, pred_label = self.ensemble.score(X)

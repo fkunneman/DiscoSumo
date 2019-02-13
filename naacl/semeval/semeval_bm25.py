@@ -206,3 +206,25 @@ class SemevalBM25(Semeval):
                     ranking[q1id][q2id][q3id] = score
 
         return ranking
+
+    def comments(self, testdata):
+        self.testdata = testdata
+
+        ranking = {}
+        for i, q1id in enumerate(self.testdata):
+            ranking[q1id] = {}
+            percentage = round(float(i + 1) / len(self.testdata), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
+
+            for q2id in self.testdata[q1id]:
+                ranking[q1id][q2id] = []
+
+                q1 = self.testdata[q1id][q2id]['q1']
+
+                comments = self.testdata[q1id][q2id]['comments']
+                for comment in comments:
+                    q3id = comment['id']
+                    score = self.model(q1, q3id)
+                    ranking[q1id][q2id].append(score)
+
+        return ranking
