@@ -28,24 +28,24 @@ from random import shuffle
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 
-# DATA_PATH='/roaming/fkunnema/goeievraag/parsed/'
-# WORD2VEC_PATH='/home/tcastrof/Question/DiscoSumo/goeievraag/word2vec'
-# QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed.json'
-# NEW_QUESTIONS='/roaming/fkunnema/goeievraag/parsed/question_parsed_proc.json'
+# DATA_PATH='/roaming/fkunnema/goeievraag/data/'
+# WORD2VEC_PATH='word2vec/'
+# QUESTIONS='/roaming/fkunnema/goeievraag/data/question_parsed.json'
+# NEW_QUESTIONS='/roaming/fkunnema/goeievraag/data/question_parsed_proc.json'
 #
-# ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed.json'
-# NEW_ANSWERS='/roaming/fkunnema/goeievraag/parsed/answer_parsed_proc.json'
+# ANSWERS='/roaming/fkunnema/goeievraag/data/answer_parsed.json'
+# NEW_ANSWERS='/roaming/fkunnema/goeievraag/data/answer_parsed_proc.json'
 #
-# TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled.json'
-# NEW_TRAINDATA='/roaming/fkunnema/goeievraag/exp_similarity/ranked_questions_labeled_proc.json'
+# TRAINDATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled.json'
+# NEW_TRAINDATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
 #
-# DICT_PATH='/roaming/fkunnema/goeievraag/parsed/dict.model'
+# DICT_PATH='/roaming/fkunnema/goeievraag/data/dict.model'
 #
-# CATEGORY2PARENT_PATH='/roaming/fkunnema/goeievraag/qcat/catid2parent.json'
-# CATEGORY_MODEL_PATH='/roaming/fkunnema/goeievraag/qcat/questions.model.pkl'
-# LABEL_ENCODER_PATH='/roaming/fkunnema/goeievraag/qcat/questions.le'
-# CATEGORY2ID_PATH='/roaming/fkunnema/goeievraag/qcat/cat2id_dict.txt'
-# VOCABULARY_PATH='/roaming/fkunnema/goeievraag/qcat/questions.featureselection.txt'
+# CATEGORY2PARENT_PATH='/roaming/fkunnema/goeievraag/data/qcat/catid2parent.json'
+# CATEGORY_MODEL_PATH='/roaming/fkunnema/goeievraag/data/qcat/questions.model.pkl'
+# LABEL_ENCODER_PATH='/roaming/fkunnema/goeievraag/data/qcat/questions.le'
+# CATEGORY2ID_PATH='/roaming/fkunnema/goeievraag/data/qcat/cat2id_dict.txt'
+# VOCABULARY_PATH='/roaming/fkunnema/goeievraag/data/qcat/questions.featureselection.txt'
 
 DATA_PATH='data/'
 WORD2VEC_PATH='word2vec/'
@@ -81,10 +81,9 @@ class GoeieVraag():
 
         print('Filter seed questions...')
         if evaluation:
-            self.seeds_ = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in self.questions.values()]
+            self.seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in self.questions.values()]
         else:
-            self.seeds_ = self.filter(self.questions.values())
-        self.seeds = dict([(cid, [seed for seed in self.seeds_ if seed['category'] == cid]) for cid in self.categories])
+            self.seeds = self.filter(self.questions.values())
 
         # bm25
         print('Initializing BM25...')
@@ -239,52 +238,34 @@ class GoeieVraag():
 
     # BM25
     def init_bm25(self, corpus):
-        self.id2idx = dict([(cid, {}) for cid in self.categories])
-        self.idx2id = dict([(cid, {}) for cid in self.categories])
-        self.bm25 = dict([(cid, None) for cid in self.categories])
-        self.average_idf = dict([(cid, 0.0) for cid in self.categories])
-
-        for cid in corpus:
-            ids, questions = [], []
-            for row in corpus[cid]:
-                ids.append(row['id'])
-                questions.append(row['tokens'])
-
-            self.idx2id[cid] = dict([(i, qid) for i, qid in enumerate(ids)])
-            self.id2idx[cid] = dict([(qid, i) for i, qid in enumerate(ids)])
-            self.bm25[cid] = bm25.BM25(questions)
-
-            # get average idf
-            self.average_idf[cid] = sum(map(lambda k: float(self.bm25[cid].idf[k]), self.bm25[cid].idf.keys())) / len(self.bm25[cid].idf.keys())
-
         ids, questions = [], []
-        for row in self.seeds_:
+        for row in corpus:
             ids.append(row['id'])
             questions.append(row['tokens'])
 
-        self.idx2id_ = dict([(i, qid) for i, qid in enumerate(ids)])
-        self.id2idx_ = dict([(qid, i) for i, qid in enumerate(ids)])
-        self.bm25_ = bm25.BM25(questions)
 
-        # get average idf
-        self.average_idf_ = sum(map(lambda k: float(self.bm25_.idf[k]), self.bm25_.idf.keys())) / len(self.bm25_.idf.keys())
+        self.idx2id = dict([(i, qid) for i, qid in enumerate(ids)])
+        self.id2idx = dict([(qid, i) for i, qid in enumerate(ids)])
+        self.bm25 = bm25.BM25(questions)
 
 
     def retrieve(self, query, categories, n=30):
         result = []
+        scores = self.bm25.get_scores(query)
+        questions = []
+        for i in range(len(self.seeds)):
+            questions.append({
+                'id': self.seeds[i]['id'],
+                'tokens': self.seeds[i]['tokens'],
+                'category': self.seeds[i]['category'],
+                'score': scores[i]
+            })
+
+        n_ = int(n / 5)
         for cid in categories:
-            scores = self.bm25[cid].get_scores(query)
-            questions = []
-            for i in range(len(self.seeds[cid])):
-                questions.append({
-                    'id': self.seeds[cid][i]['id'],
-                    'tokens': self.seeds[cid][i]['tokens'],
-                    'score': scores[i]
-                })
-            # questions = [(self.seeds[cid][i][0], self.seeds[cid][i][1], self.idx2id[cid][i], scores[i]) for i in range(len(self.seeds[cid]))]
-            n_ = int(n / 5)
-            questions = sorted(questions, key=lambda x: x['score'], reverse=True)[:n_]
-            result.extend(questions)
+            fquestions = [question for question in questions if question['category'] == cid]
+            fquestions = sorted(fquestions, key=lambda x: x['score'], reverse=True)[:n_]
+            result.extend(fquestions)
         return result
 
 
@@ -419,7 +400,7 @@ class GoeieVraag():
                 q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
 
                 # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
-                bm25score = self.bm25_.get_score(q1, self.id2idx_[q2id])
+                bm25score = self.bm25.get_score(q1, self.id2idx[q2id])
                 translation = self.translate(q1, q1emb, q2, q2emb)
                 softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
@@ -433,7 +414,7 @@ class GoeieVraag():
 
 
     def ensembling(self, q1, q1emb, q2id, q2, q2emb):
-        bm25score = self.bm25_.get_score(q1, self.id2idx_[q2id])
+        bm25score = self.bm25.get_score(q1, self.id2idx[q2id])
         translation = self.translate(q1, q1emb, q2, q2emb)
         softcosine = self.softcos(q1, q1emb, q2, q2emb)
 

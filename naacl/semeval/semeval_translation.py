@@ -4,6 +4,7 @@ import sys
 sys.path.append('../')
 
 import copy
+import utils as evaluate
 import os
 from semeval import Semeval
 from gensim.corpora import Dictionary
@@ -21,6 +22,7 @@ class SemevalTranslation(Semeval):
         self.sigma = sigma
         self.path = path
         self.train()
+        self.choose_parameters()
 
     def train(self):
         questions = copy.copy(self.additional)
@@ -77,6 +79,34 @@ class SemevalTranslation(Semeval):
         del self.trainset
 
 
+    def choose_parameters(self):
+        best = { 'map': 0.0 }
+        alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        for alpha in alphas:
+            sigma = abs(1-alpha)
+            self.set_parameters(alpha=alpha, sigma=sigma)
+            ranking = self.validate()
+
+            gold = evaluate.prepare_gold(evaluate.DEV_GOLD_PATH)
+            map_baseline, map_model = evaluate.evaluate(copy.copy(ranking), gold)
+            if map_model > best['map']:
+                best['map'] = copy.copy(map_model)
+                best['ranking'] = ranking
+                best['alpha'] = alpha
+                best['sigma'] = sigma
+                best['parameter_settings'] = 'alpha='+str(self.alpha)+','+'sigma='+str(self.sigma)
+                print('Parameters: ', best['parameter_settings'])
+                print('MAP model: ', best['map'])
+                print(10 * '-')
+            else:
+                print('Not best:')
+                print('Parameters: ', 'alpha='+str(self.alpha)+','+'sigma='+str(self.sigma))
+                print('MAP model: ', map_model)
+                print(10 * '-')
+
+        self.set_parameters(alpha=best['alpha'], sigma=best['sigma'])
+
+
     def set_parameters(self, alpha, sigma):
         self.alpha = alpha
         self.sigma = sigma
@@ -129,4 +159,62 @@ class SemevalTranslation(Semeval):
 
                 real_label = pair['label']
                 ranking[q1id].append((real_label, score, q2id))
+        return ranking
+
+
+    def pairs(self, testdata, elmoidx, elmovec):
+        self.testdata = testdata
+
+        ranking = {}
+        for i, q1id in enumerate(self.testdata):
+            ranking[q1id] = {}
+            percentage = round(float(i + 1) / len(self.testdata), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
+
+            for q2id in self.testdata[q1id]:
+                ranking[q1id][q2id] = {}
+                q2 = self.testdata[q1id][q2id]['q2']
+
+                for q3id in self.testdata[q1id]:
+                    q3 = self.testdata[q1id][q3id]['q2']
+
+                    if self.vector == 'alignments':
+                        lmprob, trmprob, score, _ = self.model.score(q2, q3)
+                    else:
+                        q2emb = self.encode(q2id, q2, elmoidx, elmovec)
+                        q3emb = self.encode(q3id, q3, elmoidx, elmovec)
+                        lmprob, trmprob, score, _ = self.model(q2, q2emb, q3, q3emb)
+
+                    ranking[q1id][q2id][q3id] = score
+
+        return ranking
+
+
+    def comments(self, testdata, elmoidx, elmovec):
+        self.testdata = testdata
+
+        ranking = {}
+        for i, q1id in enumerate(self.testdata):
+            ranking[q1id] = {}
+            percentage = round(float(i + 1) / len(self.testdata), 2)
+            print('Progress: ', percentage, i + 1, sep='\t', end = '\r')
+
+            for q2id in self.testdata[q1id]:
+                ranking[q1id][q2id] = []
+
+                q1 = self.testdata[q1id][q2id]['q1']
+
+                comments = self.testdata[q1id][q2id]['comments']
+                for comment in comments:
+                    q3id = comment['id']
+                    q3 = comment['tokens']
+                    if self.vector == 'alignments':
+                        lmprob, trmprob, score, _ = self.model.score(q1, q3)
+                    else:
+                        q1emb = self.encode(q1id, q1, elmoidx, elmovec)
+                        q3emb = self.encode(q3id, q3, elmoidx, elmovec)
+                        lmprob, trmprob, score, _ = self.model(q1, q1emb, q3, q3emb)
+
+                    ranking[q1id][q2id].append(score)
+
         return ranking
