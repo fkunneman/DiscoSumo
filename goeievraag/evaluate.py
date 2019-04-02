@@ -42,7 +42,7 @@ def eval_retrieval(goeie):
         q1 = testdata[q1id][auxid]['q1']
 
         categories = [c[1] for c in goeie.question2cat(' '.join(q1)) if c[1] != '15']
-        print(categories)
+        print(' '.join(q1).encode('utf-8'),categories)
         start = time.time()
         questions = goeie.retrieve(q1, categories)
         end = time.time()
@@ -64,6 +64,7 @@ def eval_retrieval(goeie):
         acc30.append((len(acc30_), 10))
         acc10.append((len(acc10_), 10))
 
+    quit()
     num, dem = sum([w[0] for w in allacc]), float(sum([w[1] for w in allacc]))
     print('All accuracy:', round(num / dem, 5))
     num, dem = sum([w[0] for w in acc10]), float(sum([w[1] for w in allacc]))
