@@ -4,11 +4,8 @@ import logging
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
 
-import _pickle as p
 import json
-import load
 import os
-stopwords = load.load_stopwords()
 import string
 punctuation = string.punctuation
 import pandas as pd
@@ -30,7 +27,6 @@ from random import shuffle
 from sklearn.metrics.pairwise import cosine_similarity
 
 # DATA_PATH='/roaming/fkunnema/goeievraag/data/'
-
 DATA_PATH='data/'
 WORD2VEC_PATH='word2vec/'
 QUESTIONS=os.path.join(DATA_PATH, 'question_parsed.json')
@@ -38,6 +34,8 @@ NEW_QUESTIONS=os.path.join(DATA_PATH, 'question_parsed_proc.json')
 
 ANSWERS=os.path.join(DATA_PATH, 'answer_parsed.json')
 NEW_ANSWERS=os.path.join(DATA_PATH, 'answer_parsed_proc.json')
+
+STOPWORDS_PATH=os.path.join(DATA_PATH, 'stopwords.txt')
 
 TRAINDATA=os.path.join(DATA_PATH, 'ranked_questions_labeled.json')
 NEW_TRAINDATA=os.path.join(DATA_PATH, 'ranked_questions_labeled_proc.json')
@@ -100,7 +98,7 @@ class GoeieVraag():
         # tokenize and lowercase
         tokens = list(map(lambda token: str(token).lower(), self.nlp(query)))
         # remove stop words and punctuation
-        query_proc = [w for w in tokens if w not in stopwords and w not in punctuation]
+        query_proc = [w for w in tokens if w not in self.stopwords and w not in punctuation]
 
         # retrieve the 5 most likely categories of the query
         categories = [c[1] for c in self.question2cat(' '.join(tokens))]
@@ -122,6 +120,10 @@ class GoeieVraag():
 
 
     def init_datasets(self):
+        # STOPWORDS
+        with open(STOPWORDS_PATH) as f:
+            self.stopwords = [word.lower().strip() for word in f.read().split()]
+
         # QUESTIONS
         if not os.path.exists(NEW_QUESTIONS):
             self.questions = json.load(open(QUESTIONS))
@@ -134,7 +136,7 @@ class GoeieVraag():
 
                 question['tokens'] = text
                 question['tokens_proc'] = [w.lower() for w in text]
-                question['tokens_proc'] = [w for w in question['tokens_proc'] if w not in stopwords and w not in punctuation]
+                question['tokens_proc'] = [w for w in question['tokens_proc'] if w not in self.stopwords and w not in punctuation]
             self.questions = dict([(question['id'], question) for question in self.questions])
             json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
         else:
@@ -152,7 +154,7 @@ class GoeieVraag():
 
                 answer['tokens'] = text
                 answer['tokens_proc'] = [w.lower() for w in text]
-                answer['tokens_proc'] = [w for w in answer['tokens_proc'] if w not in stopwords and w not in punctuation]
+                answer['tokens_proc'] = [w for w in answer['tokens_proc'] if w not in self.stopwords and w not in punctuation]
             self.answers = dict([(answer['id'], answer) for answer in self.answers])
             json.dump(self.answers, open(NEW_ANSWERS, 'w'))
         else:
@@ -278,7 +280,7 @@ class GoeieVraag():
         fname = 'word2vec.' + str(self.w2v_dim) + '_' + str(self.w2v_window) + '.model'
         path = os.path.join(WORD2VEC_PATH, fname)
         if not os.path.exists(path):
-            w2v.run(question_path=NEW_QUESTIONS, answer_path=NEW_ANSWERS, write_path=path, w_dim=self.w2v_dim, window=self.w2v_window)
+            w2v.run(question_path=NEW_QUESTIONS, answer_path=NEW_ANSWERS, write_path=WORD2VEC_PATH, w_dim=self.w2v_dim, window=self.w2v_window)
         self.word2vec = Word2Vec.load(path)
 
 
@@ -409,7 +411,7 @@ class GoeieVraag():
 
 
             id2idx = dict([(qid, i) for i, qid in enumerate(ids)])
-            bm25 = bm25.BM25(questions)
+            bm25_ = bm25.BM25(questions)
 
             traindata = self.traindata
 
@@ -424,7 +426,7 @@ class GoeieVraag():
                     q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
 
                     # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
-                    bm25score = bm25.get_score(q1, id2idx[q2id])
+                    bm25score = bm25_.get_score(q1, id2idx[q2id])
                     translation = self.translate(q1, q1emb, q2, q2emb)
                     softcosine = self.softcos(q1, q1emb, q2, q2emb)
 

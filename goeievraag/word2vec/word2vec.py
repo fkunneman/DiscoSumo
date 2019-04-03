@@ -7,35 +7,37 @@ FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
 
 import json
-import load
-stopwords = load.load_stopwords()
+# import load
+# stopwords = load.load_stopwords()
 import os
 import string
 punctuation = string.punctuation
-import spacy
+# import spacy
 
 from gensim.models import Word2Vec
 
 
 def run(question_path, answer_path, write_path, w_dim=300, window=10):
-    nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
+    # nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
     documents = []
 
     questions = json.load(open(question_path))
-    for question in questions:
-        text = question['questiontext'] + ' '
-        text += question['description']
-
-        text = list(map(lambda token: str(token).lower(), nlp(text)))
-        text = [w for w in text if w not in stopwords and w not in punctuation]
-        documents.append(text)
+    # for question in questions:
+    #     text = question['questiontext'] + ' '
+    #     text += question['description']
+    #
+    #     text = list(map(lambda token: str(token).lower(), nlp(text)))
+    #     text = [w for w in text if w not in stopwords and w not in punctuation]
+    #     documents.append(text)
+    documents.extend(questions.values())
 
     answers = json.load(open(answer_path))
-    for answer in answers:
-        text = answer['answertext']
-        text = list(map(lambda token: str(token).lower(), nlp(text)))
-        text = [w for w in text if w not in stopwords and w not in punctuation]
-        documents.append(text)
+    # for answer in answers:
+    #     text = answer['answertext']
+    #     text = list(map(lambda token: str(token).lower(), nlp(text)))
+    #     text = [w for w in text if w not in stopwords and w not in punctuation]
+    #     documents.append(text)
+    documents.extend(answers.values())
 
     logging.info('Training...')
     fname = 'word2vec.' + str(w_dim) + '_' + str(window) + '.model'

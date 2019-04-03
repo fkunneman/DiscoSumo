@@ -7,12 +7,10 @@ import spacy
 from gensim import corpora
 
 GOEIEVRAAG_PATH='/roaming/fkunnema/goeievraag'
-STOPWORDS_PATH='data/stopwords.txt'
-if not os.path.exists(STOPWORDS_PATH):
-    STOPWORDS_PATH='../data/stopwords.txt'
 
-def load_stopwords():
-    with open(STOPWORDS_PATH) as f:
+
+def load_stopwords(path):
+    with open(path) as f:
         stopwords = [word.lower().strip() for word in f.read().split()]
     return stopwords
 
