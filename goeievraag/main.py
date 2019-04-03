@@ -105,13 +105,14 @@ class GoeieVraag():
         # retrieve 30 candidates with bm25
         questions = self.retrieve(query_proc, categories)
         # reranking with chosen method
-        questions = self.rerank(query=query_proc, questions=questions, method=method)
+        if method != 'bm25':
+            questions = self.rerank(query=query_proc, questions=questions, method=method)
 
         result = { 'query': query, 'questions': [] }
         for question in questions:
-            question_id, score = question['id'], question['rescore']
+            question_id = question['id']
             q = self.questions[question_id]
-            q['score'] = score
+            q['score'] = question['score'] if method == 'bm25' else question['rescore']
             result['questions'].append(q)
 
         # bestanswer_id = self.questions[questions[0][0]]['bestanswer']
