@@ -243,7 +243,6 @@ class GoeieVraag():
             ids.append(row['id'])
             questions.append(row['tokens'])
 
-
         self.idx2id = dict([(i, qid) for i, qid in enumerate(ids)])
         self.id2idx = dict([(qid, i) for i, qid in enumerate(ids)])
         self.bm25 = bm25.BM25(questions)

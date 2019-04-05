@@ -6,6 +6,7 @@ import time
 from main import GoeieVraag
 from gensim.corpora import Dictionary
 from sklearn.model_selection import KFold
+from sklearn.metrics import f1_score
 
 TRAINING_DATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
 
@@ -58,7 +59,6 @@ def eval_retrieval(goeie):
         acc30.append((len(acc30_), 10))
         acc10.append((len(acc10_), 10))
 
-    quit()
     num, dem = sum([w[0] for w in allacc]), float(sum([w[1] for w in allacc]))
     print('All accuracy:', round(num / dem, 5))
     num, dem = sum([w[0] for w in acc10]), float(sum([w[1] for w in allacc]))
@@ -178,24 +178,34 @@ def eval_reranking(goeie):
 
         print('Upper bound: Evaluation')
         print('MAP:', round(map(ranking), 4))
+        print('Ranking',ranking)
+        print('F1:', round(f1_score(ranking), 4))
         print(10 * '-')
 
         print('BM25: Evaluation')
         print('MAP:', round(map(bm25ranking), 4))
+        print('Ranking',bm25ranking)
+        print('F1:', round(f1_score(bm25ranking), 4))
         print(10 * '-')
 
         print('Translation: Evaluation')
         print('MAP:', round(map(transranking), 4))
+        print('Ranking',transranking)
+        print('F1:', round(f1_score(transranking), 4))
         print('Time: ', round(sum(transtime) / len(transtime), 4))
         print(10 * '-')
 
         print('Softcosine: Evaluation')
         print('MAP:', round(map(softranking), 4))
+        print('Ranking',softranking)
+        print('F1:', round(f1_score(softranking), 4))
         print('Time: ', round(sum(softtime) / len(softtime), 4))
         print(10 * '-')
 
         print('Ensembling: Evaluation')
         print('MAP:', round(map(ensranking), 4))
+        print('Ranking',ensranking)
+        print('F1:', round(f1_score(ensranking), 4))
         print('Time: ', round(sum(enstime) / len(enstime), 4))
         print(10 * '-')
         print(50 * '*')

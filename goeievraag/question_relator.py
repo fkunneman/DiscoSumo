@@ -11,12 +11,13 @@ from gensim.summarization import bm25
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 from gensim.models import Word2Vec
-
 from sklearn.metrics.pairwise import cosine_similarity
 
 class QuestionRelator:
 
-    def __init__(self,w2v_model_path,tfidf_model_path,stopwords,w2v_dim=300):
+    def __init__(self,sim_model,w2v_model_path,tfidf_model_path,stopwords,w2v_dim=300):
+        self.sim_model = sim_model
+        
         # initialize w2v
         print('Initializing word2vec')
         self.word2vec = Word2Vec.load(w2v_model_path)
@@ -50,7 +51,8 @@ class QuestionRelator:
         self.unlabeled_questions = []
         self.labeled_questions = []
         for question in unlabeled_questions:
-            qo = Question(question)
+            question['tokens_stopwords'] = [x for x in question['tokens'] if x.lower() not in self.stopwords]
+            qo = Question(question,self.stopwords)
             self.unlabeled_questions.append(qo)
             self.qid_question[qo.qid] = qo
             
@@ -154,6 +156,15 @@ class QuestionRelator:
         scores_ranked = sorted(scores,key = lambda k : k[1],reverse=True)
         scores_deduplicated = self.deduplicate_bm25_output(question.qid,scores_ranked)
         return scores_deduplicated
+
+    def rank_classify_similarity(self,question,targets):
+        targets_score_clf = []
+        for target in targets:
+            score = self.sim_model.ensembling(question.tokens_nsw,question.emb_nsw,question.qid,target.tokens_nsw,target.emb_nsw)
+            print('ENSEMBLING SCORE',score)
+            targets_score_clf.append(score)
+
+        return targets_score_clf
     
     def rank_questions_topics(self,question,targets,topics):
         scores_topic = []
@@ -229,6 +240,7 @@ class QuestionRelator:
     def relate_question(self,question,topic_percentage,ncandidates,filter_threshold,diversity_threshold):
 
         question.emb = self.encode_tokens(question.tokens)
+        question.emb_nsw = self.encode_tokens(question.tokens_nsw)
         
         # select prominent topics
         prominent_topics = self.return_prominent_topics(question.topics,topic_percentage)
@@ -237,6 +249,12 @@ class QuestionRelator:
         # retrieve candidate_questions
         candidates = self.select_candidates_bm25(question,prominent_topics,ncandidates)
         print(len(candidates),'candidates')
+
+        # score and rank questions by similarity
+        print('NOW CLASSIFYING SIMILARITY')
+        candidates_ranked_sim = self.rank_classify_similarity(question,candidates)
+        print('CANDIDATES RANKED SIM',candidates_ranked_sim)
+        quit()
         
         # score and rank questions by topic
         candidates_ranked = self.rank_questions_topics(question,candidates,prominent_topics)
@@ -270,6 +288,7 @@ class Question:
         self.starcount = int(question['starcount'])
         self.topics = question['topics']
         self.tokens = [w.lower() for w in question['tokens']]
+        self.tokens_nsw = [w.lower() for w in question['tokens_stopwords']]
                  
     def set_emb(self,topic_emb,nontopic_emb,emb):
         self.topic_emb = topic_emb
