@@ -10,6 +10,7 @@ import string
 punctuation = string.punctuation
 import spacy
 import word2vec.word2vec as w2v
+
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 
@@ -17,12 +18,14 @@ from random import shuffle
 
 # DATA_PATH='/roaming/fkunnema/goeievraag/data/'
 DATA_PATH='data/'
-WORD2VEC_PATH='word2vec/'
-QUESTIONS=os.path.join(DATA_PATH, 'question_parsed.json')
+QUESTIONS=os.path.join(DATA_PATH, 'question_parsed_final.json')
 NEW_QUESTIONS=os.path.join(DATA_PATH, 'question_parsed_proc.json')
+SEEDS_PATH=os.path.join(DATA_PATH, 'seeds.json')
 
 ANSWERS=os.path.join(DATA_PATH, 'answer_parsed.json')
 NEW_ANSWERS=os.path.join(DATA_PATH, 'answer_parsed_proc.json')
+
+CATEGORY2PARENT_PATH=os.path.join(DATA_PATH, 'qcat', 'catid2parent.json')
 
 STOPWORDS_PATH=os.path.join(DATA_PATH, 'stopwords.txt')
 
@@ -47,13 +50,23 @@ class Initialize():
         self.w2v_dim = w2v_dim
         self.w2v_window = w2v_window
         self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
-        print('Parsing questions and answers...')
+
+        self.category2parent = json.load(open(CATEGORY2PARENT_PATH))
+
         with open(STOPWORDS_PATH) as f:
             self.stopwords = [word.lower().strip() for word in f.read().split()]
+
+        print('Parsing questions...')
         self.init_questions()
+        print('Parsing answers...')
         self.init_answers()
+        print('Filtering seeds...')
+        self.init_seeds()
+        print('Parsing labeled data...')
         self.init_labeled_data()
+        print('Parsing corpus...')
         self.init_corpus()
+        print('Parsing dictionary...')
         self.init_dictionary()
 
         # word2vec
@@ -86,7 +99,8 @@ class Initialize():
                 'id': question['id'],
                 'tokens_proc': tokens_proc,
                 'starcount': question['starcount'],
-                'answercount': question['answercount']
+                'answercount': question['answercount'],
+                'cid': question['cid']
             }
         json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
         # else:
@@ -94,8 +108,6 @@ class Initialize():
 
 
     def init_answers(self):
-        # ANSWERS
-        # if not os.path.exists(NEW_ANSWERS):
         self.answers = {}
         answers = json.load(open(ANSWERS))
         for i, answer in enumerate(answers):
@@ -111,13 +123,15 @@ class Initialize():
             self.answers[answer['id']] = { 'tokens_proc': tokens_proc }
 
         json.dump(self.answers, open(NEW_ANSWERS, 'w'))
-        # else:
-        #     self.answers = json.load(open(NEW_ANSWERS))
+
+
+    def init_seeds(self):
+        seeds = [question for question in self.questions if int(question['answercount']) >= 1]
+        seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in seeds if int(question['starcount']) >= 1]
+        json.dump(seeds, open(SEEDS_PATH, 'w'))
 
 
     def init_labeled_data(self):
-        # TRAINDATA
-        # if not os.path.exists(NEW_TRAINDATA):
         procdata = json.load(open(TRAINDATA))
         self.procdata = {}
         for i, row in enumerate(procdata):
@@ -154,15 +168,9 @@ class Initialize():
         for qid in testids:
             self.testdata[qid] = self.procdata[qid]
         json.dump({'procdata': self.procdata, 'train': self.traindata, 'test': self.testdata}, open(NEW_TRAINDATA, 'w'))
-        # else:
-        #     procdata = json.load(open(NEW_TRAINDATA))
-        #     self.procdata = procdata['procdata']
-        #     self.traindata, self.testdata = procdata['train'], procdata['test']
 
 
     def init_corpus(self):
-        # CORPUS = QUESTIONS + ANSWERS
-        # if not os.path.exists(CORPUS_PATH):
         self.corpus = []
         for qid in self.questions:
             if qid not in self.testdata:
@@ -171,22 +179,16 @@ class Initialize():
         for answer in self.answers.values():
             self.corpus.append(answer['tokens_proc'])
         json.dump({'corpus': self.corpus}, open(CORPUS_PATH, 'w'))
-        # else:
-        #     self.corpus = json.load(open(CORPUS_PATH))['corpus']
 
 
     def init_dictionary(self):
-        # DICTIONARY
-        # if not os.path.exists(DICT_PATH):
         self.dict = Dictionary(self.corpus)  # fit dictionary
         self.dict.save(DICT_PATH)
-        # else:
-        #     self.dict = Dictionary.load(DICT_PATH)
 
 
     # WORD2VEC
     def init_word2vec(self):
-        w2v.run(documents=self.corpus, write_path=WORD2VEC_PATH, w_dim=self.w2v_dim, window=self.w2v_window)
+        w2v.run(documents=self.corpus, write_path=DATA_PATH, w_dim=self.w2v_dim, window=self.w2v_window)
 
 
     # Softcosine
@@ -214,6 +216,7 @@ class Initialize():
             w_Q[w[0]][w] = aux_w_Q[w]
         translation = { 'w_Q': w_Q, 'alpha': alpha, 'sigma': sigma }
         json.dump(translation, open(TRANSLATION_PATH, 'w'))
+
 
 if __name__ == '__main__':
     Initialize()

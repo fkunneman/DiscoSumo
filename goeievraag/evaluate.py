@@ -1,6 +1,8 @@
 __author__='thiagocastroferreira'
 
 import _pickle as p
+import json
+import os
 import time
 
 from main import GoeieVraag
@@ -8,7 +10,10 @@ from gensim.corpora import Dictionary
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 
+DATA_PATH='/roaming/fkunnema/goeievraag/data/'
 TRAINING_DATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
+CORPUS_PATH=os.path.join(DATA_PATH, 'corpus.json')
+NEW_ANSWERS=os.path.join(DATA_PATH, 'answer_parsed_proc.json')
 
 def mean_avg_prec(ranking, n=10):
     map_ = 0.0
@@ -42,20 +47,19 @@ def eval_retrieval(goeie):
         auxid = list(testdata[q1id].keys())[0]
         q1 = testdata[q1id][auxid]['q1']
 
-        categories = [c[1] for c in goeie.question2cat(' '.join(q1)) if c[1] != '15']
-        print(' '.join(q1).encode('utf-8'),categories)
+        # categories = [c[1] for c in goeie.question2cat(' '.join(q1)) if c[1] != '15']
+        # print(' '.join(q1).encode('utf-8'),categories)
         start = time.time()
-        questions = goeie.retrieve(q1, categories)
+        questions = goeie.retrieve(q1)
         end = time.time()
         bm25time.append(end-start)
 
         questions = sorted(questions, key=lambda x: x['score'])
         qids = [q['id'] for q in questions]
 
-        q1_full = ' '.join(testdata[q1id][auxid]['q1_full'])
-        qtokens = [(q['id'], ' '.join(q['tokens']), q['category']) for q in questions]
+        qtokens = [(q['id'], ' '.join(q['tokens'])) for q in questions]
         for q in qtokens:
-            results.append(','.join([str(q1id), str(q[0]), q1_full, q[1], str(q[2])]))
+            results.append(','.join([str(q1id), str(q[0]), q[1]]))
 
         all = [qid for qid in testdata[q1id] if qid in qids]
         acc30_ = [qid for qid in testdata[q1id] if qid in qids and testdata[q1id][qid]['label'] == 1]
@@ -77,11 +81,9 @@ def eval_retrieval(goeie):
 
 
 def eval_reranking(goeie):
-    procdata = {}
-    for qid in goeie.traindata:
-        procdata[qid] = goeie.traindata[qid]
-    for qid in goeie.testdata:
-        procdata[qid] = goeie.testdata[qid]
+    print('Reranking...')
+    procdata = goeie.procdata
+    answers = json.load(open(NEW_ANSWERS))
 
     folds = []
 
@@ -100,25 +102,25 @@ def eval_reranking(goeie):
             testdata[qid] = procdata[qid]
         goeie.testdata = testdata
 
-        goeie.corpus = []
+        corpus = []
         for qid in goeie.questions:
             if qid not in goeie.testdata:
                 question = goeie.questions[qid]
-                goeie.corpus.append(question['tokens_proc'])
-        for answer in goeie.answers.values():
-            goeie.corpus.append(answer['tokens_proc'])
-        goeie.dict = Dictionary(goeie.corpus)  # fit dictionary
+                corpus.append(question['tokens_proc'])
+        for answer in answers.values():
+            corpus.append(answer['tokens_proc'])
+        goeie.dict = Dictionary(corpus)  # fit dictionary
 
-        goeie.seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':goeie.category2parent[question['cid']]} for question in goeie.questions.values()]
+        goeie.seeds = [{'id': question['id'], 'tokens':question['tokens_proc']} for question in goeie.questions.values()]
 
         goeie.init_bm25(goeie.seeds)
-        goeie.init_sofcos()
+        goeie.load_sofcos()
 
         best, best_map = {'alpha':0.0, 'sigma':0.0}, -1
         transranking = {}
         for alpha in [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
             sigma = 1 - alpha
-            goeie.init_translation(alpha=alpha, sigma=sigma)
+            goeie.init_translation(corpus=corpus, alpha=alpha, sigma=sigma)
 
             for q1id in list(traindata.keys())[:20]:
                 transranking[q1id] = []
@@ -137,7 +139,7 @@ def eval_reranking(goeie):
                 best_map = map_
                 best = {'alpha':alpha, 'sigma':sigma}
 
-        goeie.init_translation(alpha=best['alpha'], sigma=best['sigma'])
+        goeie.init_translation(corpus=corpus, alpha=best['alpha'], sigma=best['sigma'])
         goeie.init_ensemble()
 
         bm25time, transtime, softtime, enstime = [], [], [], []
@@ -210,11 +212,13 @@ def eval_reranking(goeie):
         print(50 * '*')
     p.dump(folds, open('folds.pickle', 'wb'))
 
-if __name__ == '__main__':
-    goeie = GoeieVraag(evaluation=True, w2v_dim=300)
-    eval_retrieval(goeie)
 
-    print(10 * '*')
+if __name__ == '__main__':
+    goeie = GoeieVraag(evaluation=True)
+
+    # eval_retrieval(goeie)
+    #
+    # print(10 * '*')
 
     eval_reranking(goeie)
 
