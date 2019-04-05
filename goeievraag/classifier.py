@@ -1,9 +1,12 @@
 __author__='thiagocastroferreira'
 
+import _pickle as p
+
 from sklearn import svm
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import MinMaxScaler
 
 class Model():
     # Machine Learning
@@ -76,10 +79,12 @@ class Model():
         )
         self.model.fit(trainvectors, labels)
 
+
     def score(self, X):
         score = self.model.decision_function([X])[0]
         pred_label = self.model.predict([X])[0]
         return score, pred_label
+
 
     def return_parameter_settings(self, clf='svm'):
         parameter_settings = []
@@ -92,3 +97,22 @@ class Model():
         for param in params:
             parameter_settings.append([param,str(self.model.get_params()[param])])
         return ','.join([': '.join(x) for x in parameter_settings])
+
+
+    def train_scaler(self, X):
+        self.scaler = MinMaxScaler(feature_range=(-1, 1))
+        self.scaler.fit(X)
+
+    def scale(self, X):
+        return self.scaler.transform(X)
+
+
+    def save(self, path):
+        model = { 'model': self.model, 'scaler': self.scaler }
+        p.dump(model, open(path, 'wb'))
+
+
+    def load(self, path):
+        model = p.load(open(path, 'rb'))
+        self.model = model['model']
+        self.scaler = model['scaler']

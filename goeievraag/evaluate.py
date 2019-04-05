@@ -10,7 +10,7 @@ from sklearn.metrics import f1_score
 
 TRAINING_DATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
 
-def map(ranking, n=10):
+def mean_avg_prec(ranking, n=10):
     map_ = 0.0
     for qid in ranking:
         result = sorted(ranking[qid], key=lambda x: x[1], reverse=True)[:n]
@@ -34,6 +34,7 @@ def eval_retrieval(goeie):
     bm25time = []
     bm25ranking = {}
 
+    results = []
     allacc, acc10, acc30 = [], [], []
     for q1id in testdata:
         bm25ranking[q1id] = []
@@ -51,6 +52,11 @@ def eval_retrieval(goeie):
         questions = sorted(questions, key=lambda x: x['score'])
         qids = [q['id'] for q in questions]
 
+        q1_full = ' '.join(testdata[q1id][auxid]['q1_full'])
+        qtokens = [(q['id'], ' '.join(q['tokens']), q['category']) for q in questions]
+        for q in qtokens:
+            results.append(','.join([str(q1id), str(q[0]), q1_full, q[1], str(q[2])]))
+
         all = [qid for qid in testdata[q1id] if qid in qids]
         acc30_ = [qid for qid in testdata[q1id] if qid in qids and testdata[q1id][qid]['label'] == 1]
         acc10_ = [qid for qid in testdata[q1id] if qid in qids[:10] and testdata[q1id][qid]['label'] == 1]
@@ -65,6 +71,9 @@ def eval_retrieval(goeie):
     print('10 accuracy:', round(num / dem, 5))
     num, dem = sum([w[0] for w in acc30]), float(sum([w[1] for w in allacc]))
     print('30 accuracy:', round(num / dem, 5))
+
+    with open('retrieve_results.txt', 'w') as f:
+        f.write('\n'.join(results))
 
 
 def eval_reranking(goeie):
@@ -122,7 +131,7 @@ def eval_reranking(goeie):
                     transcore = goeie.translate(q1, q1emb, q2, q2emb)
                     transranking[q1id].append((q2id, transcore, label))
 
-            map_ = map(transranking)
+            map_ = mean_avg_prec(transranking)
             print('Translation - alpha: {0} \t sigma: {1} \t MAP: {2}'.format(alpha, sigma, map_))
             if map_ > best_map:
                 best_map = map_
@@ -177,35 +186,25 @@ def eval_reranking(goeie):
         })
 
         print('Upper bound: Evaluation')
-        print('MAP:', round(map(ranking), 4))
-        print('Ranking',ranking)
-        print('F1:', round(f1_score(ranking), 4))
+        print('MAP:', round(mean_avg_prec(ranking), 4))
         print(10 * '-')
 
         print('BM25: Evaluation')
-        print('MAP:', round(map(bm25ranking), 4))
-        print('Ranking',bm25ranking)
-        print('F1:', round(f1_score(bm25ranking), 4))
+        print('MAP:', round(mean_avg_prec(bm25ranking), 4))
         print(10 * '-')
 
         print('Translation: Evaluation')
-        print('MAP:', round(map(transranking), 4))
-        print('Ranking',transranking)
-        print('F1:', round(f1_score(transranking), 4))
+        print('MAP:', round(mean_avg_prec(transranking), 4))
         print('Time: ', round(sum(transtime) / len(transtime), 4))
         print(10 * '-')
 
         print('Softcosine: Evaluation')
-        print('MAP:', round(map(softranking), 4))
-        print('Ranking',softranking)
-        print('F1:', round(f1_score(softranking), 4))
+        print('MAP:', round(mean_avg_prec(softranking), 4))
         print('Time: ', round(sum(softtime) / len(softtime), 4))
         print(10 * '-')
 
         print('Ensembling: Evaluation')
-        print('MAP:', round(map(ensranking), 4))
-        print('Ranking',ensranking)
-        print('F1:', round(f1_score(ensranking), 4))
+        print('MAP:', round(mean_avg_prec(ensranking), 4))
         print('Time: ', round(sum(enstime) / len(enstime), 4))
         print(10 * '-')
         print(50 * '*')

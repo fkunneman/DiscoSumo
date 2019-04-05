@@ -5,16 +5,12 @@ FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT)
 
 import json
-import load
 import os
-stopwords = load.load_stopwords()
 import string
 punctuation = string.punctuation
 import pandas as pd
 import numpy as np
 import spacy
-
-from category.qcat import QCat
 
 from classifier import Model
 
@@ -23,208 +19,94 @@ from gensim.models import Word2Vec
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 
-from random import shuffle
-
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 
 # DATA_PATH='/roaming/fkunnema/goeievraag/data/'
-# WORD2VEC_PATH='word2vec/'
-# QUESTIONS='/roaming/fkunnema/goeievraag/data/question_parsed.json'
-# NEW_QUESTIONS='/roaming/fkunnema/goeievraag/data/question_parsed_proc.json'
-#
-# ANSWERS='/roaming/fkunnema/goeievraag/data/answer_parsed.json'
-# NEW_ANSWERS='/roaming/fkunnema/goeievraag/data/answer_parsed_proc.json'
-#
-# TRAINDATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled.json'
-# NEW_TRAINDATA='/roaming/fkunnema/goeievraag/data/ranked_questions_labeled_proc.json'
-#
-# DICT_PATH='/roaming/fkunnema/goeievraag/data/dict.model'
-#
-# CATEGORY2PARENT_PATH='/roaming/fkunnema/goeievraag/data/qcat/catid2parent.json'
-# CATEGORY_MODEL_PATH='/roaming/fkunnema/goeievraag/data/qcat/questions.model.pkl'
-# LABEL_ENCODER_PATH='/roaming/fkunnema/goeievraag/data/qcat/questions.le'
-# CATEGORY2ID_PATH='/roaming/fkunnema/goeievraag/data/qcat/cat2id_dict.txt'
-# VOCABULARY_PATH='/roaming/fkunnema/goeievraag/data/qcat/questions.featureselection.txt'
-
 DATA_PATH='data/'
 WORD2VEC_PATH='word2vec/'
-QUESTIONS='data/question_parsed.json'
-NEW_QUESTIONS='data/question_parsed_proc.json'
+NEW_QUESTIONS=os.path.join(DATA_PATH, 'question_parsed_proc.json')
 
-ANSWERS='data/answer_parsed.json'
-NEW_ANSWERS='data/answer_parsed_proc.json'
+NEW_ANSWERS=os.path.join(DATA_PATH, 'answer_parsed_proc.json')
 
-TRAINDATA='data/ranked_questions_labeled.json'
-NEW_TRAINDATA='data/ranked_questions_labeled_proc.json'
+STOPWORDS_PATH=os.path.join(DATA_PATH, 'stopwords.txt')
 
-DICT_PATH='data/dict.model'
+NEW_TRAINDATA=os.path.join(DATA_PATH, 'ranked_questions_labeled_proc.json')
 
-CATEGORY2PARENT_PATH='data/qcat/catid2parent.json'
-CATEGORY_MODEL_PATH='data/qcat/questions.model.pkl'
-LABEL_ENCODER_PATH='data/qcat/questions.le'
-CATEGORY2ID_PATH='data/qcat/cat2id_dict.txt'
-VOCABULARY_PATH='data/qcat/questions.featureselection.txt'
+CORPUS_PATH=os.path.join(DATA_PATH, 'corpus.json')
+
+DICT_PATH=os.path.join(DATA_PATH, 'dict.model')
+
+# CATEGORY2PARENT_PATH=os.path.join(DATA_PATH, 'qcat', 'catid2parent.json')
+# CATEGORY_MODEL_PATH=os.path.join(DATA_PATH, 'qcat', 'questions.model.pkl')
+# LABEL_ENCODER_PATH=os.path.join(DATA_PATH, 'qcat', 'questions.le')
+# CATEGORY2ID_PATH=os.path.join(DATA_PATH, 'qcat', 'cat2id_dict.txt')
+# VOCABULARY_PATH=os.path.join(DATA_PATH, 'qcat', 'questions.featureselection.txt')
+
+# softcosine path
+TFIDF_PATH=os.path.join(DATA_PATH, 'tfidf.model')
+# translation path
+TRANSLATION_PATH=os.path.join(DATA_PATH, 'translation.json')
+# ensemble path
+ENSEMBLE_PATH=os.path.join(DATA_PATH, 'ensemble.pkl')
+
 
 class GoeieVraag():
-    def __init__(self, w2v_dim=300, alpha=0.7, sigma=0.3, evaluation=False):
+    def __init__(self, w2v_dim=300, w2v_window=10, evaluation=False):
         self.w2v_dim = w2v_dim
+        self.w2v_window = w2v_window
+        self.evaluation = evaluation
         self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
+
         print('Parsing questions and answers...')
-        self.parse()
+        self.load_datasets()
 
-        # category model
-        print('Initializing Categorization model...')
-        self.category2parent = json.load(open(CATEGORY2PARENT_PATH))
-        self.categories = list(set(self.category2parent.values()))
-        self.question2cat = QCat(CATEGORY_MODEL_PATH, LABEL_ENCODER_PATH, CATEGORY2ID_PATH, VOCABULARY_PATH)
+        # # category model
+        # print('Initializing Categorization model...')
+        # self.category2parent = json.load(open(CATEGORY2PARENT_PATH))
+        # self.categories = list(set(self.category2parent.values()))
+        # self.question2cat = QCat(CATEGORY_MODEL_PATH, LABEL_ENCODER_PATH, CATEGORY2ID_PATH, VOCABULARY_PATH)
 
-        print('Filter seed questions...')
+        print('Initialize seed questions...')
         if evaluation:
-            self.seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in self.questions.values()]
+            self.seeds = [{'id': question['id'], 'tokens':question['tokens_proc']} for question in self.questions.values()]
         else:
-            self.seeds = self.filter(self.questions.values())
+            self.seeds = self.init_seeds(self.questions.values())
 
         # bm25
         print('Initializing BM25...')
         self.init_bm25(self.seeds)
         # word2vec
         print('Initializing Word2Vec...')
-        self.init_word2vec()
+        self.load_word2vec()
         # translation
         print('Initializing Translation...')
-        self.init_translation(alpha, sigma)
+        self.load_translation()
         # softcosine
         print('Initializing Softcosine...')
-        self.init_sofcos()
+        self.load_sofcos()
         # ensemble
         print('Initializing Ensemble...')
         self.init_ensemble()
 
 
-    def __call__(self, query):
-        tokens = list(map(lambda token: str(token).lower(), self.nlp(query)))
-        query_proc = [w for w in tokens if w not in stopwords and w not in punctuation]
+    def load_datasets(self):
+        # STOPWORDS
+        with open(STOPWORDS_PATH) as f:
+            self.stopwords = [word.lower().strip() for word in f.read().split()]
 
-        # retrieve the 5 most likely categories of the query
-        categories = [c[1] for c in self.question2cat(' '.join(tokens))]
-        # retrieve 30 candidates with bm25
-        questions = self.retrieve(query_proc, categories)
-        # reranking with softcosine
-        questions = self.rerank(query_proc, questions)
-
-        result = { 'query': query, 'questions': [] }
-        for question in questions:
-            question_id, score = question['id'], question['rescore']
-            q = self.questions[question_id]
-            q['score'] = score
-            result['questions'].append(q)
-
-        # bestanswer_id = self.questions[questions[0][0]]['bestanswer']
-        # result['bestanswer'] = self.answers[bestanswer_id]
-        return result
-
-
-    def parse(self):
         # QUESTIONS
-        if not os.path.exists(NEW_QUESTIONS):
-            self.questions = json.load(open(QUESTIONS))
-            for i, question in enumerate(self.questions):
-                if i % 1000 == 0:
-                    percentage = round(float(i+1) / len(self.questions), 2)
-                    # print('Question Progress: ', percentage, end='\r')
-                text = question['questiontext']
-                text = list(map(lambda token: str(token), self.nlp(text)))
+        self.questions = json.load(open(NEW_QUESTIONS))
 
-                question['tokens'] = text
-                question['tokens_proc'] = [w.lower() for w in text]
-                question['tokens_proc'] = [w for w in question['tokens_proc'] if w not in stopwords and w not in punctuation]
-            self.questions = dict([(question['id'], question) for question in self.questions])
-            json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
-        else:
-            self.questions = json.load(open(NEW_QUESTIONS))
+        # DICTIONARIES
+        self.dict = Dictionary.load(DICT_PATH)
 
-        # ANSWERS
-        if not os.path.exists(NEW_ANSWERS):
-            self.answers = json.load(open(ANSWERS))
-            for i, answer in enumerate(self.answers):
-                if i % 1000 == 0:
-                    percentage = round(float(i+1) / len(self.answers), 2)
-                    # print('Answer Progress: ', percentage, end='\r')
-                text = answer['answertext']
-                text = list(map(lambda token: str(token), self.nlp(text)))
-
-                answer['tokens'] = text
-                answer['tokens_proc'] = [w.lower() for w in text]
-                answer['tokens_proc'] = [w for w in answer['tokens_proc'] if w not in stopwords and w not in punctuation]
-            self.answers = dict([(answer['id'], answer) for answer in self.answers])
-            json.dump(self.answers, open(NEW_ANSWERS, 'w'))
-        else:
-            self.answers = json.load(open(NEW_ANSWERS))
-
-        # TRAINDATA
-        if not os.path.exists(NEW_TRAINDATA):
-            procdata = json.load(open(TRAINDATA))
-            self.procdata = {}
-            for i, row in enumerate(procdata):
-                if i % 1000 == 0:
-                    percentage = round(float(i+1) / len(procdata), 2)
-                    # print('Answer Progress: ', percentage, end='\r')
-                q1id = row['id']
-                q1_tokens = self.questions[q1id]['tokens']
-                q1_tokens_proc = self.questions[q1id]['tokens_proc']
-
-                self.procdata[q1id] = {}
-                for row2 in row['bm25']:
-                    score = float(row2['BM25-score'])
-                    label = 1 if row2['Lax'] == 'Similar' else 0
-                    q2id = row2['id']
-
-                    q2_tokens = self.questions[q2id]['tokens']
-                    q2_tokens_proc = self.questions[q2id]['tokens_proc']
-
-                    self.procdata[q1id][q2id] = {
-                        'q1': q1_tokens_proc,
-                        'q1_full': q1_tokens,
-                        'q2': q2_tokens_proc,
-                        'q2_full': q2_tokens,
-                        'score': score,
-                        'label': label
-                    }
-            qids = list(self.procdata.keys())
-            shuffle(qids)
-            trainsize = int(0.8 * len(qids))
-
-            trainids = qids[:trainsize]
-            self.traindata = {}
-            for qid in trainids:
-                self.traindata[qid] = self.procdata[qid]
-
-            testids = qids[trainsize:]
-            self.testdata = {}
-            for qid in testids:
-                self.testdata[qid] = self.procdata[qid]
-            del self.procdata
-            json.dump({'train': self.traindata, 'test': self.testdata}, open(NEW_TRAINDATA, 'w'))
-        else:
-            procdata = json.load(open(NEW_TRAINDATA))
-            self.traindata, self.testdata = procdata['train'], procdata['test']
-
-        self.corpus = []
-        for qid in self.questions:
-            if qid not in self.testdata:
-                question = self.questions[qid]
-                self.corpus.append(question['tokens_proc'])
-        for answer in self.answers.values():
-            self.corpus.append(answer['tokens_proc'])
-        if not os.path.exists(DICT_PATH):
-            self.dict = Dictionary(self.corpus)  # fit dictionary
-            self.dict.save(DICT_PATH)
-        else:
-            self.dict = Dictionary.load(DICT_PATH)
+        # PROCDATA
+        procdata = json.load(open(NEW_TRAINDATA))
+        self.procdata = procdata['procdata']
+        self.traindata, self.testdata = procdata['train'], procdata['test']
 
 
-    def filter(self, questions):
+    def init_seeds(self, questions):
         starcount = [float(question['starcount']) for question in questions]
         avgstar = sum(starcount) / len(starcount)
 
@@ -232,7 +114,7 @@ class GoeieVraag():
         avganswer = sum(answercounts) / len(answercounts)
 
         seeds = [question for question in questions if int(question['answercount']) >= int(avganswer)]
-        seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in seeds if int(question['starcount']) > avgstar]
+        seeds = [{'id': question['id'], 'tokens':question['tokens_proc']} for question in seeds if int(question['starcount']) > avgstar]
         return seeds
 
 
@@ -248,7 +130,7 @@ class GoeieVraag():
         self.bm25 = bm25.BM25(questions)
 
 
-    def retrieve(self, query, categories, n=30):
+    def retrieve(self, query, n=30):
         result = []
         scores = self.bm25.get_scores(query)
         questions = []
@@ -256,21 +138,21 @@ class GoeieVraag():
             questions.append({
                 'id': self.seeds[i]['id'],
                 'tokens': self.seeds[i]['tokens'],
-                'category': self.seeds[i]['category'],
                 'score': scores[i]
             })
 
-        n_ = int(n / 5)
-        for cid in categories:
-            fquestions = [question for question in questions if question['category'] == cid]
-            fquestions = sorted(fquestions, key=lambda x: x['score'], reverse=True)[:n_]
-            result.extend(fquestions)
-        return result
+        # retrieve the n / 5 most likely questions for each category
+        # n_ = int(n / 5)
+        # for cid in categories:
+        #     fquestions = [question for question in questions if question['category'] == cid]
+        #     fquestions = sorted(fquestions, key=lambda x: x['score'], reverse=True)[:n_]
+        #     result.extend(fquestions)
+        return sorted(questions, key=lambda x: x['score'], reverse=True)[:n]
 
 
     # WORD2VEC
-    def init_word2vec(self):
-        fname = 'word2vec.' + str(self.w2v_dim) + '.model'
+    def load_word2vec(self):
+        fname = 'word2vec.' + str(self.w2v_dim) + '_' + str(self.w2v_window) + '.model'
         path = os.path.join(WORD2VEC_PATH, fname)
         self.word2vec = Word2Vec.load(path)
 
@@ -299,13 +181,8 @@ class GoeieVraag():
 
 
     # Softcosine
-    def init_sofcos(self):
-        if not os.path.exists(os.path.join(DATA_PATH,'tfidf.model')):
-            corpus = [self.dict.doc2bow(line) for line in self.corpus]  # convert corpus to BoW format
-            self.tfidf = TfidfModel(corpus)  # fit model
-            self.tfidf.save(os.path.join(DATA_PATH, 'tfidf.model'))
-        else:
-            self.tfidf = TfidfModel.load(os.path.join(DATA_PATH, 'tfidf.model'))
+    def load_sofcos(self):
+        self.tfidf = TfidfModel.load(TFIDF_PATH)
 
 
     def softcos(self, q1, q1emb, q2, q2emb):
@@ -330,9 +207,9 @@ class GoeieVraag():
 
 
     # Translation
-    def init_translation(self, alpha, sigma):
+    def init_translation(self, corpus, alpha, sigma):
         tokens = []
-        for question in list(self.corpus):
+        for question in list(corpus):
             for token in question:
                 tokens.append(token)
 
@@ -346,9 +223,16 @@ class GoeieVraag():
                 w_Q[w[0]] = {}
             w_Q[w[0]][w] = aux_w_Q[w]
 
-        self.prob_w_C = w_Q
         self.alpha = alpha
         self.sigma = sigma
+        self.prob_w_C = w_Q
+
+
+    def load_translation(self):
+        translation = json.load(open(TRANSLATION_PATH))
+        self.prob_w_C = translation['w_Q']
+        self.alpha = translation['alpha']
+        self.sigma = translation['sigma']
 
 
     def translate(self, q1, q1emb, q2, q2emb):
@@ -385,8 +269,17 @@ class GoeieVraag():
 
     # Ensemble
     def init_ensemble(self):
-        traindata = self.traindata
         self.ensemble = Model()
+
+        ids, questions = [], []
+        for row in self.questions.values():
+            ids.append(row['id'])
+            questions.append(row['tokens_proc'])
+
+        id2idx = dict([(qid, i) for i, qid in enumerate(ids)])
+        bm25_ = bm25.BM25(questions)
+
+        traindata = self.traindata if self.evaluation else self.procdata
 
         X, y = [], []
         for q1id in traindata:
@@ -399,16 +292,15 @@ class GoeieVraag():
                 q1, q1emb, q2, q2emb = self.preprocess(q1, q2)
 
                 # TCF: ATTENTION ON THE ID HERE. WE NEED TO CHECK THIS
-                bm25score = self.bm25.get_score(q1, self.id2idx[q2id])
+                bm25score = bm25_.get_score(q1, id2idx[q2id])
                 translation = self.translate(q1, q1emb, q2, q2emb)
                 softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
                 X.append([bm25score, translation, softcosine])
                 y.append(label)
 
-        self.scaler = MinMaxScaler(feature_range=(-1, 1))
-        self.scaler.fit(X)
-        X = self.scaler.transform(X)
+        self.ensemble.train_scaler(X)
+        X = self.ensemble.scale(X)
         self.ensemble.train_regression(trainvectors=X, labels=y, c='search', penalty='search', tol='search', gridsearch='brutal', jobs=10)
 
 
@@ -418,16 +310,47 @@ class GoeieVraag():
         softcosine = self.softcos(q1, q1emb, q2, q2emb)
 
         X = [bm25score, translation, softcosine]
-        X = self.scaler.transform([X])[0]
+        X = self.ensemble.scale([X])[0]
         clfscore, pred_label = self.ensemble.score(X)
         return clfscore, pred_label
 
 
-    def rerank(self, query, questions, n=10):
+    def __call__(self, query, method='ensemble'):
+        # tokenize and lowercase
+        tokens = list(map(lambda token: str(token).lower(), self.nlp(query)))
+        # remove stop words and punctuation
+        query_proc = [w for w in tokens if w not in self.stopwords and w not in punctuation]
+
+        # retrieve the 5 most likely categories of the query
+        # categories = [c[1] for c in self.question2cat(' '.join(tokens))]
+        # retrieve 30 candidates with bm25
+        questions = self.retrieve(query_proc)
+        # reranking with chosen method
+        if method != 'bm25':
+            questions = self.rerank(query=query_proc, questions=questions, method=method)
+
+        result = { 'query': query, 'questions': [] }
+        for question in questions:
+            question_id = question['id']
+            q = self.questions[question_id]
+            q['score'] = question['score'] if method == 'bm25' else question['rescore']
+            result['questions'].append(q)
+
+        # bestanswer_id = self.questions[questions[0][0]]['bestanswer']
+        # result['bestanswer'] = self.answers[bestanswer_id]
+        return result
+
+
+    def rerank(self, query, questions, n=10, method='ensemble'):
         for i, question in enumerate(questions):
             q1, q1emb, q2, q2emb = self.preprocess(query, question['tokens'])
 
-            questions[i]['rescore'], _ = self.ensembling(q1, q1emb, question['id'], q2, q2emb)
+            if method == 'softcosine':
+                questions[i]['rescore'] = self.softcos(q1, q1emb, q2, q2emb)
+            elif method == 'translation':
+                questions[i]['rescore'] = self.translate(q1, q1emb, q2, q2emb)
+            else:
+                questions[i]['rescore'], _ = self.ensembling(q1, q1emb, question['id'], q2, q2emb)
 
         questions = sorted(questions, key=lambda x: x['rescore'], reverse=True)[:n]
         return questions
