@@ -105,13 +105,11 @@ def eval_reranking(goeie):
         corpus = []
         for qid in goeie.questions:
             if qid not in goeie.testdata:
-                question = goeie.questions[qid]
-                corpus.append(question['tokens_proc'])
+                question = goeie.seeds[goeie.seed2idx[qid]]
+                corpus.append(question['tokens'])
         for answer in answers.values():
             corpus.append(answer['tokens_proc'])
         goeie.dict = Dictionary(corpus)  # fit dictionary
-
-        goeie.seeds = [{'id': question['id'], 'tokens':question['tokens_proc']} for question in goeie.questions.values()]
 
         goeie.init_bm25(goeie.seeds)
         goeie.load_sofcos()
