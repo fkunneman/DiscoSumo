@@ -60,28 +60,21 @@ class GoeieVraag():
         self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
 
         # # category model
-        print('Initializing Categorization model...')
         self.category2parent = json.load(open(CATEGORY2PARENT_PATH))
         self.categories = list(set(self.category2parent.values()))
         self.question2cat = QCat(CATEGORY_MODEL_PATH, LABEL_ENCODER_PATH, CATEGORY2ID_PATH, VOCABULARY_PATH)
 
-        print('Parsing questions and answers...')
         self.load_datasets()
 
         # bm25
-        print('Initializing BM25...')
         self.init_bm25(self.seeds)
         # word2vec
-        print('Initializing Word2Vec...')
         self.load_word2vec()
         # translation
-        print('Initializing Translation...')
         self.load_translation()
         # softcosine
-        print('Initializing Softcosine...')
         self.load_sofcos()
         # ensemble
-        print('Initializing Ensemble...')
         self.load_ensemble()
 
 
@@ -361,7 +354,6 @@ class GoeieVraag():
 
         questions = sorted(questions, key=lambda x: x['rescore'], reverse=True)[:n]
         return questions
-
 
 if __name__ == '__main__':
     model = GoeieVraag()

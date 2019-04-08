@@ -126,8 +126,12 @@ class Initialize():
 
 
     def init_seeds(self):
-        seeds = [question for question in self.questions if int(question['answercount']) >= 1]
-        seeds = [{'id': question['id'], 'tokens':question['tokens_proc'], 'category':self.category2parent[question['cid']]} for question in seeds if int(question['starcount']) >= 1]
+        seeds_ = [question for question in self.questions.values() if int(question['answercount']) >= 1]
+        seeds = []
+        for question in seeds_:
+            if int(question['starcount']) >= 1:
+                category = self.category2parent[question['cid']] if question['cid'] in self.category2parent else question['cid']
+                seeds.append({'id': question['id'], 'tokens':question['tokens_proc'], 'category':category})
         json.dump(seeds, open(SEEDS_PATH, 'w'))
 
 
