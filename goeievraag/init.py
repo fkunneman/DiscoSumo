@@ -100,6 +100,7 @@ class Initialize():
                 'tokens_proc': tokens_proc,
                 'starcount': question['starcount'],
                 'answercount': question['answercount'],
+                'text': question['questiontext']
                 'cid': question['cid']
             }
         json.dump(self.questions, open(NEW_QUESTIONS, 'w'))
@@ -127,12 +128,12 @@ class Initialize():
 
     def init_seeds(self):
         seeds_ = [question for question in self.questions.values() if int(question['answercount']) >= 1]
-        seeds = []
+        self.seeds = []
         for question in seeds_:
             if int(question['starcount']) >= 1:
                 category = self.category2parent[question['cid']] if question['cid'] in self.category2parent else question['cid']
-                seeds.append({'id': question['id'], 'tokens':question['tokens_proc'], 'category':category})
-        json.dump(seeds, open(SEEDS_PATH, 'w'))
+                self.seeds.append({'id': question['id'], 'tokens':question['tokens_proc'], 'text':question['text'], 'category':category})
+        json.dump(self.seeds, open(SEEDS_PATH, 'w'))
 
 
     def init_labeled_data(self):
