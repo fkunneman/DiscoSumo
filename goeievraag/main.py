@@ -130,6 +130,7 @@ class GoeieVraag():
             questions.append({
                 'id': self.seeds[i]['id'],
                 'tokens': self.seeds[i]['tokens'],
+                'text': self.seeds[i]['text'],
                 'category': self.seeds[i]['category'],
                 'score': scores[i]
             })
@@ -145,7 +146,6 @@ class GoeieVraag():
                 fquestions = sorted(fquestions, key=lambda x: x['score'], reverse=True)[:n_]
                 result.extend(fquestions)
             return result
-
 
 
     # WORD2VEC
@@ -269,15 +269,22 @@ class GoeieVraag():
     def init_ensemble(self):
         self.ensemble = Model()
 
+        traindata = self.traindata if self.evaluation else self.procdata
         ids, questions = [], []
         for row in self.seeds:
             ids.append(row['id'])
             questions.append(row['tokens'])
+        for q1id in traindata:
+            for q2id in traindata[q1id]:
+                if q1id not in ids:
+                    ids.append(q1id)
+                    questions.append(traindata[q1id][q2id]['q1'])
+                if q2id not in ids:
+                    ids.append(q2id)
+                    questions.append(traindata[q1id][q2id]['q2'])
 
         id2idx = dict([(qid, i) for i, qid in enumerate(ids)])
         bm25_ = bm25.BM25(questions)
-
-        traindata = self.traindata if self.evaluation else self.procdata
 
         X, y = [], []
         for q1id in traindata:

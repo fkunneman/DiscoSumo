@@ -1,7 +1,13 @@
-import json
+__author__='thiagocastroferreira'
 
+import json
+import os
+os.system('wget https://s3.eu-west-3.amazonaws.com/elasticbeanstalk-eu-west-3-026523518307/data.zip')
+os.system('unzip data.zip')
+os.remove('data.zip')
+
+from main import GoeieVraag
 from flask import Flask, request
-from goeie import GoeieVraag
 
 application = Flask(__name__)
 
@@ -22,10 +28,10 @@ def search():
 
     if request.method == 'GET':
         questions = model(query=query.strip(), method=method)
-        questions = { 'code':200, 'result': questions }
+        questions = { 'code':200, 'result': questions, 'method':method }
 
     return json.dumps(questions)
 
 if __name__ == '__main__':
-    application.debug = True
+    application.debug = False
     application.run()

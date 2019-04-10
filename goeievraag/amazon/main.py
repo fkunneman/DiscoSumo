@@ -1,8 +1,12 @@
 __author__='thiagocastroferreira'
 
-import logging
-FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
-logging.basicConfig(format=FORMAT)
+import _pickle as p
+
+from sklearn import svm
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import MinMaxScaler
 
 import json
 import os
@@ -10,10 +14,7 @@ import string
 punctuation = string.punctuation
 import pandas as pd
 import numpy as np
-import spacy
-
-from classifier import Model
-from category.qcat import QCat
+import nltk.tokenize as tok
 
 from gensim.summarization import bm25
 from gensim.models import Word2Vec
@@ -24,7 +25,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # DATA_PATH='/roaming/fkunnema/goeievraag/data/'
 DATA_PATH='data/'
-NEW_QUESTIONS=os.path.join(DATA_PATH, 'question_parsed_proc.json')
 SEEDS_PATH=os.path.join(DATA_PATH, 'seeds.json')
 
 NEW_ANSWERS=os.path.join(DATA_PATH, 'answer_parsed_proc.json')
@@ -37,12 +37,6 @@ CORPUS_PATH=os.path.join(DATA_PATH, 'corpus.json')
 
 DICT_PATH=os.path.join(DATA_PATH, 'dict.model')
 
-CATEGORY2PARENT_PATH=os.path.join(DATA_PATH, 'qcat', 'catid2parent.json')
-CATEGORY_MODEL_PATH=os.path.join(DATA_PATH, 'qcat', 'questions.model.pkl')
-LABEL_ENCODER_PATH=os.path.join(DATA_PATH, 'qcat', 'questions.le')
-CATEGORY2ID_PATH=os.path.join(DATA_PATH, 'qcat', 'cat2id_dict.txt')
-VOCABULARY_PATH=os.path.join(DATA_PATH, 'qcat', 'questions.featureselection.txt')
-
 # softcosine path
 TFIDF_PATH=os.path.join(DATA_PATH, 'tfidf.model')
 # translation path
@@ -50,19 +44,122 @@ TRANSLATION_PATH=os.path.join(DATA_PATH, 'translation.json')
 # ensemble path
 ENSEMBLE_PATH=os.path.join(DATA_PATH, 'ensemble.pkl')
 
+class Model():
+    # Machine Learning
+    def train_svm(self, trainvectors, labels, c='1.0', kernel='linear', gamma='0.1', degree='1', class_weight='balanced', iterations=10, jobs=1, gridsearch='random'):
+        parameters = ['C', 'kernel', 'gamma', 'degree']
+        c_values = [1, 5, 10, 50, 100, 500, 1000] if c == 'search' else [float(x) for x in c.split()]
+        kernel_values = ['linear', 'rbf', 'poly'] if kernel == 'search' else [k for  k in kernel.split()]
+        gamma_values = ['auto','scale'] if gamma == 'search' else [float(x) for x in gamma.split()]
+        degree_values = [1, 2, 3] if degree == 'search' else [int(x) for x in degree.split()]
+        grid_values = [c_values, kernel_values, gamma_values, degree_values]
+        if not False in [len(x) == 1 for x in grid_values]: # only sinle parameter settings
+            settings = {}
+            for i, parameter in enumerate(parameters):
+                settings[parameter] = grid_values[i][0]
+        else:
+            param_grid = {}
+            for i, parameter in enumerate(parameters):
+                param_grid[parameter] = grid_values[i]
+            model = svm.SVC(probability=True)
+
+            if gridsearch == 'random':
+                paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+            elif gridsearch == 'brutal':
+                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)
+            paramsearch.fit(trainvectors, labels)
+            settings = paramsearch.best_params_
+
+        # train an SVC classifier with the settings that led to the best performance
+        self.model = svm.SVC(
+            probability = True,
+            C = settings[parameters[0]],
+            kernel = settings[parameters[1]],
+            gamma = settings[parameters[2]],
+            degree = settings[parameters[3]],
+            cache_size = 1000,
+            verbose = 2
+        )
+        self.model.fit(trainvectors, labels)
+
+
+    def train_regression(self, trainvectors, labels, c='1.0', penalty='l1', tol='1e-4', solver='saga', iterations=10, jobs=1, gridsearch='random'):
+        parameters = ['C', 'penalty']
+        c_values = [1, 5, 10, 50, 100, 500, 1000] if c == 'search' else [float(x) for x in c.split()]
+        penalty_values = ['l1', 'l2'] if penalty == 'search' else [k for  k in penalty.split()]
+        # tol_values = [1, 0.1, 0.01, 0.001, 0.0001] if tol == 'search' else [float(x) for x in tol.split()]
+        grid_values = [c_values, penalty_values]
+        if not False in [len(x) == 1 for x in grid_values]: # only sinle parameter settings
+            settings = {}
+            for i, parameter in enumerate(parameters):
+                settings[parameter] = grid_values[i][0]
+        else:
+            param_grid = {}
+            for i, parameter in enumerate(parameters):
+                param_grid[parameter] = grid_values[i]
+            model = LogisticRegression(solver=solver)
+
+            if gridsearch == 'random':
+                paramsearch = RandomizedSearchCV(model, param_grid, cv = 5, verbose = 2, n_iter = iterations, n_jobs = jobs, pre_dispatch = 4)
+            elif gridsearch == 'brutal':
+                paramsearch = GridSearchCV(model, param_grid, cv = 5, verbose = 2, n_jobs = jobs, pre_dispatch = 4, refit = True)
+            paramsearch.fit(trainvectors, labels)
+            settings = paramsearch.best_params_
+        # train an SVC classifier with the settings that led to the best performance
+        self.model = LogisticRegression(
+            C = settings[parameters[0]],
+            penalty = settings[parameters[1]],
+            # tol = settings[parameters[2]],
+            solver= solver,
+            verbose = 2
+        )
+        self.model.fit(trainvectors, labels)
+
+
+    def score(self, X):
+        score = self.model.decision_function([X])[0]
+        pred_label = self.model.predict([X])[0]
+        return score, pred_label
+
+
+    def return_parameter_settings(self, clf='svm'):
+        parameter_settings = []
+        if clf == 'svm':
+            params = ['C','kernel','gamma','degree']
+        elif clf == 'regression':
+            params = ['C', 'penalty', 'tol']
+        else:
+            params = []
+        for param in params:
+            parameter_settings.append([param,str(self.model.get_params()[param])])
+        return ','.join([': '.join(x) for x in parameter_settings])
+
+
+    def train_scaler(self, X):
+        self.scaler = MinMaxScaler(feature_range=(-1, 1))
+        self.scaler.fit(X)
+
+    def scale(self, X):
+        return self.scaler.transform(X)
+
+
+    def save(self, path):
+        model = { 'model': self.model, 'scaler': self.scaler }
+        p.dump(model, open(path, 'wb'))
+
+
+    def load(self, path):
+        model = p.load(open(path, 'rb'))
+        self.model = model['model']
+        self.scaler = model['scaler']
+
 
 class GoeieVraag():
-    def __init__(self, w2v_dim=300, w2v_window=10, evaluation=False, categorization=False):
+    def __init__(self, w2v_dim=300, w2v_window=10, evaluation=False):
         self.w2v_dim = w2v_dim
         self.w2v_window = w2v_window
-        self.categorization = categorization
         self.evaluation = evaluation
-        self.nlp = spacy.load('nl', disable=['tagger', 'parser', 'ner'])
-
-        # # category model
-        self.category2parent = json.load(open(CATEGORY2PARENT_PATH))
-        self.categories = list(set(self.category2parent.values()))
-        self.question2cat = QCat(CATEGORY_MODEL_PATH, LABEL_ENCODER_PATH, CATEGORY2ID_PATH, VOCABULARY_PATH)
+        self.tokenizer = tok.toktok.ToktokTokenizer()
 
         self.load_datasets()
 
@@ -75,7 +172,7 @@ class GoeieVraag():
         # softcosine
         self.load_sofcos()
         # ensemble
-        self.load_ensemble()
+        self.init_ensemble()
 
 
     def load_datasets(self):
@@ -84,14 +181,7 @@ class GoeieVraag():
             self.stopwords = [word.lower().strip() for word in f.read().split()]
 
         # QUESTIONS
-        if self.evaluation:
-            self.questions = json.load(open(NEW_QUESTIONS))
-            self.seeds = []
-            for question in self.questions.values():
-                category = self.category2parent[question['cid']] if question['cid'] in self.category2parent else question['cid']
-                self.seeds.append({'id': question['id'], 'tokens':question['tokens_proc'], 'category':category})
-        else:
-            self.seeds = json.load(open(SEEDS_PATH))
+        self.seeds = json.load(open(SEEDS_PATH))
         self.seed2idx = {q['id']:i for i, q in enumerate(self.seeds)}
 
 
@@ -117,29 +207,19 @@ class GoeieVraag():
         self.bm25 = bm25.BM25(questions)
 
 
-    def retrieve(self, query, categories, n=30):
+    def retrieve(self, query, n=30):
         scores = self.bm25.get_scores(query)
         questions = []
         for i in range(len(self.seeds)):
             questions.append({
                 'id': self.seeds[i]['id'],
                 'tokens': self.seeds[i]['tokens'],
+                'text': self.seeds[i]['text'],
                 'category': self.seeds[i]['category'],
                 'score': scores[i]
             })
 
-        if not self.categorization:
-            return sorted(questions, key=lambda x: x['score'], reverse=True)[:n]
-        else:
-            # retrieve the n / 5 most likely questions for each category
-            n_ = int(n / 5)
-            result = []
-            for cid in categories:
-                fquestions = [question for question in questions if question['category'] == cid]
-                fquestions = sorted(fquestions, key=lambda x: x['score'], reverse=True)[:n_]
-                result.extend(fquestions)
-            return result
-
+        return sorted(questions, key=lambda x: x['score'], reverse=True)[:n]
 
 
     # WORD2VEC
@@ -263,15 +343,22 @@ class GoeieVraag():
     def init_ensemble(self):
         self.ensemble = Model()
 
+        traindata = self.traindata if self.evaluation else self.procdata
         ids, questions = [], []
         for row in self.seeds:
             ids.append(row['id'])
             questions.append(row['tokens'])
+        for q1id in traindata:
+            for q2id in traindata[q1id]:
+                if q1id not in ids:
+                    ids.append(q1id)
+                    questions.append(traindata[q1id][q2id]['q1'])
+                if q2id not in ids:
+                    ids.append(q2id)
+                    questions.append(traindata[q1id][q2id]['q2'])
 
         id2idx = dict([(qid, i) for i, qid in enumerate(ids)])
         bm25_ = bm25.BM25(questions)
-
-        traindata = self.traindata if self.evaluation else self.procdata
 
         X, y = [], []
         for q1id in traindata:
@@ -317,14 +404,12 @@ class GoeieVraag():
 
     def __call__(self, query, method='ensemble'):
         # tokenize and lowercase
-        tokens = list(map(lambda token: str(token).lower(), self.nlp(query)))
+        tokens = [w.lower() for w in self.tokenizer.tokenize(query)]
         # remove stop words and punctuation
         query_proc = [w for w in tokens if w not in self.stopwords and w not in punctuation]
 
-        # retrieve the 5 most likely categories of the query
-        categories = [c[1] for c in self.question2cat(' '.join(tokens))] if self.categorization else []
         # retrieve 30 candidates with bm25
-        questions = self.retrieve(query_proc, categories)
+        questions = self.retrieve(query_proc)
         # reranking with chosen method
         if method != 'bm25':
             questions = self.rerank(query=query_proc, questions=questions, method=method)
@@ -335,9 +420,6 @@ class GoeieVraag():
             q = self.seeds[self.seed2idx[question_id]]
             q['score'] = question['score'] if method == 'bm25' else question['rescore']
             result['questions'].append(q)
-
-        # bestanswer_id = self.questions[questions[0][0]]['bestanswer']
-        # result['bestanswer'] = self.answers[bestanswer_id]
         return result
 
 
@@ -354,8 +436,3 @@ class GoeieVraag():
 
         questions = sorted(questions, key=lambda x: x['rescore'], reverse=True)[:n]
         return questions
-
-if __name__ == '__main__':
-    model = GoeieVraag()
-    result = model('wat is kaas?')
-    print(result)
