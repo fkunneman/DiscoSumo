@@ -1,79 +1,24 @@
 
-import os
-import json
 import numpy as np
-import warnings
-from collections import defaultdict
-import itertools
-warnings.filterwarnings("ignore")
 
-from gensim.summarization import bm25
-from gensim.corpora import Dictionary
-from gensim.models import TfidfModel
-from gensim.models import Word2Vec
 from sklearn.metrics.pairwise import cosine_similarity
 
 class QuestionRelator:
 
-    def __init__(self,sim_model,w2v_model_path,tfidf_model_path,stopwords,w2v_dim=300):
+    def __init__(self,sim_model):
         self.sim_model = sim_model
-        
-        # initialize w2v
-        print('Initializing word2vec')
-        self.word2vec = Word2Vec.load(w2v_model_path)
-        self.w2v_dim = w2v_dim
-        
-        # initialize softcosine
-        print('Initializing softcosine')
-        self.tfidf = TfidfModel.load(tfidf_model_path)
-        with open(stopwords,'r',encoding='utf-8') as file_in:
-            self.stopwords = file_in.read().strip().split('\n')
-    
-    def load_corpus(self,all_questions, labeled_questions, dictpath, topic_threshold = 0.1):
-        with open(all_questions,'r',encoding='utf-8') as file_in:
-            questions = json.loads(file_in.read())
-        with open(labeled_questions,'r',encoding='utf-8') as file_in:
-            labeled_questions = json.loads(file_in.read())
-        labeled_ids = list(labeled_questions['test'].keys()) + list(labeled_questions['train'].keys())
-        unlabeled_questions = [question for question in questions if not question['id'] in labeled_ids]
-        labeled_questions = [question for question in questions if question['id'] in labeled_ids]
-
-        self.corpus = [question['tokens'] for question in unlabeled_questions]
-        if not os.path.exists(dictpath):
-            self.dict = Dictionary(self.corpus)  # fit dictionary
-            self.dict.save(dictpath)
-        else:
-            self.dict = Dictionary.load(dictpath)
-
-        # save questions
-        print('Saving questions')
-        self.qid_question = {}
-        self.unlabeled_questions = []
-        self.labeled_questions = []
-        for question in unlabeled_questions:
-            question['tokens_stopwords'] = [x for x in question['tokens'] if x.lower() not in self.stopwords]
-            qo = Question(question,self.stopwords)
-            self.unlabeled_questions.append(qo)
-            self.qid_question[qo.qid] = qo
             
-        # set bm25 model
-        print('Initializing bm25 model')
-        self.bm25_model = bm25.BM25([self.dict.doc2bow(q.tokens) for q in self.unlabeled_questions])
-        
-        # get average idf
-        print('Calculating average idf')
-        self.average_idf = sum(map(lambda k: float(self.bm25_model.idf[k]), self.bm25_model.idf.keys())) / len(self.bm25_model.idf.keys())         
+    def load_corpus(self):
+        self.qid_starcount = {}
+        self.qid_text = {}
+        self.topic_emb = {}
+        for question in self.sim_model.seeds:
+            self.qid_starcount[question['id']] = question['starcount']
+            self.qid_text[question['id']] = question['text']
+            for topic in question['topics']:
+                self.topic_emb[topic['topic_text']] = False            
 
-    def encode_tokens(self,tokens):
-        emb = []
-        for w in tokens:
-            try:
-                emb.append(self.word2vec[w.lower()])
-            except:
-                emb.append(self.w2v_dim * [0])
-        return emb
-                    
-    def softcosine(self, q1, q1emb, q2, q2emb):
+    def softcosine_topics(self, t1, t1emb, q2, q2emb):
 
         def dot(q1tfidf, q1emb, q2tfidf, q2emb):
             cos = 0.0
@@ -86,43 +31,22 @@ class QuestionRelator:
                         cos += (w1[1] * m_ij * w2[1])
             return cos
 
-        q1tfidf = self.tfidf[self.dict.doc2bow(q1)]
-        q2tfidf = self.tfidf[self.dict.doc2bow(q2)]
-
-        q1q1 = np.sqrt(dot(q1tfidf, q1emb, q1tfidf, q1emb))
-        q2q2 = np.sqrt(dot(q2tfidf, q2emb, q2tfidf, q2emb))
-        
-        softcosine = dot(q1tfidf, q1emb, q2tfidf, q2emb) / (q1q1 * q2q2)
-        return softcosine
-
-    def softcosine_topics(self, t1, q2, q2emb):
-
-        def dot(q1tfidf, q1emb, q2tfidf, q2emb):
-            cos = 0.0
-            for i, w1 in enumerate(q1tfidf):
-                for j, w2 in enumerate(q2tfidf):
-                    if w1[0] == w2[0]:
-                        cos += (w1[1] * w2[1])
-                    else:
-                        m_ij = max(0, cosine_similarity([q1emb[i]], [q2emb[j]])[0][0])**2
-                        cos += (w1[1] * m_ij * w2[1])
-            return cos
-
-        t1tfidf = self.tfidf[self.dict.doc2bow(t1)]
-        t1emb = self.encode_tokens(t1)
+        t1tfidf = self.sim_model.tfidf[self.sim_model.dict.doc2bow(t1)]
         t1t1 = np.sqrt(dot(t1tfidf, t1emb, t1tfidf, t1emb))
 
         softcosines = []
         for i,t2 in enumerate(q2):
-            t2tfidf = self.tfidf[self.dict.doc2bow([t2])]            
+            t2tfidf = self.sim_model.tfidf[self.sim_model.dict.doc2bow([t2])]            
             t2t2 = np.sqrt(dot(t2tfidf, [q2emb[i]], t2tfidf, [q2emb[i]]))
             softcosines.append(dot(t1tfidf, t1emb, t2tfidf, [q2emb[i]]) / (t1t1 * t2t2))
             
-        softcosine = max(softcosines)
+        softcosine = np.mean([x for x in softcosines if not np.isnan(x)])
         return softcosine
 
     def return_prominent_topics(self,topics,percentage=0.80):
         total = sum([x['topic_score'] for x in topics])
+        if total == 0:
+            return []
         acc = 0
         selection = []
         for topic in topics:
@@ -136,166 +60,124 @@ class QuestionRelator:
         qids = []
         deduplicated = []
         for retrieved in bm25_output:
-            to = self.unlabeled_questions[retrieved[0]]
-            if to.qid != q_index:
-                if to.qid not in qids:
-                    qids.append(to.qid)
-                    deduplicated.append(retrieved)
+            rid = self.sim_model.idx2id[retrieved[0]]
+            if rid != q_index:
+                if rid not in qids:
+                    qids.append(rid)
+                    deduplicated.append(retrieved+[rid])
         return deduplicated
                     
     def select_candidates_bm25(self,question,topics,ntargets):
-        scores_all = self.bm25_model.get_scores(self.dict.doc2bow(question.tokens))
-        scores_numbers = [[i,score] for i,score in enumerate(scores_all)]
-        scores_numbers_ranked = sorted(scores_numbers,key = lambda k : k[1],reverse=True)
-        scores = scores_numbers_ranked[:ntargets]
+        scores_all = self.sim_model.bm25.get_scores(question['tokens'])
+        numbers_scores = [[i,score] for i,score in enumerate(scores_all)]
+        numbers_scores_ranked = sorted(numbers_scores,key = lambda k : k[1],reverse=True)[:ntargets]
+        scores = []
+        scores.extend(numbers_scores_ranked)
         for topic in topics:
-            scores_all = self.bm25_model.get_scores(self.dict.doc2bow(list(set(question.tokens) - set(topic['topic_text'].split()))))
-            scores_numbers = [[i,score] for i,score in enumerate(scores_all)]
-            scores_numbers_ranked = sorted(scores_numbers,key = lambda k : k[1],reverse=True)
-            scores.extend(scores_numbers_ranked[:ntargets])
+            scores_all = self.sim_model.bm25.get_scores(list(set(question['tokens']) - set(topic['topic_text'].split())))
+            numbers_scores = [[i,score] for i,score in enumerate(scores_all)]
+            numbers_scores_ranked = sorted(numbers_scores,key = lambda k : k[1],reverse=True)[:ntargets]
+            scores.extend(numbers_scores_ranked)
         scores_ranked = sorted(scores,key = lambda k : k[1],reverse=True)
-        scores_deduplicated = self.deduplicate_bm25_output(question.qid,scores_ranked)
+        scores_deduplicated = self.deduplicate_bm25_output(question['id'],scores_ranked)
         return scores_deduplicated
 
     def rank_classify_similarity(self,question,targets):
         targets_score_clf = []
-        for target in targets:
-            score = self.sim_model.ensembling(question.tokens_nsw,question.emb_nsw,question.qid,target.tokens_nsw,target.emb_nsw)
-            print('ENSEMBLING SCORE',score)
-            targets_score_clf.append(score)
-
-        return targets_score_clf
+        for i,target in enumerate(targets):
+            q2id = target[-1]
+            try:
+                q2 = self.sim_model.qid_tokens[q2id]
+                q2emb = self.sim_model.encode(q2)
+            except:
+                print('QID not in seeds,continueing')
+                continue
+            try:
+                targets_score_clf.append([q2id,q2,q2emb,self.qid_starcount[q2id],clfscore,int(pred_label)])
+            except:
+                targets_score_clf.append([q2id,q2,q2emb,0,clfscore,int(pred_label)])
+                
+        targets_score_clf_ranked = sorted(targets_score_clf,key = lambda k : (k[4],k[3]),reverse=True)
+        return targets_score_clf_ranked
     
-    def rank_questions_topics(self,question,targets,topics):
-        scores_topic = []
-        
-        # score topics
-        for target in targets:
-            to = self.unlabeled_questions[target[0]]
-            to.emb = self.encode_tokens(to.tokens)
-            obj = [target[0],to]
+    def rank_questions_topics(self,question,topics,targets):
+        ranked_by_topic = []
+        for topic in topics:
+            tokens = topic['topic_text'].split()
+            if not self.topic_emb[topic['topic_text']]:
+                self.topic_emb[topic['topic_text']] = self.sim_model.encode(tokens)
+            emb = self.topic_emb[topic['topic_text']]
             topic_sims = []
-            for topic in topics:
-                tokens = topic['topic_text'].split()
-                sim = self.softcosine_topics(tokens, to.tokens, to.emb)
-                topic_sim = topic['topic_score']*sim
-                topic_sims.append(topic_sim)
-                obj.extend([topic['topic_score'],sim,topic_sim])
-            obj.append(np.mean(topic_sims))
-            scores_topic.append(obj)
-                        
-        # rank scores
-        scores_topic_ranked = sorted(scores_topic,key = lambda k : k[-1],reverse=True)
-
-        return scores_topic_ranked
-
-    def filter_questions(self,question,targets,filter_threshold):
-        # filter by softcosine
-        filtered = []
-        disposed = []
-        for target in targets:
-            softcosine = self.softcosine(question.tokens,question.emb,target[1].tokens,target[1].emb)
-            if softcosine < filter_threshold:
-                target.append(softcosine)
-                filtered.append(target)
-            else:
-                disposed.append(target)
-        return filtered, disposed
-
-    def rank_popularity(self,targets):
-        targets_pop = []
-        # add popularity info
-        for target in targets:
-            target.append(target[1].starcount)
-            targets_pop.append(target)
-
-        # rank by popularity
-        indices_pop_ranked = [target[0] for target in sorted(targets_pop,key = lambda k : k[-1],reverse=True)]
-
-        # combine rankings
-        targets_combined = []
-        for i,target in enumerate(targets_pop):
-            target.extend([i,indices_pop_ranked.index(target[0])])
-            target.append(np.mean([target[-2],target[-1]]))
-            targets_combined.append(target)
-        targets_combined_ranked = sorted(targets_combined,key = lambda k : k[-1])
-
-        return targets_combined_ranked
+            for target in targets:
+                sim = self.softcosine_topics(tokens, emb, target[1], target[2])
+                topic_sims.append(target + [topic['topic_text'],sim])
+            topic_sims_ranked = sorted(topic_sims,key = lambda k : k[-1],reverse=True)
+            ranked_by_topic.append(topic_sims_ranked)
+        return ranked_by_topic
         
     def diversify(self,targets,diversity_threshold):
         diversified = []
-        remain = []
         for target in targets:
-            diverse = True
-            for target2 in diversified:
-                softcosine = self.softcosine(target2[1].tokens,target2[1].emb,target[1].tokens,target[1].emb)
-                if softcosine > diversity_threshold:
-                    diverse = False
-            if diverse:
+            if len(diversified) == 0:
                 diversified.append(target)
             else:
-                remain.append(target)
-        return diversified, remain
+                diverse = True
+                for target2 in diversified:
+                    softcosine = self.sim_model.softcos(target2[1],target2[2],target[1],target[2])
+                    if softcosine > diversity_threshold:
+                        diverse = False
+                if diverse:
+                    diversified.append(target)
+        return diversified
     
-    def relate_question(self,question,topic_percentage,ncandidates,filter_threshold,diversity_threshold):
+    def relate_question(self,question,topic_percentage,ncandidates):
 
-        question.emb = self.encode_tokens(question.tokens)
-        question.emb_nsw = self.encode_tokens(question.tokens_nsw)
-        
+        question['emb'] = self.sim_model.encode(question['tokens'])
+
         # select prominent topics
-        prominent_topics = self.return_prominent_topics(question.topics,topic_percentage)
-        print(len(prominent_topics),'topics')
+        prominent_topics = self.return_prominent_topics(question['topics'],topic_percentage)
 
         # retrieve candidate_questions
         candidates = self.select_candidates_bm25(question,prominent_topics,ncandidates)
-        print(len(candidates),'candidates')
 
         # score and rank questions by similarity
-        print('NOW CLASSIFYING SIMILARITY')
         candidates_ranked_sim = self.rank_classify_similarity(question,candidates)
-        print('CANDIDATES RANKED SIM',candidates_ranked_sim)
-        quit()
-        
-        # score and rank questions by topic
-        candidates_ranked = self.rank_questions_topics(question,candidates,prominent_topics)
-        print(len(candidates_ranked),'candidates_ranked')
 
-        # filter questions
-        candidates_ranked_filtered, candidates_disposed = self.filter_questions(question,candidates_ranked,filter_threshold)
-        print(len(candidates_ranked_filtered),'filtered candidates')
+        # apply end systems
+        candidates_ranked_sim_cutoff = candidates_ranked_sim[:5]
+        candidates_ranked_sim_filtered = [c for c in candidates_ranked_sim if c[-1] == 0]
+        candidates_ranked_sim_filtered_cutoff = candidates_ranked_sim_filtered[:5]
         
-        # add popularity information
-        candidates_ranked_filtered_pop = self.rank_popularity(candidates_ranked_filtered)
-        print(len(candidates_ranked_filtered_pop),'popular candidates')
-        
-        # diversify
-        candidates_ranked_filtered_pop_diversified, candidates_ranked_filtered_pop_remain = self.diversify(candidates_ranked_filtered_pop,diversity_threshold)
-        
-        return prominent_topics, candidates, candidates_ranked, candidates_ranked_filtered, candidates_disposed, candidates_ranked_filtered_pop, candidates_ranked_filtered_pop_diversified, candidates_ranked_filtered_pop_remain
-    
+        candidates_first_topic = self.rank_questions_topics(question,[prominent_topics[0]],candidates_ranked_sim_filtered)[0]
+        candidates_first_topic_ranked = sorted(candidates_first_topic,key=lambda k : (k[-1],k[3]),reverse=True)
+        candidates_first_topic_ranked_diverse = self.diversify(candidates_first_topic_ranked,0.7)[:5]
 
-    def evaluate(self,pairs,labels):
-        pass
-
-class Question:
-    
-    def __init__(self,question):
-        self.qid = question['id']
-        self.cid = question['cid']
-        self.question = question['questiontext']
-        self.popularity = int(question['popularity'])
-        self.answercount = int(question['answercount'])
-        self.starcount = int(question['starcount'])
-        self.topics = question['topics']
-        self.tokens = [w.lower() for w in question['tokens']]
-        self.tokens_nsw = [w.lower() for w in question['tokens_stopwords']]
-                 
-    def set_emb(self,topic_emb,nontopic_emb,emb):
-        self.topic_emb = topic_emb
-        self.nontopic_emb = nontopic_emb
-        self.emb = emb
-
-    def set_tokens(self,topic_words,nontopic_words,all_words):
-        self.topic_tokens = topic_words
-        self.nontopic_tokens = nontopic_words
-        self.all_tokens = all_words
+        if len(prominent_topics) > 1:
+            print('RANK BY ALL PROMINENT TOPICS')
+            candidates_prominent_topics = [candidates_first_topic_ranked_diverse] + self.rank_questions_topics(question,prominent_topics[1:],candidates_ranked_sim_filtered)
+            candidates_prominent_topics_combined = []
+            while len(candidates_prominent_topics_combined) < 5:
+                c = len(candidates_prominent_topics_combined)
+                for ranking in candidates_prominent_topics:
+                    if len(ranking) == 0:
+                        continue
+                    if ranking[0] == 0.0:
+                        continue
+                    candidates_ids = [x[0] for x in candidates_prominent_topics_combined]
+                    for x in ranking:
+                        if x[0] not in candidates_ids:
+                            diverse = True
+                            for y in candidates_prominent_topics_combined:
+                                softcosine = self.sim_model.softcos(y[1],y[2],x[1],x[2])
+                                if softcosine > 0.7:
+                                    diverse = False
+                            if diverse:
+                                candidates_prominent_topics_combined.append(x)
+                                break
+                if c == len(candidates_prominent_topics_combined): # no improvement
+                    break
+        else:
+            candidates_prominent_topics_combined = candidates_first_topic_ranked_diverse
+        ranked_candidates_prominent_topics_pop = sorted(candidates_prominent_topics_combined,key=lambda k : (k[-1],k[3]),reverse=True)[:5] 
+                      
+        return prominent_topics, candidates_ranked_sim, candidates_ranked_sim_cutoff, candidates_ranked_sim_filtered_cutoff, candidates_first_topic_ranked_diverse, ranked_candidates_prominent_topics_pop

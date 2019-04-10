@@ -1,4 +1,4 @@
-__author__='thiagocastroferreira'
+__author__='floriankunneman'
 
 import random
 import sys
@@ -8,47 +8,56 @@ import question_relator
 from main import GoeieVraag
 
 outfile = sys.argv[1]
-questions_topics = sys.argv[2]
-questions_labeled = sys.argv[3]
-w2v_model = sys.argv[4]
-tfidf_model = sys.argv[5]
-stopwords_file = sys.argv[6]
-dictpath = sys.argv[7]
-topic_percentage = float(sys.argv[8])
-ncandidates = int(sys.argv[9])
-filter_threshold = float(sys.argv[10])
-diversity_threshold = float(sys.argv[11])
-nrelate = int(sys.argv[12])
+outfile_shallow = sys.argv[2]
+topic_percentage = float(sys.argv[3]) # topics to select
+ncandidates = int(sys.argv[4]) # seed size
+nrelate = int(sys.argv[5]) # total questions to query
 
 # init
-print('Initializing similarity classifier')
+print('Initializing Similarity classifier')
 sim_model = GoeieVraag(evaluation=False, w2v_dim=300)
-print('Initializing question relator')
-qr = question_relator.QuestionRelator(sim_model,w2v_model,tfidf_model,stopwords_file)
 
-# load
-print('Loading question relator')
-qr.load_corpus(questions_topics,questions_labeled,dictpath)
+print('Initializing Question relator')
+qr = question_relator.QuestionRelator(sim_model)
+qr.load_corpus()
 
-# relate questions BM25
+# relate questions 
 print('Relating questions')
 output = []
-sample = random.sample(range(len(qr.unlabeled_questions)),nrelate)
-sample_questions = [qr.unlabeled_questions[i] for i in sample]
+output_shallow = []
+sample = random.sample(range(len(sim_model.seeds)),nrelate)
+sample_questions = [sim_model.seeds[i] for i in sample]
 for question in sample_questions:
-    output_question = {'qid':question.qid}
-    
-    prominent_topics, candidates, candidates_ranked, candidates_ranked_filtered, candidates_disposed, candidates_ranked_filtered_pop, candidates_ranked_filtered_pop_diversified, candidates_ranked_filtered_pop_remain = qr.relate_question(question,topic_percentage,ncandidates,filter_threshold,diversity_threshold)
-    print('Top diverse related questions to',question.question.encode('utf-8'),':','!!!'.join(['=='.join([x[1].question] + [str(y) for y in x[2:]]) for x in candidates_ranked_filtered_pop_diversified]).encode('utf-8'))
-    print('Remaining related questions to',question.question.encode('utf-8'),':','!!!'.join(['=='.join([x[1].question] + [str(y) for y in x[2:]]) for x in candidates_ranked_filtered_pop_remain]).encode('utf-8'))
-    related = [q[1].qid for q in candidates_ranked_filtered_pop_diversified]
-    additional = 5 - len(related)
-    if additional > 0:
-        related.extend([q[1].qid for q in candidates_ranked_filtered_pop_remain[:additional]])
-    output_question['related'] = related
-    output.append(output_question)
+    output_question = [question['id'],question['text']]
+    prominent_topics, candidates, candidates_ranked_sim, candidates_ranked_sim_filtered, candidates_first_topic_popularity, candidates_prominent_topics_popularity = qr.relate_question(question,topic_percentage,ncandidates)
+    output_question.append([x['topic_text'] for x in prominent_topics])
+    if len(candidates_first_topic_popularity) < 5:
+        continue
+    sim_all = ['SIM ALL']
+    for x in candidates:
+        sim_all.append({'id':x[0],'text':sim_model.seeds_text[x[0]],'score':x[4],'pop':x[3]})
+    relevance = ['RELEVANCE']
+    for x in candidates_ranked_sim:
+        relevance.append({'id':x[0],'text':sim_model.seeds_text[x[0]],'score':x[4],'sim':x[5],'pop':x[3]})
+    relevance_filtered = ['RELEVANCE FILTERED']
+    for x in candidates_ranked_sim_filtered:
+        relevance_filtered.append({'id':x[0],'text':sim_model.seeds_text[x[0]],'score':x[4],'sim':x[5],'pop':x[3]})
+    first_topic = ['FIRST TOPIC']
+    for x in candidates_first_topic_popularity:
+        first_topic.append({'id':x[0],'text':sim_model.seeds_text[x[0]],'topic':x[-2],'score':x[-1],'pop':x[3]})
+    all_topics = ['PROMINENT TOPICS']
+    shallow = {'qid':question['id']}
+    shallow_related = []
+    for x in candidates_prominent_topics_popularity:
+        all_topics.append({'id':x[0],'text':sim_model.seeds_text[x[0]],'topic':x[-2],'score':x[-1],'pop':x[3]})
+        shallow_related.append({'qid':x[0],'questiontext':sim_model.seeds_text[x[0]]})
+    shallow['related'] = shallow_related
+    output.append([output_question,sim_all,relevance,relevance_filtered,first_topic,all_topics])
+    output_shallow.append(shallow)
 
 print('Done.')
-with open(outfile,'w',encoding='utf-8') as out:
+with open(outfile,'w',encoding='utf=8') as out:
     json.dump(output,out)
 
+with open(outfile_shallow,'w',encoding='utf-8') as out:
+    json.dump(output_shallow,out)
