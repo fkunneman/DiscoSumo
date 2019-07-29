@@ -1,8 +1,9 @@
 __author__='thiagocastroferreira'
 
+import paths
 import sys
 sys.path.append('../')
-sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
+sys.path.append(paths.MAP_scripts)
 import _pickle as p
 import copy
 import os

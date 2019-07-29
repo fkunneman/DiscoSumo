@@ -1,9 +1,9 @@
 __author__='thiagocastroferreira'
 
-import sys
-sys.path.append('/roaming/tcastrof/semeval/evaluation/MAP_scripts')
-import ev, metrics
 import paths
+import sys
+sys.path.append(paths.MAP_scripts)
+import ev, metrics
 
 DEV_GOLD_PATH=paths.DEV_GOLD_PATH
 TEST2016_GOLD_PATH=paths.TEST2016_GOLD_PATH
