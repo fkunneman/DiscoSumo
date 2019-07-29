@@ -20,5 +20,5 @@ echo "train elmo vectors"
 cd $QUORA_PATH/elmo
 sh run.sh
 
-#cd $QUORA_PATH
-#python3 evaluate.py
+cd $QUORA_PATH
+python3 evaluate.py

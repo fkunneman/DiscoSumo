@@ -9,7 +9,7 @@ pip3 install -r requirements.txt
 
 Moses and MGIZA also need to be installed (follow this tutorial: http://www.statmt.org/moses/?n=Development.GetStarted)
 
-Finally, update the paths in ``paths.py'' and run the ``main.sh'' scripts
+Finally, update the paths in `paths.py` and run the `main.sh` scripts
 
 # Execution
 
