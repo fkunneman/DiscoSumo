@@ -15,7 +15,7 @@ from quora_translation import QuoraTranslations
 from sklearn.preprocessing import MinMaxScaler
 
 DATA_PATH='data'
-FEATURES_PATH = '/roaming/tcastrof/quora/feature'
+FEATURES_PATH = '/roaming/tcastrof/quora/feature_final'
 if not os.path.exists(FEATURES_PATH):
     os.mkdir(FEATURES_PATH)
 
@@ -69,7 +69,7 @@ class QuoraSVM(Quora):
                     score = self.bm25.model(q1, q2id)
                     x.append(score)
                 # softcosine
-                elif 'softcosine' in self.features:
+                if 'softcosine' in self.features:
                     if self.stop:
                         q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                     else:
@@ -77,7 +77,7 @@ class QuoraSVM(Quora):
                     score = self.softcosine.model(q1, q1_emb, q2, q2_emb)
                     x.append(score)
                 # translation
-                elif 'translation' in self.features:
+                if 'translation' in self.features:
                     if self.stop:
                         q2_emb = self.encode(q2id, q2, elmoidx, elmovec)
                     else:
@@ -85,7 +85,7 @@ class QuoraSVM(Quora):
                     lmprob, trmprob, trlmprob, proctime = self.translation.model(q1, q1_emb, q2, q2_emb)
                     x.append(trlmprob)
                 # cosine
-                elif 'cosine' in self.features:
+                if 'cosine' in self.features:
                     score = self.cosine.model(q1, q2)
                     x.append(score)
 

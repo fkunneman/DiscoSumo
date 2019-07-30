@@ -31,6 +31,7 @@ class Quora():
 
         self.stop = stop
         self.vector = vector
+        self.alignments = []
 
         print('Preparing test set...')
         self.testset = json.load(open(TEST_PATH))
