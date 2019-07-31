@@ -83,12 +83,22 @@ class Model():
 
     def return_parameter_settings(self, clf='svm'):
         parameter_settings = []
+        coefs = None
         if clf == 'svm':
             params = ['C','kernel','gamma','degree']
         elif clf == 'regression':
             params = ['C', 'penalty', 'tol']
+            # limit to the first 5 features
+            coefs = list(self.model.coef_[0])[:5]
+            for i, coef in enumerate(coefs):
+                coefs[i] = ['feat'+str(i+1), str(coef)]
         else:
             params = []
         for param in params:
             parameter_settings.append([param,str(self.model.get_params()[param])])
-        return ','.join([': '.join(x) for x in parameter_settings])
+
+        parameters = ','.join([': '.join(x) for x in parameter_settings])
+        if coefs:
+            coefs = ','.join([': '.join(x) for x in coefs])
+            parameters = ' \t'.join([parameters, coefs])
+        return parameters
