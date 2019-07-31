@@ -23,3 +23,5 @@ python3 elmo.py
 
 cd $SEMEVAL_PATH
 python3 evaluate.py
+
+python3 results.py

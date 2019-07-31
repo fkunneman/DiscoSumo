@@ -109,7 +109,7 @@ class Semeval():
 
 
     def init_additional(self):
-        path = ADDITIONAL_PATH
+        path = ADDITIONAL_PATH + '.' + str(self.w2vdim)
 
         if self.proctrain:
             if self.lowercase: path += '.lower'
@@ -269,9 +269,179 @@ class Semeval():
                     'subj_q2_tree': subj_q2_tree,
                     'q2_lemmas': q2_lemmas,
                     'q2_pos': q2_pos,
+                    'ranking': int(rel_question['ranking']),
                     'comments': comments,
                     'label':label
                 }
+
+        vocabulary.append('UNK')
+        vocabulary.append('eos')
+        vocabulary = list(set(vocabulary))
+
+        id2voc = {}
+        for i, trigram in enumerate(vocabulary):
+            id2voc[i] = trigram
+
+        voc2id = dict(map(lambda x: (x[1], x[0]), id2voc.items()))
+
+        vocabulary = corpora.Dictionary(vocquestions)
+        return procset, voc2id, id2voc, vocabulary
+
+
+    def format_pairwise_data(self, indexset):
+        procset, vocabulary = {}, []
+
+        vocquestions = []
+        for i, qid in enumerate(indexset):
+            procset[qid] = []
+            percentage = str(round((float(i+1) / len(indexset)) * 100, 2)) + '%'
+            print('Process: ', percentage, end='\r')
+
+            question = indexset[qid]
+            subj_q1_tree = question['subj_tree']
+            q1_tree = question['tree']
+            q1_pos = question['pos']
+            q1_lemmas = question['lemmas_proc']
+            q1_full = question['tokens']
+            q1 = question['tokens']
+
+            if self.lowercase:
+                q1_lemmas = [w.lower() for w in q1_lemmas]
+                q1_full = [w.lower() for w in q1_full]
+                q1 = [w.lower() for w in q1]
+
+            if self.punctuation:
+                q1_lemmas = self.remove_punctuation(q1_lemmas)
+                q1 = self.remove_punctuation(q1)
+
+            if self.stop:
+                q1_lemmas = self.remove_stopwords(q1_lemmas)
+                q1 = self.remove_stopwords(q1)
+
+            vocquestions.append(q1)
+            vocabulary.extend(q1)
+
+            duplicates = question['duplicates']
+            for duplicate in duplicates:
+                question2 = duplicate['rel_question']
+
+                q2id = question2['id']
+                subj_q2_tree = question2['subj_tree']
+                q2_tree = question2['tree']
+                q2_pos = question2['pos']
+                q2_lemmas = question2['lemmas_proc']
+                q2_full = question2['tokens']
+                q2 = question2['tokens']
+                q2ranking = int(question2['ranking'])
+                q2relevance = question2['relevance']
+
+                if self.lowercase:
+                    q2_lemmas = [w.lower() for w in q2_lemmas]
+                    q2_full = [w.lower() for w in q2_full]
+                    q2 = [w.lower() for w in q2]
+
+                if self.punctuation:
+                    q2_lemmas = self.remove_punctuation(q2_lemmas)
+                    q2 = self.remove_punctuation(q2)
+
+                if self.stop:
+                    q2_lemmas = self.remove_stopwords(q2_lemmas)
+                    q2 = self.remove_stopwords(q2)
+
+                vocquestions.append(q2)
+                vocabulary.extend(q2)
+
+                for duplicate2 in duplicates:
+                    question3 = duplicate2['rel_question']
+                    q3id = question3['id']
+                    subj_q3_tree = question3['subj_tree']
+                    q3_tree = question3['tree']
+                    q3_pos = question3['pos']
+                    q3_lemmas = question3['lemmas_proc']
+                    q3_full = question3['tokens']
+                    q3 = question3['tokens']
+                    q3ranking = int(question3['ranking'])
+                    q3relevance = question3['relevance']
+
+                    if q2ranking < q3ranking and q2relevance == 'Irrelevant' and q3relevance != 'Irrelevant':
+                        if self.lowercase:
+                            q3_lemmas = [w.lower() for w in q3_lemmas]
+                        q3_full = [w.lower() for w in q3_full]
+                        q3 = [w.lower() for w in q3]
+
+                        if self.punctuation:
+                            q3_lemmas = self.remove_punctuation(q3_lemmas)
+                            q3 = self.remove_punctuation(q3)
+
+                        if self.stop:
+                            q3_lemmas = self.remove_stopwords(q3_lemmas)
+                            q3 = self.remove_stopwords(q3)
+
+                        label = 1
+                        procset[qid].append({
+                            'q1_id': qid,
+                            'q1': q1,
+                            'q1_full': q1_full,
+                            'q1_tree': q1_tree,
+                            'subj_q1_tree': subj_q1_tree,
+                            'q1_lemmas': q1_lemmas,
+                            'q1_pos': q1_pos,
+                            'q2_id': q2id,
+                            'q2': q2,
+                            'q2_full': q2_full,
+                            'q2_tree': q2_tree,
+                            'subj_q2_tree': subj_q2_tree,
+                            'q2_lemmas': q2_lemmas,
+                            'q2_pos': q2_pos,
+                            'q3_id': q3id,
+                            'q3': q3,
+                            'q3_full': q3_full,
+                            'q3_tree': q3_tree,
+                            'subj_q3_tree': subj_q3_tree,
+                            'q3_lemmas': q3_lemmas,
+                            'q3_pos': q3_pos,
+                            'label':label
+                        })
+
+                    elif q2ranking < q3ranking and q2relevance != 'Irrelevant' and q3relevance == 'Irrelevant':
+                        if self.lowercase:
+                            q3_lemmas = [w.lower() for w in q3_lemmas]
+                        q3_full = [w.lower() for w in q3_full]
+                        q3 = [w.lower() for w in q3]
+
+                        if self.punctuation:
+                            q3_lemmas = self.remove_punctuation(q3_lemmas)
+                            q3 = self.remove_punctuation(q3)
+
+                        if self.stop:
+                            q3_lemmas = self.remove_stopwords(q3_lemmas)
+                            q3 = self.remove_stopwords(q3)
+
+                        label = 0
+                        procset[qid].append({
+                            'q1_id': qid,
+                            'q1': q1,
+                            'q1_full': q1_full,
+                            'q1_tree': q1_tree,
+                            'subj_q1_tree': subj_q1_tree,
+                            'q1_lemmas': q1_lemmas,
+                            'q1_pos': q1_pos,
+                            'q2_id': q2id,
+                            'q2': q2,
+                            'q2_full': q2_full,
+                            'q2_tree': q2_tree,
+                            'subj_q2_tree': subj_q2_tree,
+                            'q2_lemmas': q2_lemmas,
+                            'q2_pos': q2_pos,
+                            'q3_id': q3id,
+                            'q3': q3,
+                            'q3_full': q3_full,
+                            'q3_tree': q3_tree,
+                            'subj_q3_tree': subj_q3_tree,
+                            'q3_lemmas': q3_lemmas,
+                            'q3_pos': q3_pos,
+                            'label':label
+                        })
 
         vocabulary.append('UNK')
         vocabulary.append('eos')
@@ -301,6 +471,7 @@ class Semeval():
 
     def remove_punctuation(self, tokens):
         return re.sub(r'[\W]+',' ', ' '.join(tokens)).strip().split()
+
 
     def remove_stopwords(self, tokens):
         return [w for w in tokens if w.lower() not in stop_]

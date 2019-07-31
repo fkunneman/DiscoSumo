@@ -16,8 +16,9 @@ class QuoraCosine(Quora):
 
     def train(self):
         self.model = Cosine()
-        path = os.path.join(DATA_PATH,'tfidf.model')
-        if not os.path.exists(path):
+        dict_path = os.path.join(DATA_PATH,'dict.model')
+        tfidf_path = os.path.join(DATA_PATH,'tfidf.model')
+        if not os.path.exists(tfidf_path):
             corpus = []
             for pair in self.trainset:
                 q1 = pair['tokens1']
@@ -25,9 +26,9 @@ class QuoraCosine(Quora):
                 q2 = pair['tokens2']
                 corpus.append(q2)
 
-            self.model.init(corpus, DATA_PATH)
+            self.model.init(corpus, dict_path, tfidf_path)
         else:
-            self.model.load(DATA_PATH)
+            self.model.load(dict_path, tfidf_path)
 
         del self.trainset
 
@@ -39,8 +40,9 @@ class QuoraSoftCosine(Quora):
 
     def train(self):
         self.model = SoftCosine()
-        path = os.path.join(DATA_PATH,'tfidf.model')
-        if not os.path.exists(path):
+        dict_path = os.path.join(DATA_PATH,'dict.model')
+        tfidf_path = os.path.join(DATA_PATH,'tfidf.model')
+        if not os.path.exists(tfidf_path):
             corpus = []
             for pair in self.trainset:
                 q1 = pair['tokens1']
@@ -48,8 +50,8 @@ class QuoraSoftCosine(Quora):
                 q2 = pair['tokens2']
                 corpus.append(q2)
 
-            self.model.init(corpus, DATA_PATH)
+            self.model.init(corpus, dict_path, tfidf_path)
         else:
-            self.model.load(DATA_PATH)
+            self.model.load(dict_path, tfidf_path)
 
         del self.trainset
